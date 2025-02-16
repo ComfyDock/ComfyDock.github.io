@@ -1,6 +1,0 @@
-site/
-.DS_Store
-.venv/
-.idea/
-.vscode/
-.pytest_cache/
