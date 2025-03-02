@@ -1,0 +1,995 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+      
+      <link rel="icon" href="../assets/comfy_env_manager-min.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.6">
+    
+    
+      
+        <title>Troubleshooting - ComfyDock Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.8608ea7d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#troubleshooting" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ComfyDock Docs" class="md-header__button md-logo" aria-label="ComfyDock Docs" data-md-component="logo">
+      
+  <img src="../assets/comfy_env_manager-min.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ComfyDock Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Troubleshooting
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ComfyDock/ComfyDock-Docs" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ComfyDock Docs" class="md-nav__button md-logo" aria-label="ComfyDock Docs" data-md-component="logo">
+      
+  <img src="../assets/comfy_env_manager-min.png" alt="logo">
+
+    </a>
+    ComfyDock Docs
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ComfyDock/ComfyDock-Docs" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Usage
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Usage
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Usage Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../environments/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Working with Environments
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sharing_images/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Sharing Images
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Troubleshooting
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="common_issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Common Issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="add_more_ram_to_wsl/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Give WSL More RAM
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="filepath_permissions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Filepath & Permissions Issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="installing_custom_nodes_manually/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing Custom Nodes Manually
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="edit_files_in_container/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Edit Files in the Container
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../about_author/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Author
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#slow-model-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Slow Model Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-filepaths-permissions-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Filepaths &amp; Permissions Issues
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-find-wsl-filepaths-from-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to Find WSL Filepaths from Windows
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-issues-and-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Issues and Fixes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-permission-denied-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Permission Denied Errors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-files-not-showing-up-in-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Files Not Showing Up in Containers
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-slow-file-access-or-model-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Slow File Access or Model Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-unable-to-locate-wsl-distro" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Unable to Locate WSL Distro
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-files-saved-in-wsl-are-missing-in-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Files Saved in WSL Are Missing in Windows
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tips-for-avoiding-path-and-permissions-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tips for Avoiding Path and Permissions Issues
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#default-mode-fails-to-install-all-custom-nodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default+ Mode Fails To Install All Custom Nodes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-more-ram-and-processors-to-wsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding More RAM and Processors to WSL
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installing-custom-nodes-manually" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installing Custom Nodes Manually
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#editing-files-inside-the-container-with-vscode" class="md-nav__link">
+    <span class="md-ellipsis">
+      Editing Files Inside the Container with VSCode
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#developing-custom-nodes-in-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Developing Custom Nodes In Containers
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unknown-runtime-specified-nvidia" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unknown runtime specified nvidia
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h1>
+<h3 id="slow-model-loading">Slow Model Loading<a class="headerlink" href="#slow-model-loading" title="Permanent link">&para;</a></h3>
+<ul>
+<li>If you have your model checkpoints currently saved on a windows drive (C:\, D:\, etc.), you may notice increased loading times when using the environment manager. This is due to the container running in WSL and needing to transfer data from Windows to Linux during read operations.</li>
+<li>You can greatly speed up model loading times by creating a ComfyUI installation inside of WSL (you can have the manager perform this automatically for you), and then moving or copying models from Windows to the WSL install location.</li>
+<li>You can navigate to a WSL location from Windows File Explorer by using the prefix path: <code>\\wsl.localhost\&lt;distro name&gt;\&lt;path&gt;\&lt;to&gt;\&lt;directory&gt;</code><ul>
+<li>e.g. <code>\\wsl.localhost\Ubuntu\home\akatz\ComfyUI\models</code></li>
+<li>If you don’t know which distro you have installed, start by pasting <code>\\wsl.localhost</code> into your file explorer path bar and navigating using the GUI from there.</li>
+</ul>
+</li>
+</ul>
+<h3 id="common-filepaths-permissions-issues">Common Filepaths &amp; Permissions Issues<a class="headerlink" href="#common-filepaths-permissions-issues" title="Permanent link">&para;</a></h3>
+<p>When running Docker in WSL on Windows, you’re essentially working across two file systems:</p>
+<ul>
+<li><strong>Windows File System:</strong> Uses familiar drive letters like <code>C:\</code> or <code>D:\</code>. Files and folders saved here can be accessed from standard Windows applications and file explorers.</li>
+<li><strong>WSL File System:</strong> Runs within the Linux environment. File paths look like <code>/home/user/...</code> or <code>/mnt/c/...</code> (for accessing Windows files from within WSL).</li>
+</ul>
+<p><strong>Key Differences:</strong></p>
+<ul>
+<li>WSL paths are case-sensitive (<code>/ComfyUI</code> is different from <code>/comfyui</code>).</li>
+<li>File access between Windows and WSL can sometimes be slower due to file system translation.</li>
+</ul>
+<h3 id="how-to-find-wsl-filepaths-from-windows"><strong>How to Find WSL Filepaths from Windows</strong><a class="headerlink" href="#how-to-find-wsl-filepaths-from-windows" title="Permanent link">&para;</a></h3>
+<p>You can access WSL files directly from Windows Explorer:</p>
+<ol>
+<li>Open File Explorer.</li>
+<li>
+<p>Enter the following path in the address bar:</p>
+<p><code>\\wsl.localhost\&lt;distro-name&gt;\&lt;path-to-directory&gt;</code></p>
+<p>Example: <code>\\wsl.localhost\Ubuntu\home\akatz\ComfyUI\models</code></p>
+</li>
+<li>
+<p>Replace <code>&lt;distro-name&gt;</code> with the name of your installed WSL distribution (e.g., <code>Ubuntu</code> or <code>Debian</code>).</p>
+</li>
+<li>Navigate through the folders as needed.</li>
+</ol>
+<hr />
+<h3 id="common-issues-and-fixes"><strong>Common Issues and Fixes</strong><a class="headerlink" href="#common-issues-and-fixes" title="Permanent link">&para;</a></h3>
+<h3 id="1-permission-denied-errors"><strong>1. Permission Denied Errors</strong><a class="headerlink" href="#1-permission-denied-errors" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> You see an error like <code>Permission denied</code> when trying to access or modify a file or folder inside the container or WSL.</p>
+<p><strong>Solution:</strong></p>
+<ol>
+<li>
+<p><strong>Check Ownership and Permissions:</strong></p>
+<ul>
+<li>Open a WSL terminal.</li>
+<li>Navigate to the problematic folder using <code>cd /path/to/folder</code>.</li>
+<li>
+<p>Run:</p>
+<p><code>ls -l</code></p>
+<p>This shows the owner and permissions of files in the directory.</p>
+</li>
+<li>
+<p>If the owner is not your user (e.g., <code>root</code>), change ownership with:</p>
+<p><code>sudo chown -R $USER:$USER /path/to/folder</code></p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Ensure Write Permissions:</strong></p>
+<ul>
+<li>
+<p>To grant write access, run:</p>
+<p><code>chmod -R u+w /path/to/folder</code></p>
+</li>
+</ul>
+</li>
+</ol>
+<h3 id="2-files-not-showing-up-in-containers"><strong>2. Files Not Showing Up in Containers</strong><a class="headerlink" href="#2-files-not-showing-up-in-containers" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> Files or directories mounted from the host are missing inside the container.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li><strong>Check Mount Configurations:</strong> Ensure the directory you’re trying to mount is correctly specified in the environment’s mount settings.</li>
+<li><strong>Verify File Paths:</strong> Ensure the specified path exists on your host machine and is accessible.</li>
+<li><strong>Restart the Environment:</strong> Sometimes, restarting the Docker container resolves mounting issues.</li>
+</ul>
+<h3 id="3-slow-file-access-or-model-loading"><strong>3. Slow File Access or Model Loading</strong><a class="headerlink" href="#3-slow-file-access-or-model-loading" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> Files stored on your Windows file system load slowly in WSL or the container.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li>
+<p><strong>Move Files to WSL:</strong></p>
+<ul>
+<li>
+<p>Copy the files to your WSL installation directory for faster access. For example:</p>
+<p><code>cp /mnt/c/Users/akatz/ComfyUI/models /home/akatz/ComfyUI/models</code></p>
+</li>
+<li>
+<p>Update your environment’s settings to point to the new WSL location.</p>
+</li>
+<li><strong>Use WSL’s File Explorer Path:</strong> Use <code>\\wsl.localhost</code> as described above for direct access.</li>
+</ul>
+</li>
+</ul>
+<h3 id="4-unable-to-locate-wsl-distro"><strong>4. Unable to Locate WSL Distro</strong><a class="headerlink" href="#4-unable-to-locate-wsl-distro" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> You can’t find your WSL installation or files in File Explorer.</p>
+<p><strong>Solution:</strong></p>
+<ol>
+<li>
+<p>Open a terminal and list available WSL distros:</p>
+<p><code>wsl -l</code></p>
+<p>This will display a list of installed distros (e.g., <code>Ubuntu</code>, <code>Debian</code>).</p>
+</li>
+<li>
+<p>Ensure the distro is running:</p>
+<p><code>wsl -d &lt;distro-name&gt;</code></p>
+</li>
+<li>
+<p>Use the correct path in File Explorer:</p>
+<p><code>\\wsl.localhost\&lt;distro-name&gt;\&lt;path-to-directory&gt;</code></p>
+</li>
+</ol>
+<h3 id="5-files-saved-in-wsl-are-missing-in-windows"><strong>5. Files Saved in WSL Are Missing in Windows</strong><a class="headerlink" href="#5-files-saved-in-wsl-are-missing-in-windows" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> You saved files in WSL, but they’re not visible from Windows.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li><strong>Use Windows Explorer:</strong> Access the WSL directory using the <code>\\wsl.localhost</code> path.</li>
+<li><strong>Copy Files to Windows:</strong><ul>
+<li>
+<p>Use the <code>cp</code> command in WSL to copy files to a Windows-accessible directory:</p>
+<p><code>cp /home/akatz/ComfyUI/output /mnt/c/Users/akatz/Documents/ComfyUI_Output</code></p>
+</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3 id="tips-for-avoiding-path-and-permissions-issues"><strong>Tips for Avoiding Path and Permissions Issues</strong><a class="headerlink" href="#tips-for-avoiding-path-and-permissions-issues" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Use Consistent File Naming:</strong> Stick to lowercase letters and avoid spaces or special characters in filenames to prevent case sensitivity and parsing errors.</li>
+<li><strong>Verify Mount Points:</strong> Double-check mount configurations when creating or updating environments to ensure the correct paths are specified.</li>
+<li><strong>Run Commands as Your User:</strong> Avoid using <code>sudo</code> unless necessary, as it may cause files to be owned by <code>root</code>, leading to permission issues.</li>
+<li><strong>Keep WSL Updated:</strong> Ensure WSL and Docker are up-to-date to minimize compatibility issues.</li>
+</ol>
+<h3 id="default-mode-fails-to-install-all-custom-nodes">Default+ Mode Fails To Install All Custom Nodes<a class="headerlink" href="#default-mode-fails-to-install-all-custom-nodes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Due to environmental and OS differences, using Default+ mode when creating a new ComfyUI environment may not always correctly install all custom nodes in an existing install location.</li>
+<li>My current recommendation is to instead try creating a new Default environment, load up the workflows that you normally use, and re-install missing custom nodes through the manager. Once you have a solid working environment, you can clone it whenever making updates or installing new nodes, and if this breaks things you can always delete &amp; clone another from the original environment.</li>
+</ul>
+<h3 id="adding-more-ram-and-processors-to-wsl">Adding More RAM and Processors to WSL<a class="headerlink" href="#adding-more-ram-and-processors-to-wsl" title="Permanent link">&para;</a></h3>
+<ul>
+<li>If you find that ComfyUI is not detecting all of the available RAM on your system, you likely need to increase the amount of RAM available to WSL.</li>
+<li>Here’s a short guide on how to do so:</li>
+</ul>
+<p><a href="https://www.notion.so/Guide-How-to-Grant-WSL-More-RAM-or-Processors-by-Editing-wslconfig-161fd5b1ca3b808d9675cfd0e97407d9?pvs=21">
+Guide: How to Grant WSL More RAM or Processors by Editing <code>.wslconfig</code></a></p>
+<h3 id="installing-custom-nodes-manually">Installing Custom Nodes Manually<a class="headerlink" href="#installing-custom-nodes-manually" title="Permanent link">&para;</a></h3>
+<ul>
+<li>You can manually install custom nodes using “git clone” by using the “exec” feature of docker.</li>
+<li>Click the settings button on the environment you’d like to install nodes in, and find the “container name” in the About section.</li>
+<li>
+<p>In docker desktop find a running container with the matching container name.</p>
+<p><img alt="Screenshot 2024-12-07 211217.png" src="https://prod-files-secure.s3.us-west-2.amazonaws.com/87a864cf-2c82-438c-95eb-7f43c8164838/c86b2078-a63b-4eef-9630-50caa0191921/Screenshot_2024-12-07_211217.png" /></p>
+</li>
+<li>
+<p>After clicking on the container in docker desktop, navigate to the “exec” tab:</p>
+<p><img alt="Screenshot 2024-12-07 211359.png" src="https://prod-files-secure.s3.us-west-2.amazonaws.com/87a864cf-2c82-438c-95eb-7f43c8164838/94bb7d1a-5511-4526-893d-e91f30c7cb57/Screenshot_2024-12-07_211359.png" /></p>
+</li>
+<li>
+<p>In the terminal you can run commands that will execute within the running container.</p>
+</li>
+<li>Navigate to custom nodes directory by inputting the command:</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>/app/ComfyUI/custom_nodes
+</code></pre></div>
+
+<ul>
+<li>Then run the following commands, replacing <custom_node_repo> with the URL of the github custom node repo you’d like to install (e.g. https://github.com/akatz-ai/ComfyUI-AKatz-Nodes):</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>&lt;custom_node_repo&gt;
+<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>&lt;custom_node_directory&gt;/
+<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</code></pre></div>
+
+<h3 id="editing-files-inside-the-container-with-vscode"><strong>Editing Files Inside the Container with VSCode</strong><a class="headerlink" href="#editing-files-inside-the-container-with-vscode" title="Permanent link">&para;</a></h3>
+<p>Sometimes you need to modify or update files that live solely inside the environment and aren’t mounted from your host machine (meaning you can’t just edit them from your usual file explorer).</p>
+<p><strong>How to Do This Using VSCode:</strong></p>
+<ol>
+<li>
+<p><strong>Install the “Dev Containers” Extension:</strong></p>
+<p>In VSCode, open the Extensions panel and search for “Dev Containers”. Install it.</p>
+</li>
+<li>
+<p><strong>Attach to the Running Container:</strong></p>
+<p>Make sure your environment’s container is running. In VSCode, press <strong>F1</strong> (or open the Command Palette) and type “Dev Containers: Attach to Running Container” and select it from menu:</p>
+<p><img alt="image.png" src="https://prod-files-secure.s3.us-west-2.amazonaws.com/87a864cf-2c82-438c-95eb-7f43c8164838/cc3bf05f-63f3-4e8d-bc10-4c018744811b/image.png" /></p>
+<p>Select the container you want to work with: (DON’T choose /comfy-env-frontend)</p>
+<p><img alt="image.png" src="https://prod-files-secure.s3.us-west-2.amazonaws.com/87a864cf-2c82-438c-95eb-7f43c8164838/4f270f92-4069-4f2e-abb1-a2ee4ef1f1ce/image.png" /></p>
+</li>
+<li>
+<p><strong>Open &amp; Edit Files:</strong></p>
+<p>Once connected, VSCode will show the container’s file system. Open the “File” menu from the topbar and click “Open Folder”:</p>
+<p><img alt="image.png" src="https://prod-files-secure.s3.us-west-2.amazonaws.com/87a864cf-2c82-438c-95eb-7f43c8164838/6690389b-ef49-4fb0-b5d1-093a8155db1a/image.png" /></p>
+<p>Now you can navigate to the location of ComfyUI saved in the container by typing “/app/ComfyUI/ in the provided field:</p>
+<p><img alt="image.png" src="https://prod-files-secure.s3.us-west-2.amazonaws.com/87a864cf-2c82-438c-95eb-7f43c8164838/1b6ff2f9-630a-4e20-8538-c8f62dbe9d7c/image.png" /></p>
+<p>Click “OK”. Now in the left sidebar you should see the contents of your ComfyUI environment, and can browse folders, open files, and edit them just like you would locally. You can also drag and drop files from your machine directly into folders in the sidebar, which will upload them to the container. Any changes you make here will apply and be saved directly inside the container.</p>
+</li>
+<li>
+<p>Open a Terminal to access the running python environment:</p>
+<p>You can perform actions such as “git clone” and “uv pip install” inside of the container environment by opening a new terminal window after connecting:</p>
+<p><img alt="image.png" src="https://prod-files-secure.s3.us-west-2.amazonaws.com/87a864cf-2c82-438c-95eb-7f43c8164838/6b9c91c2-e20b-4724-ada6-c9c525082f46/image.png" /></p>
+<p>You should see this terminal open at the bottom of the VSCode window:</p>
+<p><img alt="image.png" src="https://prod-files-secure.s3.us-west-2.amazonaws.com/87a864cf-2c82-438c-95eb-7f43c8164838/67040650-3912-4d97-963a-b2d2e5fecf5a/image.png" /></p>
+<p>Now you can perform all your required installation actions just like you would on a local environment.</p>
+</li>
+</ol>
+<p><strong>Why Do This?</strong></p>
+<ul>
+<li>Perfect for tweaking custom nodes, environment configs, or any code that isn’t easily accessible from your host machine.</li>
+<li>Great for development and troubleshooting without having to rebuild or re-mount anything.</li>
+</ul>
+<h3 id="developing-custom-nodes-in-containers">Developing Custom Nodes In Containers<a class="headerlink" href="#developing-custom-nodes-in-containers" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Use the same process as above to access custom nodes saved inside of running containers.</li>
+<li>I recommend installing the “HotReloadHack” custom node when developing with ComfyUI to help speed up development: https://github.com/logtd/ComfyUI-HotReloadHack</li>
+</ul>
+<h3 id="unknown-runtime-specified-nvidia">Unknown runtime specified nvidia<a class="headerlink" href="#unknown-runtime-specified-nvidia" title="Permanent link">&para;</a></h3>
+<ul>
+<li>docker: Error response from daemon: Unknown runtime specified nvidia.:<ul>
+<li>need to install nvidia-container-toolkit in linux:</li>
+<li>https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html</li>
+</ul>
+</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+    
+  </body>
+</html>

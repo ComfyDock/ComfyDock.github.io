@@ -1,0 +1,902 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../environments/">
+      
+      
+        <link rel="next" href="../troubleshooting/common_issues/">
+      
+      
+      <link rel="icon" href="../assets/comfy_env_manager-min.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.6">
+    
+    
+      
+        <title>Sharing Images - ComfyDock Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.8608ea7d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#environment-sharing-using-dockerhub" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ComfyDock Docs" class="md-header__button md-logo" aria-label="ComfyDock Docs" data-md-component="logo">
+      
+  <img src="../assets/comfy_env_manager-min.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ComfyDock Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sharing Images
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ComfyDock/ComfyDock-Docs" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ComfyDock Docs" class="md-nav__button md-logo" aria-label="ComfyDock Docs" data-md-component="logo">
+      
+  <img src="../assets/comfy_env_manager-min.png" alt="logo">
+
+    </a>
+    ComfyDock Docs
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ComfyDock/ComfyDock-Docs" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Usage
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Usage
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Usage Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../environments/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Working with Environments
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Sharing Images
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Sharing Images
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-prepare-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Prepare the Environment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-create-a-dockerhub-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Create a DockerHub Repository
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-duplicate-and-tag-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Duplicate and Tag the Environment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-push-the-image-to-dockerhub" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Push the Image to DockerHub
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-running-the-shared-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Running the Shared Environment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#important-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Important Notes:
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Troubleshooting
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/common_issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Common Issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/add_more_ram_to_wsl/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Give WSL More RAM
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/filepath_permissions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Filepath & Permissions Issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/installing_custom_nodes_manually/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing Custom Nodes Manually
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/edit_files_in_container/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Edit Files in the Container
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../about_author/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Author
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-prepare-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Prepare the Environment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-create-a-dockerhub-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Create a DockerHub Repository
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-duplicate-and-tag-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Duplicate and Tag the Environment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-push-the-image-to-dockerhub" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Push the Image to DockerHub
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-running-the-shared-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Running the Shared Environment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#important-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Important Notes:
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="environment-sharing-using-dockerhub"><strong>Environment Sharing Using DockerHub</strong><a class="headerlink" href="#environment-sharing-using-dockerhub" title="Permanent link">&para;</a></h1>
+<p>Sharing your ComfyUI environment via a container registry like DockerHub makes it easy for others to download and use your environment exactly as you configured it. Here’s how to do it step by step:</p>
+<h3 id="step-1-prepare-the-environment"><strong>Step 1: Prepare the Environment</strong><a class="headerlink" href="#step-1-prepare-the-environment" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Create or Duplicate an Environment:</strong><ul>
+<li>Use the ComfyUI Environment Manager to create a new environment or duplicate an existing one that you want to share or back up.</li>
+</ul>
+</li>
+<li>
+<p><strong>Install or Modify Files:</strong></p>
+<ul>
+<li>Add custom nodes, models, or workflows via the Comfy Manager.</li>
+<li>For more advanced edits, attach to the running container using VSCode (see the earlier guide) and make changes directly inside the container.</li>
+</ul>
+<p><strong>Important:</strong> Only files inside the container are saved when creating an image. Files from mounted directories (e.g., your <code>models</code> folder on your host machine) will <strong>not</strong> be included in the image. If needed, copy these files into the container.</p>
+</li>
+</ol>
+<h3 id="step-2-create-a-dockerhub-repository"><strong>Step 2: Create a DockerHub Repository</strong><a class="headerlink" href="#step-2-create-a-dockerhub-repository" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Log in to DockerHub at <a href="https://hub.docker.com/">hub.docker.com</a></li>
+<li>Navigate to your “Repositories” page.</li>
+<li>Click on <strong>Create a repository</strong>.</li>
+<li>Name your repository (e.g., <code>comfy-env-test</code>) and set its visibility (public or private).</li>
+<li>Use this name in the following tagging step.</li>
+</ol>
+<h3 id="step-3-duplicate-and-tag-the-environment"><strong>Step 3: Duplicate and Tag the Environment</strong><a class="headerlink" href="#step-3-duplicate-and-tag-the-environment" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Duplicate the Environment:</strong><ul>
+<li>Once the environment is ready, duplicate it to generate a new image. The image will be named something like <code>comfy-env-clone:&lt;environment-name&gt;</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Locate the Image:</strong></p>
+<ul>
+<li>
+<p>Open Docker Desktop or use the following command to list available images:</p>
+<p><code>docker images</code></p>
+</li>
+<li>
+<p>Find the <code>comfy-env-clone:&lt;environment-name&gt;</code> image in the list.</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Tag the Image for DockerHub:</strong></p>
+<ul>
+<li>
+<p>Use the <code>docker tag</code> command to tag the image with your DockerHub repository name:</p>
+<p><code>docker tag comfy-env-clone:&lt;environment-name&gt; &lt;dockerhub-username&gt;/&lt;repo-name&gt;:&lt;tag&gt;</code></p>
+<p>Example:</p>
+<p><code>docker tag comfy-env-clone:my-environment akatzai/comfy-env-test:latest</code></p>
+</li>
+</ul>
+</li>
+</ol>
+<h3 id="step-4-push-the-image-to-dockerhub"><strong>Step 4: Push the Image to DockerHub</strong><a class="headerlink" href="#step-4-push-the-image-to-dockerhub" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Log in to DockerHub:</strong></p>
+<ul>
+<li>
+<p>Run the following command and enter your credentials:</p>
+<p><code>docker login</code></p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Push the Image:</strong></p>
+<ul>
+<li>
+<p>Upload the tagged image to your DockerHub repository:</p>
+<p><code>docker push &lt;dockerhub-username&gt;/&lt;repo-name&gt;:&lt;tag&gt;</code></p>
+<p>Example:</p>
+<p><code>docker push akatzai/comfy-env-test:latest</code></p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Share the Repository URL:</strong></p>
+<ul>
+<li>Once the push is complete, share the repository URL (e.g., <code>akatzai/comfy-env-test:latest</code>) with others. They can now download and run the image on their machine.</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h3 id="step-5-running-the-shared-environment"><strong>Step 5: Running the Shared Environment</strong><a class="headerlink" href="#step-5-running-the-shared-environment" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Download the Image:</strong></p>
+<ul>
+<li>
+<p>Users can download the image directly from their Environment Manager interface via the Create Environment dialog:</p>
+<p><img alt="Create Environment" src="../assets/runSharedEnv.png" /></p>
+</li>
+<li>
+<p>Users can also pull the image using the following command:</p>
+<p><code>docker pull &lt;dockerhub-username&gt;/&lt;repo-name&gt;:&lt;tag&gt;</code></p>
+<p>Example:</p>
+<p><code>docker pull akatzai/comfy-env-test:latest</code></p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Run the Environment:</strong></p>
+<ul>
+<li>If pulled via the Create Environment interface, activate the new environment and run as normal.</li>
+<li>
+<p>Start the container with appropriate mount settings for models, outputs, and other directories:</p>
+<p><code>docker run -it --rm -v /path/to/models:/app/models -v /path/to/output:/app/output &lt;dockerhub-username&gt;/&lt;repo-name&gt;:&lt;tag&gt;</code></p>
+</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h3 id="important-notes"><strong>Important Notes:</strong><a class="headerlink" href="#important-notes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Mounted Directories:</strong> Ensure you know which directories to mount (e.g., <code>models</code>, <code>input</code>, <code>output</code>) for the environment to function properly.</li>
+<li><strong>Immutable Environment:</strong> The container image is immutable, meaning you cannot change files inside it permanently unless you create a duplicate image.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+    
+  </body>
+</html>
