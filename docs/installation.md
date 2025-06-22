@@ -36,8 +36,65 @@ ComfyDock can be installed in two different ways: directly using the CLI tool or
 
 Check out the [GitHub repository](https://github.com/ComfyDock/ComfyDock-CLI) for the latest updates and issues!
 
+### **Option A: Install with UV (Recommended)**
 
-### **Step 1: Install the CLI tool**
+[UV](https://docs.astral.sh/uv/) is a fast Python package manager that makes installation simple and reliable.
+
+
+#### **Step 1: Install UV**
+
+For detailed installation instructions, visit the [UV documentation](https://docs.astral.sh/uv/getting-started/installation/).
+
+**Linux/macOS (including WSL):**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**Windows:**
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+#### **Step 2: Install ComfyDock**
+
+As a global tool (recommended):
+```bash
+uv tool install comfydock
+```
+
+For temporary testing:
+```bash
+uvx comfydock --help
+# Or run commands directly:
+uvx comfydock up
+```
+
+For the latest version:
+```bash
+uvx comfydock@latest up
+```
+
+#### **Step 3: Configure and Run**
+
+```bash
+# Configure ComfyDock (optional)
+comfydock config
+
+# Start ComfyDock
+comfydock up
+```
+
+#### **Updating ComfyDock with UV**
+
+```bash
+uv tool install --upgrade comfydock
+```
+
+---
+
+### **Option B: Install with pip**
+
+If you prefer using pip or don't want to install UV:
 
 ```bash
 pip install comfydock
@@ -46,7 +103,17 @@ pip install comfydock
 
 ---
 
-### **Step 2: Configure ComfyDock**
+#### **Updating ComfyDock CLI with pip**
+
+```bash
+pip install --upgrade comfydock
+```
+
+---
+
+### CLI Quick Start
+
+#### **Step 1: Configure ComfyDock**
 
 ```bash
 # Set your local ComfyUI path (if you have one)
@@ -58,7 +125,7 @@ comfydock config
 
 ---
 
-### **Step 3: Start ComfyDock**
+#### **Step 2: Start ComfyDock**
 
 ```bash
 comfydock up
@@ -67,7 +134,7 @@ This will start both the backend and frontend servers and open ComfyDock in your
 
 ---
 
-### **Step 4: Stop ComfyDock**
+#### **Step 3: Stop ComfyDock**
 
 ```bash
 comfydock down
@@ -93,14 +160,9 @@ comfydock config --list
 
 # Start only the backend server without the frontend
 comfydock up --backend
-```
 
----
-
-### **Updating ComfyDock CLI**
-
-```bash
-pip install --upgrade comfydock
+# Access running comfydock container environment via shell
+comfydock dev exec
 ```
 
 ---
