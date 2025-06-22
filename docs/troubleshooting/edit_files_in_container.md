@@ -1,6 +1,64 @@
-### **Editing Files Inside the Container with VSCode**
+## Using ComfyDock Dev Exec
 
-Sometimes you need to modify or update files that live solely inside the environment and aren’t mounted from your host machine (meaning you can’t just edit them from your usual file explorer).
+> **New in ComfyDock CLI**: The `comfydock dev exec` command provides a convenient way to access running containers.
+
+The easiest way to access a running container is using the ComfyDock CLI:
+
+```bash
+comfydock dev exec
+```
+
+This command will:
+
+1. List all running ComfyDock containers
+2. Let you select which container to access
+3. Open a shell session as the **root user**
+
+From inside the container you will have access to ComfyUI files at the default path /app/ComfyUI.
+
+#### Manually installing custom nodes
+You can run ```cd custom_nodes/``` and ```git clone <path to my custom node repo>``` to manually add new custom nodes (don't forget to fix the permissions after you clone with ```chown -R comfy:comfy <my custom node repo>```! See below for details).
+
+### ⚠️ Important: Root User Permissions
+
+When using `comfydock dev exec`, you enter the container as the **root user**. This gives you full access to modify any files, but it comes with an important caveat:
+
+**Files created or modified as root may become inaccessible to the container's `comfy` user.**
+
+This can cause issues because ComfyUI runs as the `comfy` user (UID 1000) for security reasons. If you create or edit files as root, they will be owned by root (UID 0) and the comfy user may not be able to read or write them.
+
+### Best Practices When Using Root Access
+
+1. **Check file ownership after making changes:**
+   ```
+   ls -la /path/to/file
+   ```
+
+2. **Change ownership to comfy user if needed:**
+   ```
+   chown comfy:comfy /path/to/file
+   ```
+
+3. **For directories, use recursive ownership change:**
+   ```
+   chown -R comfy:comfy /path/to/directory
+   ```
+
+4. **Alternatively, switch to the comfy user after entering:**
+   ```
+   su comfy
+   ```
+
+5. **If you encounter permission issues later, use the fix-permissions tool:**
+   ```
+   fix-permissions
+   ```
+
+---
+
+## Alternative Methods for Editing Files
+
+### **Editing Files Inside the Container with VSCode**
 
 **How to Do This Using VSCode:**
 
