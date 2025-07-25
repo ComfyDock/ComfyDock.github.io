@@ -1,0 +1,63 @@
+# dev/docker-compose.yml
+version: '3.8'
+
+services:
+  # Development container for testing CEC
+  cec-dev:
+    build:
+      context: ../docker/dev
+      dockerfile: Dockerfile.cec-dev
+    volumes:
+      # Mount CEC source for live development
+      - ../packages/cec:/workspace/cec
+      # Mount test environments
+      - ./test-environments:/test-environments
+      # Shared caches
+      - ./caches/uv:/home/user/.cache/uv
+      - ./caches/comfydock:/home/user/.cache/comfydock
+      # Test ComfyUI installations
+      - ./test-comfyui:/test-comfyui
+    environment:
+      - UV_CACHE_DIR=/home/user/.cache/uv
+      - COMFYDOCK_CACHE_DIR=/home/user/.cache/comfydock
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+
+  # Server development
+  server-dev:
+    build:
+      context: ../docker/dev
+      dockerfile: Dockerfile.server-dev
+    volumes:
+      - ../packages:/workspace/packages:ro
+      - ./environments:/data/environments
+      - ./caches:/data/caches
+    ports:
+      - "8000:8000"
+    environment:
+      - COMFYDOCK_ENV_DIR=/data/environments
+      - COMFYDOCK_CACHE_DIR=/data/caches/comfydock
+
+  # Frontend development
+  frontend-dev:
+    build:
+      context: ../packages/frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../packages/frontend:/app
+      - /app/node_modules  # Anonymous volume for node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://server-dev:8000
+
+  # Test ComfyUI environment
+  test-comfyui:
+    build:
+      context: ../docker/base
+      dockerfile: Dockerfile.comfyui-test
+    volumes:
+      - ./test-comfyui/instance1:/workspace
+    ports:
+      - "8188:8188"

@@ -1,0 +1,44 @@
+{
+  "frontend": {
+    "image": "akatzai/comfydock-frontend:0.2.1",
+    "container_name": "comfydock-frontend",
+    "container_port": 8000,
+    "default_host_port": 8000
+  },
+  "backend": {
+    "host": "localhost",
+    "port": 5172
+  },
+  "defaults": {
+    "comfyui_path": "./ComfyUI",
+    "db_file_path": "environments.json",
+    "user_settings_file_path": "user.settings.json",
+    "dockerhub_tags_url": "https://hub.docker.com/v2/namespaces/akatzai/repositories/comfydock-env/tags?page_size=100"
+  },
+  "advanced": {
+    "log_level": "INFO",
+    "check_for_updates": true,
+    "update_check_interval_days": 1
+  },
+  "logging": {
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+      "default": {
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+      }
+    },
+    "handlers": {
+      "console": {
+        "class": "logging.StreamHandler",
+        "level": "INFO",
+        "formatter": "default",
+        "stream": "ext://sys.stdout"
+      }
+    },
+    "root": {
+      "level": "INFO",
+      "handlers": ["console"]
+    }
+  }
+}

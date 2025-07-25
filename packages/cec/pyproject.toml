@@ -1,0 +1,27 @@
+[project]
+name = "comfydock-cec"
+version = "0.1.0"
+description = "ComfyUI Environment Capture (CEC) tool for environment detection and recreation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "packaging>=25.0",
+    "pipdeptree>=2.27.0",
+    "requests>=2.32.4",
+    "requirements-parser>=0.13.0",
+    "toml>=0.10.2",
+    "uv>=0.8.2",
+]
+
+[project.scripts]
+cec = "comfyui_detector.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["comfyui_detector*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "ruff>=0.12.3",
+]

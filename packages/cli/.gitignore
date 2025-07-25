@@ -1,0 +1,21 @@
+.venv/
+
+*.pyc
+
+*.egg-info/
+# Local development environment
+.env*
+
+build/*
+dist/
+
+*.json.lock
+
+Release/*
+# Local development environment
+.env.local
+
+config.json
+environments.json
+user.settings.json
+comfydock.log

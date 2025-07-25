@@ -1,0 +1,1 @@
+# Integration tests for ComfyUI Environment Detector

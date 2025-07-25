@@ -1,0 +1,40 @@
+# docker/dev/Dockerfile.cec-dev
+FROM python:3.11-slim
+
+# Install system dependencies for building Python packages
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    cmake \
+    ninja-build \
+    pkg-config \
+    # For specific Python packages that need these
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create user
+RUN useradd -m -s /bin/bash -u 1000 user
+USER user
+WORKDIR /home/user
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/home/user/.cargo/bin:$PATH"
+
+# Create workspace directory
+RUN mkdir -p /workspace/cec
+
+# Install development tools
+RUN uv tool install ruff pytest ipython
+
+WORKDIR /workspace/cec
+
+# Development entrypoint
+CMD ["/bin/bash"]

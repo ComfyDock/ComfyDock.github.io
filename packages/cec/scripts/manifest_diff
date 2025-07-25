@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Wrapper script for manifest_diff.py
+# Usage: ./scripts/manifest_diff test_1 test_2
+
+# Check if we have the right number of arguments
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <test_env1> <test_env2>"
+    echo "Example: $0 test_1 test_2"
+    exit 1
+fi
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Run the Python script using uv
+uv run python "$SCRIPT_DIR/manifest_diff.py" "$1" "$2"
