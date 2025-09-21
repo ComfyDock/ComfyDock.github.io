@@ -1,0 +1,196 @@
+"""Common utilities for ComfyUI Environment Capture."""
+
+import re
+import subprocess
+from pathlib import Path
+
+from ..logging.logging_config import get_logger
+from ..models.exceptions import CDProcessError
+
+logger = get_logger(__name__)
+
+
+def run_command(
+    cmd: list[str],
+    cwd: Path | None = None,
+    timeout: int | None = 30,
+    capture_output: bool = True,
+    text: bool = True,
+    check: bool = False,
+    env: dict | None = None
+) -> subprocess.CompletedProcess:
+    """Run a subprocess command with proper error handling.
+    
+    Args:
+        cmd: Command and arguments as a list
+        cwd: Working directory for the command
+        timeout: Command timeout in seconds
+        capture_output: Whether to capture stdout/stderr
+        text: Whether to decode output as text
+        check: Whether to raise exception on non-zero exit code
+        env: Environment variables to pass to subprocess
+        
+    Returns:
+        CompletedProcess instance
+        
+    Raises:
+        CDProcessError: If command fails and check=True
+        subprocess.TimeoutExpired: If command times out
+    """
+    try:
+        logger.debug(f"Running command: {' '.join(cmd)}")
+        if cwd:
+            logger.debug(f"Working directory: {cwd}")
+
+        result = subprocess.run(
+            cmd,
+            cwd=str(cwd) if cwd else None,
+            check=check,  # Use the actual check parameter
+            timeout=timeout,
+            capture_output=capture_output,
+            text=text,
+            env=env
+        )
+
+        return result
+
+    except subprocess.CalledProcessError as e:
+        # Transform CalledProcessError into our custom exception
+        error_msg = f"Command failed with exit code {e.returncode}: {' '.join(cmd)}"
+        if e.stderr:
+            error_msg += f"\nStderr: {e.stderr}"
+        logger.error(error_msg)
+        raise CDProcessError(
+            message=error_msg,
+            command=cmd,
+            stderr=e.stderr,
+            stdout=e.stdout,
+            returncode=e.returncode
+        )
+    except subprocess.TimeoutExpired:
+        error_msg = f"Command timed out after {timeout}s: {' '.join(cmd)}"
+        logger.error(error_msg)
+        # Let TimeoutExpired propagate - it's specific and useful
+        raise
+    except Exception as e:
+        error_msg = f"Error running command {' '.join(cmd)}: {e}"
+        logger.error(error_msg)
+        raise
+
+
+def normalize_package_name(name: str) -> str:
+    """Normalize package name according to PEP 503.
+    
+    Args:
+        name: Package name to normalize
+        
+    Returns:
+        Normalized package name (lowercase, with underscores/hyphens as hyphens)
+    """
+    # Convert to lowercase and replace underscores/dots with hyphens
+    normalized = re.sub(r"[-_.]+", "-", name).lower()
+    return normalized
+
+
+def is_valid_version(version_str: str) -> bool:
+    """Check if a version string is valid.
+    
+    Args:
+        version_str: Version string to validate
+        
+    Returns:
+        True if version is valid, False otherwise
+    """
+    if not version_str:
+        return False
+
+    # Basic version pattern: major.minor.patch with optional suffixes
+    pattern = r'^\d+(?:\.\d+)*(?:[a-zA-Z]\d*)?(?:\+[a-zA-Z0-9.-]+)?$'
+    return bool(re.match(pattern, version_str))
+
+
+def format_size(size_bytes: int) -> str:
+    """Format a size in bytes as human-readable string.
+    
+    Args:
+        size_bytes: Size in bytes
+        
+    Returns:
+        Human-readable size string (e.g., "1.5 MB")
+    """
+    if size_bytes == 0:
+        return "0 B"
+
+    size_names = ["B", "KB", "MB", "GB", "TB"]
+    size_index = 0
+    size = float(size_bytes)
+
+    while size >= 1024.0 and size_index < len(size_names) - 1:
+        size /= 1024.0
+        size_index += 1
+
+    if size_index == 0:
+        return f"{int(size)} {size_names[size_index]}"
+    else:
+        return f"{size:.1f} {size_names[size_index]}"
+
+
+def log_pyproject_content(pyproject_path: Path, context: str = "") -> None:
+    """Log pyproject.toml content in a nicely formatted way.
+    
+    Args:
+        pyproject_path: Path to pyproject.toml file
+        context: Optional context string for the log message
+    """
+    try:
+        content = pyproject_path.read_text()
+        # Add indentation to each line for nice formatting
+        indented_lines = ['' + line for line in content.split('\n')]
+        formatted_content = '\n'.join(indented_lines)
+
+        # Create the log message with separator lines
+        separator = '-' * 60
+        if context:
+            msg = f"{context}:\n{separator}\n{formatted_content}\n{separator}"
+        else:
+            msg = f"pyproject.toml content:\n{separator}\n{formatted_content}\n{separator}"
+
+        # Log as a single INFO message (change to DEBUG if too verbose)
+        logger.info(msg)
+    except Exception as e:
+        logger.debug(f"Could not log pyproject.toml: {e}")
+
+def log_requirements_content(requirements_file: Path, show_all: bool = True) -> None:
+    """Log the compiled requirements file content.
+    
+    Args:
+        requirements_file: Path to the compiled requirements file
+        show_all: If True, show all lines, otherwise show a summary
+    """
+    try:
+        content = requirements_file.read_text()
+        lines = content.split('\n')
+
+        # Count non-comment, non-empty lines
+        package_lines = [l for l in lines if l.strip() and not l.strip().startswith('#')]
+
+        #
+        separator = '=' * 60
+        msg_lines = [
+            f"Compiled requirements file ({len(package_lines)} packages):",
+            separator
+        ]
+
+        # Show first 10 and last 5 packages if there are many
+        if len(lines) > 50 and not show_all:
+            msg_lines.extend(lines[:30])
+            msg_lines.append(f"... ({len(lines) - 35} more lines) ...")
+            msg_lines.extend(lines[-5:])
+        else:
+            msg_lines.extend(lines)
+
+        msg_lines.append(separator)
+
+        logger.info('\n'.join(msg_lines))
+    except Exception as e:
+        logger.debug(f"Could not log requirements file: {e}")

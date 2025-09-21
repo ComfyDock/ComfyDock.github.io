@@ -1,37 +1,35 @@
 # pyproject.toml - Root workspace configuration
 [project]
 name = "comfydock"
-version = "0.5.0"
-description = "ComfyDock - Unified environment management for ComfyUI"
+version = "1.0.0"
+description = "ComfyDock - Unified package and environment management for ComfyUI"
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = []
 
 [tool.uv]
-# Define workspace members
-workspace = [
-    "packages/core",
-    "packages/cec", 
-    "packages/server",
-    "packages/cli",
-]
-
 # Shared development dependencies
 dev-dependencies = [
-    "pytest>=7.4.0",
+    "pytest>=8.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
-    "ruff>=0.5.0",
+    "ruff>=0.12.0",
     "mypy>=1.10.0",
 ]
 
 [tool.uv.workspace]
-# Workspace-wide Python version constraint
-requires-python = ">=3.10"
-
-# Shared index configuration
-index = [
-    { url = "https://pypi.org/simple", name = "pypi" },
+# Define workspace members
+members = [
+    "packages/core",
+    "packages/cli",
 ]
+
+# Package index configuration (moved out of workspace section)
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+name = "pypi"
+# Optionally set as default index
+# default = true
 
 [tool.ruff]
 # Shared ruff configuration for all packages
@@ -72,3 +70,8 @@ python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+# Optional: Add build system if you want to package the workspace root
+# [build-system]
+# requires = ["hatchling"]
+# build-backend = "hatchling.build"

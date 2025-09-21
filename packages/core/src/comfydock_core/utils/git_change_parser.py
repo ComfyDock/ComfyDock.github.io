@@ -1,0 +1,142 @@
+"""Parse git changes in pyproject.toml files to extract what was modified."""
+
+from pathlib import Path
+from typing import Any
+
+import tomlkit
+
+from ..logging.logging_config import get_logger
+from ..models.environment import GitStatus
+from ..utils.dependency_parser import compare_dependency_sets, extract_all_dependencies
+from ..utils.git import git_show
+
+logger = get_logger(__name__)
+
+
+class GitChangeParser:
+    """Parse git changes to pyproject.toml to identify what was modified."""
+
+    def __init__(self, repo_path: Path):
+        """Initialize the parser.
+
+        Args:
+            repo_path: Path to git repository (.cec directory)
+        """
+        self.repo_path = repo_path
+
+    def parse_changes(self, current_config: dict) -> dict[str, Any]:
+        """Parse git changes comparing HEAD to current.
+
+        Args:
+            current_config: Current pyproject.toml configuration
+
+        Returns:
+            Dict with changes categorized by type
+        """
+        changes = {
+            'nodes_added': [],
+            'nodes_removed': [],
+            'dependencies_added': [],
+            'dependencies_removed': [],
+            'dependencies_updated': [],
+            'constraints_added': [],
+            'constraints_removed': [],
+            'workflows_tracked': [],
+            'workflows_untracked': [],
+        }
+
+        try:
+            # Get the last committed version
+            committed_content = git_show(
+                self.repo_path,
+                "HEAD",
+                Path("pyproject.toml"),
+                is_text=True
+            )
+
+            if not committed_content:
+                return changes
+
+            committed_config = tomlkit.loads(committed_content)
+
+            # Compare each category
+            self._compare_nodes(committed_config, current_config, changes)
+            self._compare_dependencies(committed_config, current_config, changes)
+            self._compare_constraints(committed_config, current_config, changes)
+            self._compare_workflows(committed_config, current_config, changes)
+
+        except (ValueError, OSError) as e:
+            # No previous commit or file doesn't exist in HEAD
+            logger.debug(f"Could not get previous pyproject.toml: {e}")
+            # This is fine - might be the first commit
+
+        return changes
+
+
+    def update_git_status(self, status: GitStatus, current_config: dict) -> None:
+        """Update a GitStatus object with parsed changes.
+
+        Args:
+            status: GitStatus object to update
+            current_config: Current pyproject.toml configuration
+        """
+        changes = self.parse_changes(current_config)
+
+        status.nodes_added = changes['nodes_added']
+        status.nodes_removed = changes['nodes_removed']
+        status.dependencies_added = changes['dependencies_added']
+        status.dependencies_removed = changes['dependencies_removed']
+        status.dependencies_updated = changes['dependencies_updated']
+        status.constraints_added = changes['constraints_added']
+        status.constraints_removed = changes['constraints_removed']
+        status.workflows_tracked = changes['workflows_tracked']
+        status.workflows_untracked = changes['workflows_untracked']
+
+    def _compare_nodes(self, old_config: dict, new_config: dict, changes: dict) -> None:
+        """Compare custom nodes between configs."""
+        old_nodes = old_config.get('tool', {}).get('comfydock', {}).get('nodes', {})
+        new_nodes = new_config.get('tool', {}).get('comfydock', {}).get('nodes', {})
+
+        old_keys = set(old_nodes.keys())
+        new_keys = set(new_nodes.keys())
+
+        for key in new_keys - old_keys:
+            node_name = new_nodes[key].get('name', key)
+            changes['nodes_added'].append(node_name)
+
+        for key in old_keys - new_keys:
+            node_name = old_nodes[key].get('name', key)
+            changes['nodes_removed'].append(node_name)
+
+    def _compare_dependencies(self, old_config: dict, new_config: dict, changes: dict) -> None:
+        """Compare Python dependencies using existing utilities."""
+        old_deps = extract_all_dependencies(old_config)
+        new_deps = extract_all_dependencies(new_config)
+
+        dep_changes = compare_dependency_sets(old_deps, new_deps)
+        changes['dependencies_added'] = dep_changes.get('added', [])
+        changes['dependencies_removed'] = dep_changes.get('removed', [])
+        changes['dependencies_updated'] = dep_changes.get('updated', [])
+
+    def _compare_constraints(self, old_config: dict, new_config: dict, changes: dict) -> None:
+        """Compare UV constraint dependencies."""
+        old_constraints = old_config.get('tool', {}).get('uv', {}).get('constraint-dependencies', [])
+        new_constraints = new_config.get('tool', {}).get('uv', {}).get('constraint-dependencies', [])
+
+        old_set = set(old_constraints)
+        new_set = set(new_constraints)
+
+        changes['constraints_added'] = list(new_set - old_set)
+        changes['constraints_removed'] = list(old_set - new_set)
+
+    def _compare_workflows(self, old_config: dict, new_config: dict, changes: dict) -> None:
+        """Compare workflow tracking metadata."""
+        old_tracked = old_config.get('tool', {}).get('comfydock', {}).get('workflows', {}).get('tracked', {})
+        new_tracked = new_config.get('tool', {}).get('comfydock', {}).get('workflows', {}).get('tracked', {})
+
+        old_names = set(old_tracked.keys())
+        new_names = set(new_tracked.keys())
+
+        changes['workflows_tracked'] = list(new_names - old_names)
+        changes['workflows_untracked'] = list(old_names - new_names)
+

@@ -1,27 +1,30 @@
 [project]
-name = "comfydock_core"
-version = "0.2.2"
-description = "Core logic for ComfyDock"
+name = "comfydock-core"
+version = "1.0.0"
+description = "ComfyDock Core - ComfyUI Package and Environment Manager"
 readme = "README.md"
-authors = [
-    { name = "akatz-ai", email = "katzfeyalex+akatzgh@gmail.com" }
-]
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
-    "aiodocker>=0.24.0",
-    "docker>=7.1.0",
-    "filelock>=3.17.0",
-    "pydantic>=2.10.6",
+    "aiohttp>=3.9.0",
+    "blake3>=1.0.5",
+    "packaging>=25.0",
+    "psutil>=7.0.0",
+    "pyyaml>=6.0",
+    "requests>=2.32.4",
+    "requirements-parser>=0.13.0",
+    "tomlkit>=0.13.3",
+    "uv>=0.8.2",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# If your source structure requires it, use hatchling's configuration:
+[tool.hatch.build.targets.wheel]
+packages = ["src/comfydock_core"]
+
 [dependency-groups]
 dev = [
-    "pytest>=8.3.4",
+    "pytest>=8.4.1",
 ]
-
-[tool.uv]
-workspace = true

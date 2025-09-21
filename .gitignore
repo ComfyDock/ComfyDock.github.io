@@ -68,3 +68,13 @@ local_config.json
 
 # LLMD files:
 *llm-context.md
+.llmd
+
+# Claude:
+.claude/
+
+# Docs:
+docs/archive
+
+# Helper scripts:
+.setup.sh

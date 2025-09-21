@@ -1,19 +1,38 @@
 # Makefile - Development automation
-.PHONY: help install dev test lint format clean docker-build docker-up docker-down
+.PHONY: help install dev test lint format clean docker-build docker-up docker-down show-versions bump-major bump-package check-versions
+.PHONY: cec-setup cec-build cec-shell cec-test cec-scan cec-recreate cec-clean
 
 # Default target
 help:
 	@echo "ComfyDock Development Commands:"
+	@echo ""
+	@echo "General Commands:"
 	@echo "  make install      - Install all packages in development mode"
 	@echo "  make dev          - Start development environment"
 	@echo "  make test         - Run all tests"
-	@echo "  make test-cec     - Test CEC in container"
 	@echo "  make lint         - Run linting"
 	@echo "  make format       - Format code"
 	@echo "  make clean        - Clean build artifacts"
+	@echo ""
+	@echo "Docker Commands:"
 	@echo "  make docker-build - Build all Docker images"
 	@echo "  make docker-up    - Start development containers"
 	@echo "  make docker-down  - Stop development containers"
+	@echo ""
+	@echo "CEC Development Commands:"
+	@echo "  make cec-setup    - Set up CEC test environment"
+	@echo "  make cec-build    - Build CEC development container"
+	@echo "  make cec-shell    - Enter CEC development shell"
+	@echo "  make cec-test     - Run CEC tests in container"
+	@echo "  make cec-scan     - Scan a test ComfyUI installation"
+	@echo "  make cec-recreate - Recreate environment from manifest"
+	@echo "  make cec-clean    - Clean up CEC containers"
+	@echo ""
+	@echo "Version Management:"
+	@echo "  make show-versions - Show all package versions"
+	@echo "  make check-versions - Check version compatibility"
+	@echo "  make bump-major VERSION=X - Bump major version for all packages"
+	@echo "  make bump-package PACKAGE=core VERSION=X.Y.Z - Bump individual package"
 
 # Install all packages in development mode
 install:
@@ -23,7 +42,7 @@ install:
 # Start development environment
 dev: docker-up
 	@echo "Development environment is running!"
-	@echo "  - CEC Dev Shell: make shell-cec"
+	@echo "  - CEC Dev Shell: make cec-shell"
 	@echo "  - Server: http://localhost:8000"
 	@echo "  - Frontend: http://localhost:5173"
 
@@ -32,10 +51,6 @@ test:
 	uv run pytest packages/core/tests
 	uv run pytest packages/cec/tests
 	uv run pytest packages/server/tests
-
-# Test CEC in container
-test-cec: docker-build
-	cd dev && ./scripts/dev-cec.sh test
 
 # Run linting
 lint:
@@ -57,34 +72,85 @@ clean:
 
 # Docker commands
 docker-build:
-	cd dev && docker-compose build
+	cd dev && docker compose build
 
 docker-up:
-	cd dev && docker-compose up -d
+	cd dev && docker compose up -d
 
 docker-down:
-	cd dev && docker-compose down
+	cd dev && docker compose down
 
-# Shell access
-shell-cec:
-	cd dev && docker-compose run --rm cec-dev
+# CEC-specific development commands
+cec-setup:
+	@echo "Setting up CEC test environment..."
+	cd dev && ./scripts/dev-cec.sh setup
 
-shell-server:
-	cd dev && docker-compose exec server-dev /bin/bash
+cec-build:
+	@echo "Building CEC development container..."
+	cd dev && ./scripts/dev-cec.sh build
 
-# CEC specific commands
+cec-shell:
+	@echo "Starting CEC development shell..."
+	cd dev && ./scripts/dev-cec.sh shell
+
+cec-test:
+	@echo "Running CEC tests in container..."
+	cd dev && ./scripts/dev-cec.sh test
+
 cec-scan:
-	cd dev && ./scripts/dev-cec.sh scan
+	@echo "Scanning test ComfyUI installation..."
+	@if [ -z "$(TARGET)" ]; then \
+		cd dev && ./scripts/dev-cec.sh scan; \
+	else \
+		cd dev && ./scripts/dev-cec.sh scan "$(TARGET)" "$(OUTPUT)"; \
+	fi
 
 cec-recreate:
-	cd dev && ./scripts/dev-cec.sh recreate
+	@echo "Recreating environment from manifest..."
+	@if [ -z "$(MANIFEST)" ]; then \
+		cd dev && ./scripts/dev-cec.sh recreate; \
+	else \
+		cd dev && ./scripts/dev-cec.sh recreate "$(MANIFEST)" "$(TARGET)"; \
+	fi
 
-# Release commands
-release-patch:
-	cd build-scripts && uv run python version_manager.py bump patch
+cec-clean:
+	@echo "Cleaning up CEC containers..."
+	cd dev && ./scripts/dev-cec.sh clean
 
-release-minor:
-	cd build-scripts && uv run python version_manager.py bump minor
+# Quick CEC workflow
+cec-workflow: cec-setup cec-build
+	@echo "CEC development environment ready!"
+	@echo "Run 'make cec-shell' to start developing"
 
-release-major:
-	cd build-scripts && uv run python version_manager.py bump major
+# Shell access to other containers
+shell-server:
+	cd dev && docker compose exec server-dev /bin/bash
+
+# Version management commands
+show-versions:
+	@echo "Current package versions:"
+	@echo -n "  comfydock:        " && grep -oP 'version = "\K[^"]+' pyproject.toml
+	@echo -n "  comfydock-core:   " && grep -oP 'version = "\K[^"]+' packages/core/pyproject.toml
+	@echo -n "  comfydock-server: " && grep -oP 'version = "\K[^"]+' packages/server/pyproject.toml
+	@echo -n "  comfydock-cli:    " && grep -oP 'version = "\K[^"]+' packages/cli/pyproject.toml
+	@echo -n "  comfydock-cec:    " && grep -oP 'version = "\K[^"]+' packages/cec/pyproject.toml
+
+# Check version compatibility
+check-versions:
+	@python3 dev/scripts/check-versions.py
+
+# Bump major version for all packages
+bump-major:
+	@echo "Bumping to major version $(VERSION).0.0"
+	@sed -i 's/version = "[0-9]\+\.[0-9]\+\.[0-9]\+"/version = "$(VERSION).0.0"/' packages/*/pyproject.toml
+	@sed -i 's/version = "[0-9]\+\.[0-9]\+\.[0-9]\+"/version = "$(VERSION).0.0"/' pyproject.toml
+	@echo "Don't forget to update dependency constraints!"
+
+# Bump individual package version
+bump-package:
+	@if [ -z "$(PACKAGE)" ] || [ -z "$(VERSION)" ]; then \
+		echo "Usage: make bump-package PACKAGE=core VERSION=0.2.3"; \
+		exit 1; \
+	fi
+	@sed -i 's/version = "[^"]*"/version = "$(VERSION)"/' packages/$(PACKAGE)/pyproject.toml
+	@echo "Updated comfydock-$(PACKAGE) to version $(VERSION)"

@@ -28,6 +28,34 @@ comfydock/
 └── Makefile           # Development automation
 ```
 
+## Version Compatibility
+
+| Workspace Version | comfydock-core | comfydock-server | comfydock-cli | comfydock-cec |
+|-------------------|----------------|------------------|---------------|---------------|
+| 0.x               | >=0.2.2        | >=0.3.2          | >=0.3.3       | >=0.1.0       |
+| 1.x               | >=1.0.0        | >=1.0.0          | >=1.0.0       | >=1.0.0       |
+
+### Version Policy
+
+- **Major version (X.0.0)**: All packages move together for breaking changes
+- **Minor version (0.X.0)**: Independent feature additions per package
+- **Patch version (0.0.X)**: Independent bug fixes per package
+
+### Version Management
+
+Use the following commands to manage package versions:
+
+```bash
+# Show all package versions
+make show-versions
+
+# Bump major version for all packages
+make bump-major VERSION=1
+
+# Bump individual package version
+make bump-package PACKAGE=core VERSION=0.2.3
+```
+
 ## Quick Start
 
 ### 1. Initial Setup

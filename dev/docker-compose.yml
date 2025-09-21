@@ -1,30 +1,81 @@
 # dev/docker-compose.yml
-version: '3.8'
-
 services:
   # Development container for testing CEC
   cec-dev:
     build:
-      context: ../docker/dev
-      dockerfile: Dockerfile.cec-dev
+      context: ../
+      dockerfile: docker/dev/Dockerfile.cec-dev
+      args:
+        UID: "${USER_UID:-1000}"
+        GID: "${USER_GID:-1000}"
     volumes:
-      # Mount CEC source for live development
+      # Mount entire CEC package directory
       - ../packages/cec:/workspace/cec
       # Mount test environments
-      - ./test-environments:/test-environments
-      # Shared caches
-      - ./caches/uv:/home/user/.cache/uv
-      - ./caches/comfydock:/home/user/.cache/comfydock
-      # Test ComfyUI installations
-      - ./test-comfyui:/test-comfyui
+      - ./test-environments:/env
+      # WSL fix
+      - /usr/lib/wsl:/usr/lib/wsl
     environment:
-      - UV_CACHE_DIR=/home/user/.cache/uv
-      - COMFYDOCK_CACHE_DIR=/home/user/.cache/comfydock
-    command: /bin/bash
+      # UV configuration
+      - UV_CACHE_DIR=/env/uv_cache
+      - UV_PYTHON_INSTALL_DIR=/env/uv/python
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
+      - UV_LINK_MODE=hardlink
+      # Python paths
+      # - PYTHONPATH=/workspace/cec/src
+      # ComfyDock specific
+      - COMFYDOCK_CACHE=/env/comfydock_cache
+    working_dir: /workspace/cec
     stdin_open: true
     tty: true
+    user: "${USER_UID:-1000}:${USER_GID:-1000}"
+    ports:
+      - "8188:8188"
+    # GPU support
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Override command for development
+    command: ["/bin/bash"]
 
-  # Server development
+  # Alternative CEC dev with full workspace mount (for cross-package development)
+  cec-workspace-dev:
+    build:
+      context: ../
+      dockerfile: docker/dev/Dockerfile.cec-dev
+      args:
+        UID: "${USER_UID:-1000}"
+        GID: "${USER_GID:-1000}"
+    volumes:
+      # Mount entire workspace
+      - ../:/workspace/comfydock
+      # Exclude all virtual environments
+      - /workspace/comfydock/.venv
+      - /workspace/comfydock/packages/cec/.venv
+      - /workspace/comfydock/packages/core/.venv
+      - /workspace/comfydock/packages/server/.venv
+      - /workspace/comfydock/packages/cli/.venv
+      # Mount test environments
+      - ./test-environments:/env
+      # Cache mount
+      - uv-cache:/home/comfy/.cache/uv
+    environment:
+      - UV_CACHE_DIR=/home/comfy/.cache/uv
+      - UV_PROJECT_ENVIRONMENT=/workspace/comfydock/packages/cec/.venv
+      - PYTHONPATH=/workspace/comfydock/packages/cec/src
+      - COMFYDOCK_CACHE=/env/comfydock_cache
+    working_dir: /workspace/comfydock/packages/cec
+    stdin_open: true
+    tty: true
+    user: "${USER_UID:-1000}:${USER_GID:-1000}"
+    command: ["/bin/bash"]
+
+  # Server development (update similarly if needed)
   server-dev:
     build:
       context: ../docker/dev
@@ -46,18 +97,26 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ../packages/frontend:/app
-      - /app/node_modules  # Anonymous volume for node_modules
+      - /app/node_modules
     ports:
       - "5173:5173"
     environment:
       - VITE_API_URL=http://server-dev:8000
 
-  # Test ComfyUI environment
-  test-comfyui:
+  # Production-like ComfyUI container for testing
+  comfyui-prod:
     build:
-      context: ../docker/base
-      dockerfile: Dockerfile.comfyui-test
+      context: ../
+      dockerfile: docker/base/Dockerfile
     volumes:
-      - ./test-comfyui/instance1:/workspace
+      - ./test-environments/env/environments/test_env_1:/app
     ports:
-      - "8188:8188"
+      - "8189:8188"  # Different port to avoid conflicts
+    environment:
+      - COMFYUI_PATH=/app/ComfyUI
+    entrypoint: ["/bin/bash", "-c", "sleep infinity"]
+
+# Named volumes for persistent caches
+volumes:
+  uv-cache:
+    driver: local
