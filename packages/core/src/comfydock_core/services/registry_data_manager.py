@@ -7,7 +7,7 @@ from urllib.request import urlopen, Request
 from urllib.error import URLError
 import socket
 
-from ..constants import GITHUB_NODE_MAPPINGS_URL
+from ..constants import GITHUB_NODE_MAPPINGS_URL, MAX_REGISTRY_DATA_AGE_HOURS
 from ..logging.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 class RegistryDataManager:
     """Manages fetching and caching of registry node mappings."""
 
-    MAX_AGE_HOURS = 24
+    MAX_AGE_HOURS = MAX_REGISTRY_DATA_AGE_HOURS
     FETCH_TIMEOUT = 10  # seconds
 
     def __init__(self, cache_dir: Path):

@@ -47,11 +47,7 @@ class ResolutionResult:
 class GlobalNodeResolver:
     """Resolves unknown nodes using global mappings file."""
 
-    def __init__(self, mappings_path: Optional[Path] = None):
-        if mappings_path is None:
-            # Default path relative to this file
-            mappings_path = Path(__file__).parent.parent / "data" / "node_mappings.json"
-
+    def __init__(self, mappings_path: Path):
         self.mappings_path = mappings_path
         self.mappings = {}
         self.packages = {}

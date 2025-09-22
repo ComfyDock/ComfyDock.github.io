@@ -1,4 +1,5 @@
 # managers/node_manager.py
+from __future__ import annotations
 from pathlib import Path
 
 from ..logging.logging_config import get_logger
@@ -14,6 +15,11 @@ from ..models.shared import NodePackage
 from ..services.global_node_resolver import GlobalNodeResolver
 from ..services.node_registry import NodeInfo, NodeRegistry
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..services.registry_data_manager import RegistryDataManager
+
 logger = get_logger(__name__)
 
 
@@ -27,15 +33,17 @@ class NodeManager:
         node_registry: NodeRegistry,
         resolution_tester: ResolutionTester,
         custom_nodes_path: Path,
+        registry_data_manager: RegistryDataManager
     ):
         self.pyproject = pyproject
         self.uv = uv
         self.node_registry = node_registry
         self.resolution_tester = resolution_tester
         self.custom_nodes_path = custom_nodes_path
+        self.registry_data_manager = registry_data_manager
 
         # Initialize global resolver for GitHub URL → Registry ID mapping
-        node_mapper_path = Path(__file__).parent.parent / "data" / "node_mappings_fixed.json"
+        node_mapper_path = self.registry_data_manager.get_mappings_path()
         self.global_resolver = GlobalNodeResolver(node_mapper_path)
 
     def add_node_package(self, node_package: NodePackage) -> None:

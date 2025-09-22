@@ -97,6 +97,7 @@ class Environment:
             self.node_registry,
             self.resolution_tester,
             self.custom_nodes_path,
+            self.registry_data_manager
         )
 
     @cached_property
@@ -109,8 +110,11 @@ class Environment:
     @cached_property
     def workflow_manager(self) -> WorkflowManager:
         return WorkflowManager(
-            self.path, self.pyproject, self.model_index_manager, self.global_models_path,
-            self.registry_data_manager
+            self.path,
+            self.pyproject,
+            self.model_index_manager,
+            self.global_models_path,
+            self.registry_data_manager,
         )
 
     @cached_property
