@@ -1,8 +1,6 @@
-"""Git-related utilities for ComfyUI detection."""
+"""Low-level git utilities for repository operations."""
 
-import os
 import re
-import socket
 import subprocess
 from pathlib import Path
 
@@ -76,121 +74,106 @@ def _git(cmd: list[str], repo_path: Path,
         raise OSError(f"Git command failed: {e}") from e
 
 # =============================================================================
-# Configuration & Setup
+# Configuration Operations
 # =============================================================================
 
-def ensure_git_identity(repo_path: Path) -> None:
-    """Ensure git has a user identity configured for commits.
-
-    Sets up local git config (not global) with sensible defaults.
+def git_config_get(repo_path: Path, key: str) -> str | None:
+    """Get a git config value.
 
     Args:
-        repo_path: Path to the git repository
-    """
-    # Check if identity is already configured
-    check_name = run_command(
-        ["git", "config", "user.name"], cwd=repo_path, capture_output=True, text=True
-    )
-
-    check_email = run_command(
-        ["git", "config", "user.email"], cwd=repo_path, capture_output=True, text=True
-    )
-
-    # If both are set, we're good
-    if check_name.stdout.strip() and check_email.stdout.strip():
-        return
-
-    # Determine git identity using fallback chain
-    git_name = get_git_identity()
-    git_email = get_git_email()
-
-    # Set identity locally for this repository only
-    run_command(["git", "config", "user.name", git_name], cwd=repo_path, check=True)
-
-    run_command(["git", "config", "user.email", git_email], cwd=repo_path, check=True)
-
-    logger.info(f"Set local git identity: {git_name} <{git_email}>")
-
-
-def get_git_identity() -> str:
-    """Get a suitable git user name with smart fallbacks.
+        repo_path: Path to git repository
+        key: Config key (e.g., "user.name")
 
     Returns:
-        Git user name
+        Config value or None if not set
     """
-    # Try environment variables first
-    git_name = os.environ.get("GIT_AUTHOR_NAME")
-    if git_name:
-        return git_name
+    result = _git(["config", key], repo_path, check=False)
+    return result.stdout.strip() if result.returncode == 0 else None
 
-    # Try to get system username as fallback for name
-    try:
-        import pwd
-
-        git_name = (
-            pwd.getpwuid(os.getuid()).pw_gecos or pwd.getpwuid(os.getuid()).pw_name
-        )
-        if git_name:
-            return git_name
-    except:
-        pass
-
-    try:
-        git_name = os.getlogin()
-        if git_name:
-            return git_name
-    except:
-        pass
-
-    return "ComfyDock User"
-
-
-def get_git_email() -> str:
-    """Get a suitable git email with smart fallbacks.
-
-    Returns:
-        Git email address
-    """
-    # Try environment variables first
-    git_email = os.environ.get("GIT_AUTHOR_EMAIL")
-    if git_email:
-        return git_email
-
-    # Try to construct from username and hostname
-    try:
-        hostname = socket.gethostname()
-        username = os.getlogin()
-        return f"{username}@{hostname}"
-    except:
-        pass
-
-    return "user@comfydock.local"
-
-
-def create_environment_gitignore(repo_path: Path) -> None:
-    """Create a standard .gitignore for environment tracking.
+def git_config_set(repo_path: Path, key: str, value: str) -> None:
+    """Set a git config value locally.
 
     Args:
-        repo_path: Path to the git repository
+        repo_path: Path to git repository
+        key: Config key (e.g., "user.name")
+        value: Value to set
+
+    Raises:
+        OSError: If git config command fails
     """
-    gitignore_content = """# Staging area
-staging/
+    _git(["config", key, value], repo_path)
 
-# Staging metadata
-metadata/
+# =============================================================================
+# URL Detection & Normalization
+# =============================================================================
 
-# logs
-logs/
+def is_git_url(url: str) -> bool:
+    """Check if string is any git-style URL.
 
-# Python cache
-__pycache__/
-*.pyc
+    Args:
+        url: String to check
 
-# Temporary files
-*.tmp
-*.bak
-"""
-    (repo_path / ".gitignore").write_text(gitignore_content)
+    Returns:
+        True if URL appears to be a git repository URL
+    """
+    return url.startswith(('https://', 'http://', 'git@', 'ssh://'))
+
+def is_github_url(url: str) -> bool:
+    """Check if string is specifically a GitHub URL.
+
+    Args:
+        url: String to check
+
+    Returns:
+        True if URL is a GitHub repository URL
+    """
+    return url.startswith(('https://github.com/', 'git@github.com:', 'ssh://git@github.com/'))
+
+def normalize_github_url(url: str) -> str:
+    """Normalize GitHub URL to canonical https://github.com/owner/repo format.
+
+    Handles various GitHub URL formats:
+    - HTTPS: https://github.com/owner/repo.git
+    - SSH: git@github.com:owner/repo.git
+    - SSH URL: ssh://git@github.com/owner/repo.git
+
+    Args:
+        url: GitHub URL in any format
+
+    Returns:
+        Normalized URL in https://github.com/owner/repo format
+    """
+    if not url:
+        return ""
+
+    # Remove .git suffix
+    url = re.sub(r"\.git$", "", url)
+
+    # Parse URL
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+
+    # Handle different GitHub URL formats
+    if parsed.hostname in ("github.com", "www.github.com"):
+        # Extract owner/repo from path
+        path_parts = parsed.path.strip("/").split("/")
+        if len(path_parts) >= 2:
+            owner, repo = path_parts[0], path_parts[1]
+            return f"https://github.com/{owner}/{repo}"
+
+    # For SSH URLs like git@github.com:owner/repo
+    if url.startswith("git@github.com:"):
+        repo_path = url.replace("git@github.com:", "")
+        repo_path = re.sub(r"\.git$", "", repo_path)
+        return f"https://github.com/{repo_path}"
+
+    # For SSH URLs like ssh://git@github.com/owner/repo
+    if url.startswith("ssh://git@github.com/"):
+        repo_path = url.replace("ssh://git@github.com/", "")
+        repo_path = re.sub(r"\.git$", "", repo_path)
+        return f"https://github.com/{repo_path}"
+
+    return url
 
 # =============================================================================
 # Repository Information
@@ -198,10 +181,10 @@ __pycache__/
 
 def parse_github_url(url: str) -> tuple[str, str, str | None] | None:
     """Parse GitHub URL to extract owner, repo name, and optional commit/ref.
-    
+
     Args:
         url: GitHub repository URL
-        
+
     Returns:
         Tuple of (owner, repo, commit) or None if invalid.
         commit will be None if no specific commit is specified.
@@ -220,74 +203,93 @@ def parse_github_url(url: str) -> tuple[str, str, str | None] | None:
         return (owner, repo, commit)
     return None
 
-def get_git_info(node_path: Path) -> dict | None:
-    """Get git repository information for a custom node."""
-    git_info = {}
+def parse_git_url_with_subdir(url: str) -> tuple[str, str | None]:
+    """Parse git URL with optional subdirectory specification.
 
-    try:
-        # Check if it's a git repository
-        git_dir = node_path / ".git"
-        if not git_dir.exists():
-            return None
+    Supports syntax: <git_url>#<subdirectory_path>
 
-        # Get current commit hash
-        result = run_command(["git", "rev-parse", "HEAD"], cwd=node_path)
-        if result.returncode == 0:
-            git_info["commit"] = result.stdout.strip()
+    Examples:
+        "https://github.com/user/repo"
+        → ("https://github.com/user/repo", None)
 
-        # Get current branch
-        result = run_command(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=node_path
-        )
-        if result.returncode == 0:
-            branch = result.stdout.strip()
-            # Don't set branch if we're in detached HEAD state
-            if branch != "HEAD":
-                git_info["branch"] = branch
+        "https://github.com/user/repo#examples/example1"
+        → ("https://github.com/user/repo", "examples/example1")
 
-        # Try to get current tag/version
-        result = run_command(
-            ["git", "describe", "--tags", "--exact-match"], cwd=node_path
-        )
-        if result.returncode == 0:
-            git_info["tag"] = result.stdout.strip()
-        else:
-            # Try to get the most recent tag
-            result = run_command(
-                ["git", "describe", "--tags", "--abbrev=0"], cwd=node_path
-            )
-            if result.returncode == 0:
-                # Store as 'tag' since GitInfo model expects 'tag', not 'latest_tag'
-                git_info["tag"] = result.stdout.strip()
+        "git@github.com:user/repo.git#workflows/prod"
+        → ("git@github.com:user/repo.git", "workflows/prod")
 
-        # Get remote URL
-        result = run_command(["git", "remote", "get-url", "origin"], cwd=node_path)
-        if result.returncode == 0:
-            remote_url = result.stdout.strip()
-            git_info["remote_url"] = remote_url
+    Args:
+        url: Git URL with optional #subdirectory suffix
 
-            # Extract GitHub info if it's a GitHub URL
-            github_match = re.match(
-                r"(?:https?://github\.com/|git@github\.com:)([^/]+)/([^/\.]+)",
-                remote_url,
-            )
-            if github_match:
-                git_info["github_owner"] = github_match.group(1)
-                git_info["github_repo"] = github_match.group(2).replace(".git", "")
-                # Don't add github_url as it's not in GitInfo model
+    Returns:
+        Tuple of (base_git_url, subdirectory_path or None)
+    """
+    if '#' not in url:
+        return url, None
 
-        # Check if there are uncommitted changes
-        result = run_command(["git", "status", "--porcelain"], cwd=node_path)
-        if result.returncode == 0:
-            # Use 'is_dirty' to match GitInfo model field name
-            git_info["is_dirty"] = bool(result.stdout.strip())
+    # Split on last # to handle edge cases
+    base_url, subdir = url.rsplit('#', 1)
 
-        return git_info if git_info else None
+    # Normalize subdirectory path
+    subdir = subdir.strip('/')
 
-    except Exception as e:
-        logger.warning(f"Error getting git info for {node_path}: {e}")
-        return None
+    if not subdir:
+        # URL ended with # but no path
+        return base_url, None
 
+    return base_url, subdir
+
+def git_rev_parse(repo_path: Path, ref: str = "HEAD", abbrev_ref: bool = False) -> str | None:
+    """Parse a git reference to get its value.
+
+    Args:
+        repo_path: Path to git repository
+        ref: Reference to parse (default: HEAD)
+        abbrev_ref: If True, get abbreviated ref name
+
+    Returns:
+        Parsed reference value or None if command fails
+    """
+    cmd = ["rev-parse"]
+    if abbrev_ref:
+        cmd.append("--abbrev-ref")
+    cmd.append(ref)
+
+    result = _git(cmd, repo_path, check=False)
+    return result.stdout.strip() if result.returncode == 0 else None
+
+def git_describe_tags(repo_path: Path, exact_match: bool = False, abbrev: int | None = None) -> str | None:
+    """Describe HEAD using tags.
+
+    Args:
+        repo_path: Path to git repository
+        exact_match: If True, only exact tag match
+        abbrev: If 0, only exact matches; if specified, abbreviate to N commits
+
+    Returns:
+        Tag description or None if no tags found
+    """
+    cmd = ["describe", "--tags"]
+    if exact_match:
+        cmd.append("--exact-match")
+    if abbrev is not None:
+        cmd.append(f"--abbrev={abbrev}")
+
+    result = _git(cmd, repo_path, check=False)
+    return result.stdout.strip() if result.returncode == 0 else None
+
+def git_remote_get_url(repo_path: Path, remote: str = "origin") -> str | None:
+    """Get URL of a git remote.
+
+    Args:
+        repo_path: Path to git repository
+        remote: Remote name (default: origin)
+
+    Returns:
+        Remote URL or None if not found
+    """
+    result = _git(["remote", "get-url", remote], repo_path, check=False)
+    return result.stdout.strip() if result.returncode == 0 else None
 
 # =============================================================================
 # Basic Git Operations
@@ -322,17 +324,24 @@ def git_diff(repo_path: Path, file_path: Path) -> str:
 
 def git_commit(repo_path: Path, message: str, add_all: bool = True) -> None:
     """Commit changes with optional staging.
-    
+
     Args:
         repo_path: Path to git repository
         message: Commit message
         add_all: Whether to stage all changes first
-        
+
     Raises:
         OSError: If git commands fail
     """
     if add_all:
         _git(["add", "."], repo_path)
+
+    # Check if there are any changes to commit
+    status = _git(["status", "--porcelain"], repo_path)
+    if not status.stdout.strip():
+        # No changes to commit - this is not an error
+        return
+
     _git(["commit", "-m", message], repo_path)
 
 # =============================================================================
@@ -450,6 +459,69 @@ def git_clone(
 
     logger.info(f"Successfully cloned {url} to {target_path}")
 
+def git_clone_subdirectory(
+    url: str,
+    target_path: Path,
+    subdir: str,
+    depth: int = 1,
+    ref: str | None = None,
+    timeout: int = 30,
+) -> None:
+    """Clone a git repository and extract a specific subdirectory.
+
+    Clones the entire repository to a temporary location, validates
+    the subdirectory exists, then copies only that subdirectory to
+    the target path.
+
+    Args:
+        url: Git repository URL (without #subdir)
+        target_path: Directory to extract subdirectory contents to
+        subdir: Subdirectory path within repository (e.g., "examples/example1")
+        depth: Clone depth (1 for shallow clone)
+        ref: Optional specific ref (branch/tag/commit) to checkout
+        timeout: Command timeout in seconds
+
+    Raises:
+        OSError: If git clone fails
+        ValueError: If subdirectory doesn't exist in repository
+    """
+    import tempfile
+    import shutil
+
+    # Clone to temporary directory
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_repo = Path(temp_dir) / "repo"
+
+        logger.info(f"Cloning {url} to temporary location for subdirectory extraction")
+        git_clone(url, temp_repo, depth=depth, ref=ref, timeout=timeout)
+
+        # Validate subdirectory exists
+        subdir_path = temp_repo / subdir
+        if not subdir_path.exists():
+            # List available top-level directories for helpful error message
+            available_dirs = [d.name for d in temp_repo.iterdir() if d.is_dir() and not d.name.startswith('.')]
+            raise ValueError(
+                f"Subdirectory '{subdir}' does not exist in repository. "
+                f"Available top-level directories: {', '.join(available_dirs)}"
+            )
+
+        if not subdir_path.is_dir():
+            raise ValueError(f"Path '{subdir}' exists but is not a directory")
+
+        # Validate it's a ComfyDock environment
+        pyproject_path = subdir_path / "pyproject.toml"
+        if not pyproject_path.exists():
+            raise ValueError(
+                f"Subdirectory '{subdir}' does not contain pyproject.toml - "
+                f"not a valid ComfyDock environment"
+            )
+
+        # Copy subdirectory contents to target
+        logger.info(f"Extracting subdirectory '{subdir}' to {target_path}")
+        shutil.copytree(subdir_path, target_path, dirs_exist_ok=True)
+
+        logger.info(f"Successfully extracted {url}#{subdir} to {target_path}")
+
 def git_checkout(repo_path: Path,
                 target: str = "HEAD",
                 files: list[str] | None = None,
@@ -482,6 +554,36 @@ def git_checkout(repo_path: Path,
 # Status & Change Tracking
 # =============================================================================
 
+def git_status_porcelain(repo_path: Path) -> list[tuple[str, str, str]]:
+    """Get git status in porcelain format, parsed.
+
+    Args:
+        repo_path: Path to git repository
+
+    Returns:
+        List of tuples: (index_status, working_status, filename)
+        Status characters follow git's convention:
+        - 'M' = modified, 'A' = added, 'D' = deleted
+        - '?' = untracked, ' ' = unmodified
+    """
+    result = _git(["status", "--porcelain"], repo_path)
+    entries = []
+
+    if result.stdout:
+        for line in result.stdout.strip().split('\n'):
+            if line and len(line) >= 3:
+                index_status = line[0]
+                working_status = line[1]
+                filename = line[2:].lstrip()
+
+                # Handle quoted filenames (spaces/special chars)
+                if filename.startswith('"') and filename.endswith('"'):
+                    filename = filename[1:-1].encode().decode('unicode_escape')
+
+                entries.append((index_status, working_status, filename))
+
+    return entries
+
 def get_staged_changes(repo_path: Path) -> list[str]:
     """Get list of files that are staged (git added) but not committed.
     
@@ -501,62 +603,16 @@ def get_staged_changes(repo_path: Path) -> list[str]:
 
     return []
 
-def get_workflow_git_changes(repo_path: Path) -> dict[str, str]:
-    """Get git status for workflow files specifically.
-    
-    Args:
-        repo_path: Path to the git repository
-        
-    Returns:
-        Dict mapping workflow names to their git status:
-        - 'modified' for modified files  
-        - 'added' for new/untracked files
-        - 'deleted' for deleted files
-    """
-    result = _git(["status", "--porcelain"], repo_path)
-    workflow_changes = {}
-
-    if result.stdout:
-        for line in result.stdout.strip().split('\n'):
-            if line and len(line) >= 3:
-                # Git status --porcelain format: "XY filename"
-                index_status = line[0]  # Staged status
-                working_status = line[1]  # Working tree status
-                filename = line[2:].lstrip()
-
-                # Handle quoted filenames (git quotes filenames with spaces/special chars)
-                if filename.startswith('"') and filename.endswith('"'):
-                    # Remove quotes and unescape
-                    filename = filename[1:-1].encode().decode('unicode_escape')
-
-                logger.debug(f"index status: {index_status}, working status: {working_status}, filename: {filename}")
-
-                # Only process workflow files
-                if filename.startswith('workflows/') and filename.endswith('.json'):
-                    # Extract workflow name from path (keep spaces as-is)
-                    workflow_name = Path(filename).stem
-                    logger.debug(f"Workflow name: {workflow_name}")
-
-                    # Determine status (prioritize working tree status)
-                    if working_status == 'M' or index_status == 'M':
-                        workflow_changes[workflow_name] = 'modified'
-                    elif working_status == 'D' or index_status == 'D':
-                        workflow_changes[workflow_name] = 'deleted'
-                    elif working_status == '?' or index_status == 'A':
-                        workflow_changes[workflow_name] = 'added'
-
-    logger.debug(f"Workflow changes: {str(workflow_changes)}")
-    return workflow_changes
 
 def get_uncommitted_changes(repo_path: Path) -> list[str]:
     """Get list of files that have uncommitted changes (staged or unstaged).
-    
+
     Args:
         repo_path: Path to the git repository
-        
+
     Returns:
         List of file paths with uncommitted changes
-        
+
     Raises:
         OSError: If git command fails
     """
@@ -584,3 +640,41 @@ def get_uncommitted_changes(repo_path: Path) -> list[str]:
         return changes
 
     return []
+
+def git_ls_tree(repo_path: Path, ref: str, recursive: bool = False) -> str:
+    """List files in a git tree object.
+
+    Args:
+        repo_path: Path to git repository
+        ref: Git reference (commit, branch, tag)
+        recursive: If True, recursively list all files
+
+    Returns:
+        Output with file paths, one per line
+
+    Raises:
+        OSError: If git command fails
+        ValueError: If ref doesn't exist
+    """
+    cmd = ["ls-tree"]
+    if recursive:
+        cmd.append("-r")
+    cmd.extend(["--name-only", ref])
+
+    result = _git(cmd, repo_path, not_found_msg=f"Git ref '{ref}' does not exist")
+    return result.stdout
+
+def git_ls_files(repo_path: Path) -> str:
+    """List all files tracked by git in the current working tree.
+
+    Args:
+        repo_path: Path to git repository
+
+    Returns:
+        Output with file paths, one per line
+
+    Raises:
+        OSError: If git command fails
+    """
+    result = _git(["ls-files"], repo_path)
+    return result.stdout

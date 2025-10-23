@@ -1,98 +1,131 @@
-"""Core data models for ComfyUI migration manifest schema v1.0.
+"""Core shared data models"""
 
-This module provides type-safe dataclasses for representing ComfyUI environment
-detection results and migration manifests. All models include validation,
-serialization helpers, and proper type hints for IDE support.
-
-This module also consolidates all dataclasses used throughout the detector
-to provide a single source of truth for data structures.
-"""
-
-import json
-import re
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
-from pathlib import Path
-from typing import Any
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING, Any
 
+from comfydock_core.models.registry import RegistryNodeInfo
+
+from ..utils.model_categories import get_model_category
 from .exceptions import ComfyDockError
 
+if TYPE_CHECKING:
+    from comfydock_core.models.manifest import ManifestModel
 
-@dataclass
-class RegistryNodeVersion:
-    """Version information for a node."""
-    changelog: str
-    dependencies: list[str]
-    deprecated: bool
-    id: str
-    version: str
-    download_url: str
-
-    @classmethod
-    def from_api_data(cls, api_data: dict) -> "RegistryNodeVersion | None":
-        if not api_data:
-            return None
-        return cls(
-            changelog=api_data.get("changelog", ""),
-            dependencies=api_data.get("dependencies", []),
-            deprecated=api_data.get("deprecated", False),
-            id=api_data.get("id", ""),
-            version=api_data.get("version", ""),
-            download_url=api_data.get("downloadUrl", ""),
-        )
-
-@dataclass
-class RegistryNodeInfo:
-    """Information about a custom node."""
-    id: str
-    name: str
-    description: str
-    author: str | None = None
-    license: str | None = None
-    icon: str | None = None
-    repository: str | None = None
-    tags: list[str] = field(default_factory=list)
-    latest_version: RegistryNodeVersion | None = None
-
-    @classmethod
-    def from_api_data(cls, api_data: dict) -> "RegistryNodeInfo | None":
-        # Ensure dict has id, name and description keys:
-        id = api_data.get("id")
-        name = api_data.get("name")
-        description = api_data.get("description")
-        if not id or not name or not description:
-            return None
-        return cls(
-            id=id,
-            name=name,
-            description=description,
-            author=api_data.get("author"),
-            license=api_data.get("license"),
-            icon=api_data.get("icon"),
-            repository=api_data.get("repository"),
-            tags=api_data.get("tags", []),
-            latest_version=RegistryNodeVersion.from_api_data(api_data.get("latest_version", {})),
-        )
 
 @dataclass
 class NodeInfo:
-    """Information about a custom node."""
-    name: str
-    repository: str | None = None
-    download_url: str | None = None
-    registry_id: str | None = None
-    version: str | None = None
-    source: str = "unknown"  # registry, git, or local
-    dependency_sources: list[str] | None = None
+    """Complete information about a custom node across its lifecycle.
+
+    This dataclass represents a custom node from initial user input through resolution,
+    persistence in pyproject.toml, and final installation to the filesystem. Since custom
+    nodes have no cross-dependencies, all version/URL information is pinned directly in
+    pyproject.toml (no separate lock file needed).
+
+    Lifecycle phases:
+
+    1. User Input → Resolution:
+       - User provides: registry_id OR repository URL OR local directory name
+       - System resolves to complete NodeInfo with all applicable fields populated
+
+    2. Persistence (pyproject.toml):
+       - All resolved fields stored in [tool.comfydock.nodes.<identifier>]
+       - Explicitly pins version and download location for reproducibility
+
+    3. Installation (filesystem sync):
+       - Uses download_url (registry) or repository+version (git) to fetch code
+       - Installs to custom_nodes/<name>/
+
+    Field usage by source type:
+
+    Registry nodes:
+        name: Directory name from registry metadata
+        registry_id: Comfy Registry package ID (required for re-resolution)
+        version: Registry version string (e.g., "2.50")
+        download_url: Direct download URL from registry API
+        source: "registry"
+        dependency_sources: UV sources added for node's Python deps
+
+    GitHub nodes:
+        name: Repository name from GitHub API
+        repository: Full git clone URL (https://github.com/user/repo)
+        version: Git commit hash for pinning exact version
+        registry_id: Optional, if node also exists in registry (for dual-source)
+        source: "git"
+        dependency_sources: UV sources added for node's Python deps
+
+    Development nodes (local):
+        name: Directory name from filesystem
+        version: Always "dev"
+        source: "development"
+        dependency_sources: UV sources added for node's Python deps
+        (All other fields None - code already exists locally)
+    """
+
+    # Core identification (always present)
+    name: str  # Directory name in custom_nodes/
+
+    # Source-specific identifiers (mutually exclusive by source type)
+    registry_id: str | None = None      # Comfy Registry package ID
+    repository: str | None = None       # Git clone URL
+
+    # Resolution data (populated during node resolution)
+    version: str | None = None          # Registry version, git commit hash, or "dev"
+    download_url: str | None = None     # Direct download URL (registry nodes only)
+
+    # Metadata
+    source: str = "unknown"             # "registry", "git", "development", or "unknown"
+    dependency_sources: list[str] | None = None  # UV source names added for this node's deps
+
+    @property
+    def identifier(self) -> str:
+        """Get the best identifier for this node."""
+        return self.name
 
     @classmethod
     def from_registry_node(cls, registry_node_info: RegistryNodeInfo):
         return cls(
             name=registry_node_info.name,
             registry_id=registry_node_info.id,
+            repository=registry_node_info.repository,  # Preserve repository for git fallback
             version=registry_node_info.latest_version.version if registry_node_info.latest_version else None,
             download_url=registry_node_info.latest_version.download_url if registry_node_info.latest_version else None,
+            source="registry"
+        )
+
+    @classmethod
+    def from_global_package(cls, package, version: str | None = None):
+        """Create NodeInfo from GlobalNodePackage (cached mappings data).
+
+        Args:
+            package: GlobalNodePackage from node mappings repository
+            version: Specific version to use, or None for latest
+
+        Returns:
+            NodeInfo instance
+        """
+
+        # Determine version to use
+        if version is None:
+            # Get latest version (highest version number or first in dict)
+            if package.versions:
+                version = max(package.versions.keys())
+            else:
+                version = None
+
+        # Get version-specific data
+        version_data = None
+        download_url = None
+        if version and package.versions:
+            version_data = package.versions.get(version)
+            if version_data:
+                download_url = version_data.download_url
+
+        return cls(
+            name=package.display_name or package.id,
+            registry_id=package.id,
+            repository=package.repository,
+            version=version,
+            download_url=download_url,
             source="registry"
         )
 
@@ -131,202 +164,30 @@ class NodePackage:
         """Get the best identifier for this node."""
         return self.node_info.registry_id or self.node_info.name
 
-@dataclass
-class Package:
-    """Represents an installed Python package."""
 
+@dataclass
+class UpdateResult:
+    """Result from updating a node."""
+    node_name: str
+    source: str  # 'development', 'registry', 'git'
+    changed: bool = False
+    message: str = ""
+
+    # For development nodes
+    requirements_added: list[str] = field(default_factory=list)
+    requirements_removed: list[str] = field(default_factory=list)
+
+    # For registry/git nodes
+    old_version: str | None = None
+    new_version: str | None = None
+
+@dataclass
+class NodeRemovalResult:
+    """Result from removing a node."""
+    identifier: str
     name: str
-    version: str
-    is_editable: bool = False
-
-    def validate(self) -> None:
-        """Validate package information."""
-        if not self.name:
-            raise ComfyDockError("Package name cannot be empty")
-        if not self.version:
-            raise ComfyDockError("Package version cannot be empty")
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'Package':
-        """Create instance from dictionary."""
-        return cls(**data)
-
-@dataclass
-class SystemRequirements:
-    """System requirements for the environment."""
-
-    python_version: str
-    cuda_version: str | None = None
-    platform: str = "linux"
-    architecture: str | None = None
-    comfyui_version: str = ""
-
-    def validate(self) -> None:
-        """Validate system info fields."""
-        if not self._is_valid_version(self.python_version):
-            raise ComfyDockError(f"Invalid Python version format: {self.python_version}")
-
-        if self.cuda_version and not self._is_valid_cuda_version(self.cuda_version):
-            raise ComfyDockError(f"Invalid CUDA version format: {self.cuda_version}")
-
-        # Platform validation
-        valid_platforms = {'linux', 'darwin', 'win32'}
-        if self.platform not in valid_platforms:
-            raise ComfyDockError(f"Invalid platform: {self.platform}. Must be one of: {', '.join(valid_platforms)}")
-
-        # ComfyUI version validation (required)
-        if not self.comfyui_version:
-            raise ComfyDockError("ComfyUI version is required")
-
-    @staticmethod
-    def _is_valid_version(version: str) -> bool:
-        """Check if version follows M.m.p format."""
-        pattern = r'^\d+\.\d+\.\d+$'
-        return bool(re.match(pattern, version))
-
-    @staticmethod
-    def _is_valid_cuda_version(version: str) -> bool:
-        """Check if CUDA version is valid (M.m format)."""
-        pattern = r'^\d+\.\d+$'
-        return bool(re.match(pattern, version))
-
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        result = {
-            'python_version': self.python_version,
-            'cuda_version': self.cuda_version,
-            'platform': self.platform,
-            'comfyui_version': self.comfyui_version
-        }
-        if self.architecture:
-            result['architecture'] = self.architecture
-        return result
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'SystemRequirements':
-        """Create instance from dictionary."""
-        return cls(**data)
-
-@dataclass
-class PyTorchSpec:
-    """PyTorch packages configuration with index URL."""
-
-    index_url: str
-    packages: dict[str, str] = field(default_factory=dict)
-
-    def validate(self) -> None:
-        """Validate PyTorch specification."""
-        if not self._is_valid_url(self.index_url):
-            raise ComfyDockError(f"Invalid PyTorch index URL: {self.index_url}")
-
-        if not self.packages:
-            raise ComfyDockError("PyTorch packages cannot be empty")
-
-        for package, version in self.packages.items():
-            if not self._is_valid_package_name(package):
-                raise ComfyDockError(f"Invalid package name: {package}")
-            if not self._is_valid_version(version):
-                raise ComfyDockError(f"Invalid version for {package}: {version}")
-
-    @staticmethod
-    def _is_valid_url(url: str) -> bool:
-        """Check if URL is absolute with scheme."""
-        try:
-            result = urlparse(url)
-            return bool(result.scheme and result.netloc)
-        except Exception:
-            return False
-
-    @staticmethod
-    def _is_valid_package_name(name: str) -> bool:
-        """Check if package name follows PEP 508."""
-        # Basic validation: alphanumeric with dash, underscore, dot
-        pattern = r'^[a-zA-Z0-9\-_\.]+$'
-        return bool(re.match(pattern, name))
-
-    @staticmethod
-    def _is_valid_version(version: str) -> bool:
-        """Check if version is valid (basic semver with optional suffix like +cu126)."""
-        pattern = r'^\d+\.\d+(\.\d+)?(\+[a-zA-Z0-9]+)?$'
-        return bool(re.match(pattern, version))
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'PyTorchSpec':
-        """Create instance from dictionary."""
-        return cls(**data)
-
-def create_system_requirements_from_detection(
-    python_version: str,
-    cuda_version: str | None = None,
-    platform: str = "linux",
-    architecture: str | None = None,
-    comfyui_version: str = ""
-) -> SystemRequirements:
-    """Create SystemRequirements from detection results."""
-    info = SystemRequirements(
-        python_version=python_version,
-        cuda_version=cuda_version,
-        platform=platform,
-        architecture=architecture,
-        comfyui_version=comfyui_version
-    )
-    info.validate()
-    return info
-
-
-@dataclass
-class SystemInfo:
-    """System information detected from a ComfyUI installation.
-    
-    This dataclass represents all system-level information needed
-    to recreate a ComfyUI environment.
-    """
-
-    # Python information
-    python_version: str
-    python_executable: Path | None = None
-    python_major_minor: str | None = None
-
-    # CUDA/GPU information
-    cuda_version: str | None = None
-    cuda_torch_version: str | None = None  # CUDA version PyTorch was built with
-
-    # PyTorch information
-    torch_version: str | None = None
-    pytorch_info: dict | None = None  # Full PyTorch detection results
-
-    # Platform information
-    platform: str = ""
-    architecture: str = ""
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for compatibility with existing code."""
-        result = {
-            'python_version': self.python_version,
-            'cuda_version': self.cuda_version,
-            'torch_version': self.torch_version,
-            'cuda_torch_version': self.cuda_torch_version,
-            'platform': self.platform,
-            'architecture': self.architecture,
-            'pytorch_info': self.pytorch_info
-        }
-
-        # Include optional fields if present
-        if self.python_executable:
-            result['python_executable'] = str(self.python_executable)
-        if self.python_major_minor:
-            result['python_major_minor'] = self.python_major_minor
-
-        return result
+    source: str  # 'development', 'registry', 'git'
+    filesystem_action: str  # 'disabled', 'deleted'
 
 # Progress and Utility Models
 
@@ -419,9 +280,22 @@ class ModelWithLocation:
     filename: str
     mtime: float
     last_seen: int
+    base_directory: str | None = None
     blake3_hash: str | None = None
     sha256_hash: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def category(self) -> str:
+        """Get model category based on relative path.
+
+        Returns the ComfyUI standard directory category (e.g., 'checkpoints', 'loras', 'vae')
+        or 'custom' if the model is not in a standard directory.
+
+        Returns:
+            Category name or 'custom'
+        """
+        return get_model_category(self.relative_path)
 
     def validate(self) -> None:
         """Validate model with location entry."""
@@ -444,30 +318,39 @@ class ModelWithLocation:
         return cls(**data)
 
 
-# Cache Models
+@dataclass
+class ModelSourceStatus:
+    """Status of a model's download sources."""
+    model: "ManifestModel"
+    available_locally: bool
+
 
 @dataclass
-class CachedNodeInfo:
-    """Information about a cached custom node."""
-    cache_key: str
-    name: str
-    install_method: str
-    url: str
-    ref: str | None = None
-    cached_at: str = ""
-    last_accessed: str = ""
-    access_count: int = 0
-    size_bytes: int = 0
-    content_hash: str | None = None
-    source_info: dict | None = None
+class ModelSourceResult:
+    """Result of adding a source to a model."""
+    success: bool
+    model: "ManifestModel | None" = None  # The model object (populated on success)
+    error: str | None = None
+    identifier: str | None = None  # Original identifier (hash or filename)
+    model_hash: str | None = None  # Resolved hash
+    source_type: str | None = None  # "civitai", "huggingface", "custom"
+    url: str | None = None  # Added URL
+    matches: list["ManifestModel"] | None = None  # For ambiguous filename errors
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
-        return asdict(self)
 
-    @classmethod
-    def from_dict(cls, data: dict) -> 'CachedNodeInfo':
-        """Create from dictionary."""
-        return cls(**data)
+@dataclass
+class ModelDetails:
+    """Complete model information including all locations and sources."""
+    model: ModelWithLocation
+    all_locations: list[dict]
+    sources: list[dict]
+
+
+@dataclass
+class ModelWithoutSourceInfo:
+    """Information about a model missing source URLs during export."""
+    filename: str
+    hash: str
+    workflows: list[str] = field(default_factory=list)
 
 

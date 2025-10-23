@@ -1,15 +1,25 @@
 """Environment-specific commands for ComfyDock CLI - Simplified."""
+from __future__ import annotations
 
 import sys
 from functools import cached_property
+from typing import TYPE_CHECKING
 
-from comfydock_core.core.workspace import Workspace
-from comfydock_core.core.environment import Environment
-from comfydock_core.models.environment import EnvironmentStatus
+from comfydock_core.models.exceptions import CDEnvironmentError, CDNodeConflictError, UVCommandError
+from comfydock_core.utils.uv_error_handler import handle_uv_error
 
-from .logging.logging_config import get_logger
-from .logging.environment_logger import with_env_logging
+from .formatters.error_formatter import NodeErrorFormatter
+from .strategies.interactive import InteractiveModelStrategy, InteractiveNodeStrategy
+
+if TYPE_CHECKING:
+    from comfydock_core.core.environment import Environment
+    from comfydock_core.core.workspace import Workspace
+    from comfydock_core.models.environment import EnvironmentStatus
+    from comfydock_core.models.workflow import WorkflowAnalysisStatus
+
 from .cli_utils import get_workspace_or_exit
+from .logging.environment_logger import with_env_logging
+from .logging.logging_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -22,7 +32,7 @@ class EnvironmentCommands:
         pass
 
     @cached_property
-    def workspace(self) -> "Workspace":
+    def workspace(self) -> Workspace:
         return get_workspace_or_exit()
 
     def _get_env(self, args) -> Environment:
@@ -42,7 +52,7 @@ class EnvironmentCommands:
             try:
                 env = self.workspace.get_environment(args.target_env)
                 return env
-            except:
+            except Exception:
                 print(f"✗ Unknown environment: {args.target_env}")
                 print("Available environments:")
                 for e in self.workspace.list_environments():
@@ -58,42 +68,14 @@ class EnvironmentCommands:
             sys.exit(1)
         return active
 
-    def _get_env_name(self, args) -> str | None:
-        """Get environment name from global -e flag or active environment.
-        
-        This is used by the @with_env_logging decorator to determine which
-        environment log file to write to.
-        
-        Args:
-            args: Parsed command line arguments
-            
-        Returns:
-            Environment name string, or None if no environment available
-        """
-        # Check global -e flag first
-        if hasattr(args, 'target_env') and args.target_env:
-            # Validate it exists
-            try:
-                self.workspace.get_environment(args.target_env)
-                return args.target_env
-            except Exception as e:
-                logger.debug(f"Failed to get environment '{args.target_env}': {e}")
-                return None
-
-        # Fall back to active environment
-        try:
-            active = self.workspace.get_active_environment()
-            return active.name if active else None
-        except Exception as e:
-            logger.debug(f"Failed to get active environment: {e}")
-            return None
-
     # === Commands that operate ON environments ===
 
     @with_env_logging("env create")
-    def create(self, args):
+    def create(self, args, logger=None):
         """Create a new environment."""
         print(f"🚀 Creating environment: {args.name}")
+        print("   This will download PyTorch and dependencies (may take a few minutes)...")
+        print()
 
         try:
             self.workspace.create_environment(
@@ -103,14 +85,18 @@ class EnvironmentCommands:
                 template_path=args.template
             )
         except Exception as e:
+            if logger:
+                logger.error(f"Environment creation failed for '{args.name}': {e}", exc_info=True)
             print(f"✗ Failed to create environment: {e}", file=sys.stderr)
             sys.exit(1)
-            
+
         if args.use:
             try:
                 self.workspace.set_active_environment(args.name)
-                
+
             except Exception as e:
+                if logger:
+                    logger.error(f"Failed to set active environment '{args.name}': {e}", exc_info=True)
                 print(f"✗ Failed to set active environment: {e}", file=sys.stderr)
                 sys.exit(1)
 
@@ -118,38 +104,41 @@ class EnvironmentCommands:
         if args.use:
             print(f"✓ Active environment set to: {args.name}")
             print("\nNext steps:")
-            print(f"  • Run ComfyUI: comfydock run")
-            print(f"  • Add nodes: comfydock node add <node-name>")
+            print("  • Run ComfyUI: comfydock run")
+            print("  • Add nodes: comfydock node add <node-name>")
         else:
             print("\nNext steps:")
             print(f"  • Run ComfyUI: comfydock -e {args.name} run")
             print(f"  • Add nodes: comfydock -e {args.name} node add <node-name>")
             print(f"  • Set as active: comfydock use {args.name}")
 
-
     @with_env_logging("env use")
-    def use(self, args):
+    def use(self, args, logger=None):
         """Set the active environment."""
+        from comfydock_cli.utils.progress import create_model_sync_progress
+
         try:
-            self.workspace.set_active_environment(args.name)
+            progress = create_model_sync_progress()
+            self.workspace.set_active_environment(args.name, progress=progress)
         except Exception as e:
+            if logger:
+                logger.error(f"Failed to set active environment '{args.name}': {e}", exc_info=True)
             print(f"✗ Failed to set active environment: {e}", file=sys.stderr)
             sys.exit(1)
 
         print(f"✓ Active environment set to: {args.name}")
         print("You can now run commands without the -e flag")
 
-
     @with_env_logging("env delete")
-    def delete(self, args):
+    def delete(self, args, logger=None):
         """Delete an environment."""
-        try:
-            self.workspace.get_environment(args.name)
-        except:
-            print(f"✗ Unknown environment: {args.name}")
-            print("Available environments:")
-            for e in self.workspace.list_environments():
-                print(f"  • {e.name}")
+        # Check that environment exists (don't require active environment)
+        env_path = self.workspace.paths.environments / args.name
+        if not env_path.exists():
+            print(f"✗ Environment '{args.name}' not found")
+            print("\nAvailable environments:")
+            for env in self.workspace.list_environments():
+                print(f"  • {env.name}")
             sys.exit(1)
 
         # Confirm deletion unless --yes is specified
@@ -164,6 +153,8 @@ class EnvironmentCommands:
         try:
             self.workspace.delete_environment(args.name)
         except Exception as e:
+            if logger:
+                logger.error(f"Environment deletion failed for '{args.name}': {e}", exc_info=True)
             print(f"✗ Failed to delete environment: {e}", file=sys.stderr)
             sys.exit(1)
 
@@ -177,9 +168,6 @@ class EnvironmentCommands:
         env = self._get_env(args)
         comfyui_args = args.args if hasattr(args, 'args') else []
 
-        print("🔁 Syncing environment...")
-        env.sync()
-
         print(f"🎮 Starting ComfyUI in environment: {env.name}")
         if comfyui_args:
             print(f"   Arguments: {' '.join(comfyui_args)}")
@@ -192,149 +180,305 @@ class EnvironmentCommands:
 
     @with_env_logging("env status")
     def status(self, args):
-        """Show environment status with detailed changes."""
+        """Show environment status using semantic methods."""
         env = self._get_env(args)
-
-        print(f"Environment: {env.name}")
-        print(f"Path: {env.path}")
 
         status = env.status()
 
-        # Show sync status
-        if not status.is_synced:
-            print('\n===================================================')
-            print("🔁 Sync Status: ✗ Out of sync with pyproject.toml")
-            print('===================================================')
-            # print("  Environment does not match pyproject.toml")
-            print()
+        # Clean state - everything is good
+        if status.is_synced and not status.git.has_changes and status.workflow.sync_status.total_count == 0:
+            print(f"Environment: {env.name} ✓")
+            print("\n✓ No workflows")
+            print("✓ No uncommitted changes")
+            return
+
+        # Show environment name
+        print(f"Environment: {env.name}")
+
+        # Workflows section - consolidated with issues
+        if status.workflow.sync_status.total_count > 0 or status.workflow.sync_status.has_changes:
+            print("\n📋 Workflows:")
+
+            # Group workflows by state and show with issues inline
+            all_workflows = {}
+
+            # Build workflow map with their analysis
+            for wf_analysis in status.workflow.analyzed_workflows:
+                all_workflows[wf_analysis.name] = {
+                    'state': wf_analysis.sync_state,
+                    'has_issues': wf_analysis.has_issues,
+                    'analysis': wf_analysis
+                }
+
+            # Show workflows with inline issue details
+            for name in status.workflow.sync_status.synced:
+                if name in all_workflows:
+                    wf = all_workflows[name]['analysis']
+                    # Show warning if has issues OR path sync needed
+                    if wf.has_issues or wf.has_path_sync_issues:
+                        print(f"  ⚠️  {name} (synced)")
+                        self._print_workflow_issues(wf)
+                    else:
+                        print(f"  ✓ {name}")
+
+            for name in status.workflow.sync_status.new:
+                if name in all_workflows:
+                    wf = all_workflows[name]['analysis']
+                    # Show warning if has issues OR path sync needed
+                    if wf.has_issues or wf.has_path_sync_issues:
+                        print(f"  ⚠️  {name} (new)")
+                        self._print_workflow_issues(wf)
+                    else:
+                        print(f"  🆕 {name} (new, ready to commit)")
+
+            for name in status.workflow.sync_status.modified:
+                if name in all_workflows:
+                    wf = all_workflows[name]['analysis']
+                    # Show warning if has issues OR path sync needed
+                    if wf.has_issues or wf.has_path_sync_issues:
+                        print(f"  ⚠️  {name} (modified)")
+                        self._print_workflow_issues(wf)
+                    else:
+                        print(f"  📝 {name} (modified)")
+
+            for name in status.workflow.sync_status.deleted:
+                print(f"  🗑️  {name} (deleted)")
+
+        # Environment drift (manual edits)
+        if not status.comparison.is_synced:
+            print("\n⚠️  Environment needs repair:")
 
             if status.comparison.missing_nodes:
-                print(f"  Missing nodes ({len(status.comparison.missing_nodes)}):")
-                for node in status.comparison.missing_nodes:
-                    print(f"    - {node}")
+                print(f"  • {len(status.comparison.missing_nodes)} nodes in pyproject.toml not installed")
 
             if status.comparison.extra_nodes:
-                print(f"  Extra nodes ({len(status.comparison.extra_nodes)}):")
-                for node in status.comparison.extra_nodes:
-                    print(f"    + {node}")
+                print(f"  • {len(status.comparison.extra_nodes)} extra nodes on filesystem")
 
             if status.comparison.version_mismatches:
-                print(f"  Version mismatches ({len(status.comparison.version_mismatches)}):")
-                for mismatch in status.comparison.version_mismatches:
-                    print(f"    ~ {mismatch['name']}: {mismatch['actual']} → {mismatch['expected']}")
+                print(f"  • {len(status.comparison.version_mismatches)} version mismatches")
 
             if not status.comparison.packages_in_sync:
-                print(f"  {status.comparison.package_sync_message}")
+                print("  • Python packages out of sync")
 
-            if not status.workflow.in_sync:
-                out_of_sync_workflows = [
-                    name for name, sync_status in status.workflow.sync_status.items()
-                    if sync_status != "in_sync"
-                ]
-                print(f"  Workflows ({len(out_of_sync_workflows)}):")
-                for name in out_of_sync_workflows:
-                    sync_status = status.workflow.sync_status[name]
-                    if sync_status == "comfyui_newer":
-                        print(f"    ✏️  {name} (modified in ComfyUI)")
-                    elif sync_status == "tracked_newer":
-                        print(f"    📂 {name} (modified in .cec)")
-                    elif sync_status == "missing_comfyui":
-                        print(f"    🔄 {name} (needs restore to ComfyUI)")
-                    elif sync_status == "missing_tracked":
-                        print(f"    📋 {name} (needs update to .cec)")
-                    else:
-                        print(f"    ⚠️  {name} ({sync_status})")
+        # Git changes
+        if status.git.has_changes:
+            has_specific_changes = (
+                status.git.nodes_added or
+                status.git.nodes_removed or
+                status.git.workflow_changes
+            )
 
-            # print("  Run 'comfydock sync' to apply changes")
-            print("\n  Run 'comfydock sync' to update tracked files")
-        else:
-            print('\n===================================================')
-            print("🔁 Sync Status: ✓ In sync")
-            print('===================================================')
-            # print("  Environment matches pyproject.toml")
+            if has_specific_changes:
+                print("\n📦 Uncommitted changes:")
+                if status.git.nodes_added:
+                    for node in status.git.nodes_added[:3]:
+                        name = node['name'] if isinstance(node, dict) else node
+                        print(f"  • Added node: {name}")
+                    if len(status.git.nodes_added) > 3:
+                        print(f"  • ... and {len(status.git.nodes_added) - 3} more nodes")
 
-        # Show git status with detailed changes
-        if not status.git.has_changes:
-            print('\n===================================================')
-            print("📦 Git Status: ✓ Clean")
-            print('===================================================')
-        else:
-            print('\n===================================================')
-            print("📦 Git Status: ~ Modified (uncommitted changes)")
-            print('===================================================')
+                if status.git.nodes_removed:
+                    for node in status.git.nodes_removed[:3]:
+                        name = node['name'] if isinstance(node, dict) else node
+                        print(f"  • Removed node: {name}")
+                    if len(status.git.nodes_removed) > 3:
+                        print(f"  • ... and {len(status.git.nodes_removed) - 3} more nodes")
 
-            # Show node changes
-            if status.git.nodes_added or status.git.nodes_removed:
-                print("\n  Custom Nodes:")
-                for node in status.git.nodes_added:
+                if status.git.workflow_changes:
+                    count = len(status.git.workflow_changes)
+                    print(f"  • {count} workflow(s) changed")
+            else:
+                # Generic message for other changes (e.g., model resolutions)
+                print("\n📦 Uncommitted changes:")
+                print("  • Configuration updated")
+
+        # Dev node drift (requirements changed)
+        dev_drift = env.check_development_node_drift()
+        if dev_drift:
+            print("\n🔧 Dev node updates available:")
+            for node_name in list(dev_drift.keys())[:3]:
+                print(f"  • {node_name}")
+            if len(dev_drift) > 3:
+                print(f"  • ... and {len(dev_drift) - 3} more")
+
+        # Suggested actions - smart and contextual
+        self._show_smart_suggestions(status, dev_drift)
+
+    # Removed: _has_uninstalled_packages - this logic is now in core's WorkflowAnalysisStatus
+
+    def _print_workflow_issues(self, wf_analysis: WorkflowAnalysisStatus):
+        """Print compact workflow issues summary using model properties only."""
+        # Build compact summary using WorkflowAnalysisStatus properties (no pyproject access!)
+        parts = []
+
+        # Path sync warnings (FIRST - most actionable fix)
+        if wf_analysis.models_needing_path_sync_count > 0:
+            parts.append(f"{wf_analysis.models_needing_path_sync_count} model paths need syncing")
+
+        # Use the uninstalled_count property (populated by core)
+        if wf_analysis.uninstalled_count > 0:
+            parts.append(f"{wf_analysis.uninstalled_count} packages needed for installation")
+
+        # Resolution issues
+        if wf_analysis.resolution.nodes_unresolved:
+            parts.append(f"{len(wf_analysis.resolution.nodes_unresolved)} nodes couldn't be resolved")
+        if wf_analysis.resolution.models_unresolved:
+            parts.append(f"{len(wf_analysis.resolution.models_unresolved)} models not found")
+        if wf_analysis.resolution.models_ambiguous:
+            parts.append(f"{len(wf_analysis.resolution.models_ambiguous)} ambiguous models")
+
+        # Show download intents as pending work (not blocking but needs attention)
+        download_intents = [m for m in wf_analysis.resolution.models_resolved if m.match_type == "download_intent"]
+        if download_intents:
+            parts.append(f"{len(download_intents)} models queued for download")
+
+        # Print compact issue line
+        if parts:
+            print(f"      {', '.join(parts)}")
+
+    def _show_smart_suggestions(self, status, dev_drift):
+        """Show contextual suggestions based on current state."""
+        suggestions = []
+
+        # Environment drift - highest priority
+        if not status.comparison.is_synced:
+            suggestions.append("Run: comfydock repair")
+            print("\n💡 Next:")
+            for s in suggestions:
+                print(f"  {s}")
+            return
+
+        # Path sync warnings (prioritize - quick fix!)
+        workflows_needing_sync = [
+            w for w in status.workflow.analyzed_workflows
+            if w.has_path_sync_issues
+        ]
+
+        if workflows_needing_sync:
+            workflow_names = [w.name for w in workflows_needing_sync]
+            if len(workflow_names) == 1:
+                suggestions.append(f"Sync model paths: comfydock workflow resolve \"{workflow_names[0]}\"")
+            else:
+                suggestions.append(f"Sync model paths in {len(workflow_names)} workflows: comfydock workflow resolve \"<name>\"")
+
+        # Check for workflows with download intents
+        workflows_with_downloads = []
+        for wf in status.workflow.analyzed_workflows:
+            download_intents = [m for m in wf.resolution.models_resolved if m.match_type == "download_intent"]
+            if download_intents:
+                workflows_with_downloads.append(wf.name)
+
+        # Workflows with issues (unresolved/ambiguous)
+        workflows_with_issues = [w.name for w in status.workflow.workflows_with_issues]
+        if workflows_with_issues:
+            if len(workflows_with_issues) == 1:
+                suggestions.append(f"Fix issues: comfydock workflow resolve \"{workflows_with_issues[0]}\"")
+            else:
+                suggestions.append("Fix workflows (pick one):")
+                for wf_name in workflows_with_issues[:3]:
+                    suggestions.append(f"  comfydock workflow resolve \"{wf_name}\"")
+                if len(workflows_with_issues) > 3:
+                    suggestions.append(f"  ... and {len(workflows_with_issues) - 3} more")
+
+            # Only suggest committing if there are uncommitted changes
+            if status.git.has_changes:
+                suggestions.append("Or commit anyway: comfydock commit -m \"...\" --allow-issues")
+
+        # Workflows with queued downloads (no other issues)
+        elif workflows_with_downloads:
+            if len(workflows_with_downloads) == 1:
+                suggestions.append(f"Complete downloads: comfydock workflow resolve \"{workflows_with_downloads[0]}\"")
+            else:
+                suggestions.append("Complete downloads (pick one):")
+                for wf_name in workflows_with_downloads[:3]:
+                    suggestions.append(f"  comfydock workflow resolve \"{wf_name}\"")
+
+        # Ready to commit (workflow changes OR git changes)
+        elif status.workflow.sync_status.has_changes and status.workflow.is_commit_safe:
+            suggestions.append("Commit workflows: comfydock commit -m \"<message>\"")
+        elif status.git.has_changes:
+            # Uncommitted pyproject changes without workflow issues
+            suggestions.append("Commit changes: comfydock commit -m \"<message>\"")
+
+        # Dev node updates
+        if dev_drift:
+            for node_name in list(dev_drift.keys())[:1]:
+                suggestions.append(f"Update dev node: comfydock node update {node_name}")
+
+        # Show suggestions if any
+        if suggestions:
+            print("\n💡 Next:")
+            for s in suggestions:
+                print(f"  {s}")
+
+    def _show_git_changes(self, status: EnvironmentStatus):
+        """Helper method to show git changes in a structured way."""
+        # Show node changes
+        if status.git.nodes_added or status.git.nodes_removed:
+            print("\n  Custom Nodes:")
+            for node in status.git.nodes_added:
+                if isinstance(node, dict):
+                    name = node['name']
+                    suffix = ' (development)' if node.get('is_development') else ''
+                    print(f"    + {name}{suffix}")
+                else:
+                    # Backwards compatibility for string format
                     print(f"    + {node}")
-                for node in status.git.nodes_removed:
+            for node in status.git.nodes_removed:
+                if isinstance(node, dict):
+                    name = node['name']
+                    suffix = ' (development)' if node.get('is_development') else ''
+                    print(f"    - {name}{suffix}")
+                else:
+                    # Backwards compatibility for string format
                     print(f"    - {node}")
 
-            # Show dependency changes
-            if status.git.dependencies_added or status.git.dependencies_removed or status.git.dependencies_updated:
-                print("\n  Python Packages:")
-                for dep in status.git.dependencies_added:
-                    version = dep.get('version', 'any')
-                    source = dep.get('source', '')
-                    if source:
-                        print(f"    + {dep['name']} ({version}) [{source}]")
-                    else:
-                        print(f"    + {dep['name']} ({version})")
-                for dep in status.git.dependencies_removed:
-                    version = dep.get('version', 'any')
-                    print(f"    - {dep['name']} ({version})")
-                for dep in status.git.dependencies_updated:
-                    old = dep.get('old_version', 'any')
-                    new = dep.get('new_version', 'any')
-                    print(f"    ~ {dep['name']}: {old} → {new}")
+        # Show dependency changes
+        if status.git.dependencies_added or status.git.dependencies_removed or status.git.dependencies_updated:
+            print("\n  Python Packages:")
+            for dep in status.git.dependencies_added:
+                version = dep.get('version', 'any')
+                source = dep.get('source', '')
+                if source:
+                    print(f"    + {dep['name']} ({version}) [{source}]")
+                else:
+                    print(f"    + {dep['name']} ({version})")
+            for dep in status.git.dependencies_removed:
+                version = dep.get('version', 'any')
+                print(f"    - {dep['name']} ({version})")
+            for dep in status.git.dependencies_updated:
+                old = dep.get('old_version', 'any')
+                new = dep.get('new_version', 'any')
+                print(f"    ~ {dep['name']}: {old} → {new}")
 
-            # Show constraint changes
-            if status.git.constraints_added or status.git.constraints_removed:
-                print("\n  Constraint Dependencies:")
-                for constraint in status.git.constraints_added:
-                    print(f"    + {constraint}")
-                for constraint in status.git.constraints_removed:
-                    print(f"    - {constraint}")
+        # Show constraint changes
+        if status.git.constraints_added or status.git.constraints_removed:
+            print("\n  Constraint Dependencies:")
+            for constraint in status.git.constraints_added:
+                print(f"    + {constraint}")
+            for constraint in status.git.constraints_removed:
+                print(f"    - {constraint}")
 
-            # Show workflow changes (tracking and content)
-            workflow_changes_shown = False
+        # Show workflow changes (tracking and content)
+        workflow_changes_shown = False
 
-            # Show tracking changes
-            if status.git.workflows_tracked or status.git.workflows_untracked:
-                if not workflow_changes_shown:
-                    print("\n  Workflows:")
-                    workflow_changes_shown = True
-                for name in status.git.workflows_tracked:
-                    print(f"    📋 {name} (now tracked)")
-                for name in status.git.workflows_untracked:
-                    print(f"    ❌ {name} (untracked)")
+        # Workflow tracking no longer needed - all workflows are automatically managed
 
-            # Show workflow file changes (standard git style)
-            if status.git.workflow_changes:
-                if not workflow_changes_shown:
-                    print("\n  Workflows:")
-                    workflow_changes_shown = True
-                for workflow_name, git_status in status.git.workflow_changes.items():
-                    if git_status == "modified":
-                        print(f"    ~ {workflow_name}.json")
-                    elif git_status == "added":
-                        print(f"    + {workflow_name}.json")
-                    elif git_status == "deleted":
-                        print(f"    - {workflow_name}.json")
-
-
-            print("\n  Run 'comfydock commit -m \"message\"' to save changes")
-
-            # Show full diff if verbose
-            if hasattr(args, 'verbose') and args.verbose and status.git.diff:
-                print("\n" + "=" * 60)
-                print("Full diff:")
-                print("=" * 60)
-                print(status.git.diff)
+        # Show workflow file changes
+        if status.git.workflow_changes:
+            if not workflow_changes_shown:
+                print("\n  Workflows:")
+                workflow_changes_shown = True
+            for workflow_name, git_status in status.git.workflow_changes.items():
+                if git_status == "modified":
+                    print(f"    ~ {workflow_name}.json")
+                elif git_status == "added":
+                    print(f"    + {workflow_name}.json")
+                elif git_status == "deleted":
+                    print(f"    - {workflow_name}.json")
 
     @with_env_logging("env log")
-    def log(self, args):
+    def log(self, args, logger=None):
         """Show environment version history with simple identifiers."""
         env = self._get_env(args)
 
@@ -365,64 +509,78 @@ class EnvironmentCommands:
             print("Use 'comfydock rollback <version>' to restore to a specific version")
 
         except Exception as e:
+            if logger:
+                logger.error(f"Failed to read version history for environment '{env.name}': {e}", exc_info=True)
             print(f"✗ Could not read version history: {e}", file=sys.stderr)
             sys.exit(1)
 
     # === Node management ===
 
     @with_env_logging("env node add")
-    def node_add(self, args):
+    def node_add(self, args, logger=None):
         """Add a custom node - directly modifies pyproject.toml."""
         env = self._get_env(args)
 
-        print(f"📦 Adding node: {args.node_name}")
+        if args.dev:
+            print(f"📦 Adding development node: {args.node_name}")
+        else:
+            print(f"📦 Adding node: {args.node_name}")
 
         # Directly add the node
         try:
-            env.add_node(args.node_name, no_test=args.no_test)
+            node_info = env.add_node(args.node_name, is_development=args.dev, no_test=args.no_test, force=args.force)
+        except CDNodeConflictError as e:
+            # Use formatter to render error with CLI commands
+            formatted = NodeErrorFormatter.format_conflict_error(e)
+            if logger:
+                logger.error(f"Node conflict for '{args.node_name}': {e}", exc_info=True)
+            print(f"✗ Cannot add node '{args.node_name}'", file=sys.stderr)
+            print(formatted, file=sys.stderr)
+            sys.exit(1)
         except Exception as e:
+            if logger:
+                logger.error(f"Node add failed for '{args.node_name}': {e}", exc_info=True)
             print(f"✗ Failed to add node '{args.node_name}'", file=sys.stderr)
             print(f"   {e}", file=sys.stderr)
             sys.exit(1)
 
-        print(f"✓ Node '{args.node_name}' added to pyproject.toml")
+        if args.dev:
+            print(f"✓ Development node '{node_info.name}' added and tracked")
+        else:
+            print(f"✓ Node '{node_info.name}' added to pyproject.toml")
 
-        # Now try to sync environment:
-        if not env.status().is_synced:
-            print("🔁 Syncing environment...")
-            env.sync()
-
-        # if result.resolution_success is not None:
-        #     if result.conflict_message:
-        #         print(result.conflict_message)
         print(f"\nRun 'comfydock -e {env.name} env status' to review changes")
-        # print(f"Run 'comfydock -e {env.name} env sync' to apply changes")
-
 
     @with_env_logging("env node remove")
-    def node_remove(self, args):
-        """Remove a custom node - directly modifies pyproject.toml."""
+    def node_remove(self, args, logger=None):
+        """Remove a custom node - handles filesystem immediately."""
         env = self._get_env(args)
 
         print(f"🗑 Removing node: {args.node_name}")
 
-        # Directly remove the node
+        # Remove the node (handles filesystem imperatively)
         try:
-            env.remove_node(args.node_name)
+            result = env.remove_node(args.node_name)
         except Exception as e:
+            if logger:
+                logger.error(f"Node remove failed for '{args.node_name}': {e}", exc_info=True)
             print(f"✗ Failed to remove node '{args.node_name}'", file=sys.stderr)
             print(f"   {e}", file=sys.stderr)
             sys.exit(1)
 
-        print(f"✓ Node '{args.node_name}' removed from pyproject.toml")
-
-        # Now try to sync environment:
-        if not env.status().is_synced:
-            print("🔁 Syncing environment...")
-            env.sync()
+        # Render result based on node type and action
+        if result.source == "development":
+            if result.filesystem_action == "disabled":
+                print(f"ℹ️  Development node '{result.name}' removed from tracking")
+                print(f"   Files preserved at: custom_nodes/{result.name}.disabled/")
+            else:
+                print(f"✓ Development node '{result.name}' removed from tracking")
+        else:
+            print(f"✓ Node '{result.name}' removed from environment")
+            if result.filesystem_action == "deleted":
+                print("   (cached globally, can reinstall)")
 
         print(f"\nRun 'comfydock -e {env.name} env status' to review changes")
-        # print(f"Run 'comfydock -e {env.name} env sync' to apply changes")
 
     @with_env_logging("env node list")
     def node_list(self, args):
@@ -438,14 +596,69 @@ class EnvironmentCommands:
             return
 
         print(f"Custom nodes in '{env.name}':")
+
+        # List regular nodes
         for node_name, info in nodes.items():
+            if node_name == 'development':
+                continue  # Skip development section
             source = info.get('source', 'unknown')
             print(f"  • {node_name} ({source})")
+
+        # List development nodes
+        dev_nodes = nodes.get('development', {})
+        for dev_name, _dev_info in dev_nodes.items():
+            print(f"  • {dev_name} (development)")
+
+    @with_env_logging("env node update")
+    def node_update(self, args, logger=None):
+        """Update a custom node."""
+        from comfydock_core.strategies.confirmation import (
+            AutoConfirmStrategy,
+            InteractiveConfirmStrategy,
+        )
+
+        env = self._get_env(args)
+
+        print(f"🔄 Updating node: {args.node_name}")
+
+        # Choose confirmation strategy
+        strategy = AutoConfirmStrategy() if args.yes else InteractiveConfirmStrategy()
+
+        try:
+            result = env.update_node(
+                args.node_name,
+                confirmation_strategy=strategy,
+                no_test=args.no_test
+            )
+
+            if result.changed:
+                print(f"✓ {result.message}")
+
+                if result.source == 'development':
+                    if result.requirements_added:
+                        print("  Added dependencies:")
+                        for dep in result.requirements_added:
+                            print(f"    + {dep}")
+                    if result.requirements_removed:
+                        print("  Removed dependencies:")
+                        for dep in result.requirements_removed:
+                            print(f"    - {dep}")
+
+                print("\nRun 'comfydock status' to review changes")
+            else:
+                print(f"ℹ️  {result.message}")
+
+        except Exception as e:
+            if logger:
+                logger.error(f"Node update failed for '{args.node_name}': {e}", exc_info=True)
+            print(f"✗ Failed to update node '{args.node_name}'", file=sys.stderr)
+            print(f"   {e}", file=sys.stderr)
+            sys.exit(1)
 
     # === Constraint management ===
 
     @with_env_logging("env constraint add")
-    def constraint_add(self, args):
+    def constraint_add(self, args, logger=None):
         """Add constraint dependencies to [tool.uv]."""
         env = self._get_env(args)
 
@@ -456,6 +669,8 @@ class EnvironmentCommands:
             for package in args.packages:
                 env.add_constraint(package)
         except Exception as e:
+            if logger:
+                logger.error(f"Constraint add failed: {e}", exc_info=True)
             print("✗ Failed to add constraints", file=sys.stderr)
             print(f"   {e}", file=sys.stderr)
             sys.exit(1)
@@ -480,7 +695,7 @@ class EnvironmentCommands:
             print(f"  • {constraint}")
 
     @with_env_logging("env constraint remove")
-    def constraint_remove(self, args):
+    def constraint_remove(self, args, logger=None):
         """Remove constraint dependencies from [tool.uv]."""
         env = self._get_env(args)
 
@@ -495,6 +710,8 @@ class EnvironmentCommands:
                 else:
                     print(f"   Warning: constraint '{package}' not found")
         except Exception as e:
+            if logger:
+                logger.error(f"Constraint remove failed: {e}", exc_info=True)
             print("✗ Failed to remove constraints", file=sys.stderr)
             print(f"   {e}", file=sys.stderr)
             sys.exit(1)
@@ -508,9 +725,9 @@ class EnvironmentCommands:
 
     # === Git-based operations ===
 
-    @with_env_logging("env sync")
-    def sync(self, args):
-        """Apply changes: commit pyproject.toml and run uv sync."""
+    @with_env_logging("env repair")
+    def repair(self, args, logger=None):
+        """Repair environment to match pyproject.toml (for manual edits or git operations)."""
         env = self._get_env(args)
 
         # Get status first
@@ -522,40 +739,26 @@ class EnvironmentCommands:
 
         # Confirm unless --yes
         if not args.yes:
+            preview = status.get_sync_preview()
             print("This will apply the following changes:")
-            if status.comparison.missing_nodes:
-                print(f"  • Install {len(status.comparison.missing_nodes)} missing nodes:")
-                for node in status.comparison.missing_nodes:
-                    print(f"    - {node}")
-            if status.comparison.extra_nodes:
-                print(f"  • Remove {len(status.comparison.extra_nodes)} extra nodes:")
-                for node in status.comparison.extra_nodes:
-                    print(f"    - {node}")
-            if status.comparison.version_mismatches:
-                print(f"  • Update {len(status.comparison.version_mismatches)} nodes to correct versions:")
-                for mismatch in status.comparison.version_mismatches:
-                    print(f"    - {mismatch['name']}: {mismatch['actual']} → {mismatch['expected']}")
-            if not status.comparison.packages_in_sync:
-                print("  • Sync Python packages")
 
-            if not status.workflow.in_sync:
-                out_of_sync_workflows = [
-                    name for name, sync_status in status.workflow.sync_status.items()
-                    if sync_status != "in_sync"
-                ]
-                print(f"  • Sync {len(out_of_sync_workflows)} workflows:")
-                for name in out_of_sync_workflows:
-                    sync_status = status.workflow.sync_status[name]
-                    if sync_status == "comfyui_newer":
-                        print(f"    - {name} (update .cec from ComfyUI)")
-                    elif sync_status == "tracked_newer":
-                        print(f"    - {name} (update ComfyUI from .cec)")
-                    elif sync_status == "missing_comfyui":
-                        print(f"    - {name} (restore to ComfyUI)")
-                    elif sync_status == "missing_tracked":
-                        print(f"    - {name} (update to .cec)")
-                    else:
-                        print(f"    - {name} ({sync_status})")
+            if preview['nodes_to_install']:
+                print(f"  • Install {len(preview['nodes_to_install'])} missing nodes:")
+                for node in preview['nodes_to_install']:
+                    print(f"    - {node}")
+
+            if preview['nodes_to_remove']:
+                print(f"  • Remove {len(preview['nodes_to_remove'])} extra nodes:")
+                for node in preview['nodes_to_remove']:
+                    print(f"    - {node}")
+
+            if preview['nodes_to_update']:
+                print(f"  • Update {len(preview['nodes_to_update'])} nodes to correct versions:")
+                for mismatch in preview['nodes_to_update']:
+                    print(f"    - {mismatch['name']}: {mismatch['actual']} → {mismatch['expected']}")
+
+            if preview['packages_to_sync']:
+                print("  • Sync Python packages")
 
             response = input("\nContinue? (y/N): ")
             if response.lower() != 'y':
@@ -564,10 +767,18 @@ class EnvironmentCommands:
 
         print(f"⚙️ Applying changes to: {env.name}")
 
-        # Apply changes
+        # Apply changes with interactive model resolver
         try:
-            env.sync()
+            sync_result = env.sync()
+
+            # Check for errors
+            if not sync_result.success:
+                for error in sync_result.errors:
+                    print(f"⚠️  {error}", file=sys.stderr)
+
         except Exception as e:
+            if logger:
+                logger.error(f"Sync failed for environment '{env.name}': {e}", exc_info=True)
             print(f"✗ Failed to apply changes: {e}", file=sys.stderr)
             sys.exit(1)
 
@@ -575,44 +786,32 @@ class EnvironmentCommands:
         print(f"\nEnvironment '{env.name}' is ready to use")
 
     @with_env_logging("env rollback")
-    def rollback(self, args):
+    def rollback(self, args, logger=None):
         """Rollback to previous state or discard uncommitted changes."""
+        from .strategies.rollback import AutoRollbackStrategy, InteractiveRollbackStrategy
+
         env = self._get_env(args)
 
         try:
-            # Discard uncommitted changes (with confirmation)
-            from comfydock_core.utils.git import get_uncommitted_changes
-            uncommitted_files = get_uncommitted_changes(env.cec_path)
-
-            if not args.target and not uncommitted_files:
-                print("✓ No uncommitted changes to rollback")
-                return
-
-            if uncommitted_files:
-                print(f"⚠️  This will discard all uncommitted changes in environment '{env.name}':")
-                for file in uncommitted_files[:5]:  # Show first 5 files
-                    print(f"    • {file}")
-                if len(uncommitted_files) > 5:
-                    print(f"    ... and {len(uncommitted_files) - 5} more files")
-
-                if not getattr(args, 'yes', False):
-                    response = input("\nAre you sure? This cannot be undone. (y/N): ")
-                    if response.lower() != 'y':
-                        print("Rollback cancelled")
-                        return
-
             if args.target:
                 print(f"⏮ Rolling back environment '{env.name}' to {args.target}")
             else:
                 print(f"⏮ Discarding uncommitted changes in environment '{env.name}'")
 
-            env.rollback(target=args.target)
-            print("✓ Successfully rolled back")
+            # Choose strategy based on --yes flag
+            if getattr(args, 'yes', False) or getattr(args, 'force', False):
+                strategy = AutoRollbackStrategy()
+            else:
+                strategy = InteractiveRollbackStrategy()
 
-            # Now try to sync environment:
-            if not env.status().is_synced:
-                print("🔁 Syncing environment...")
-                env.sync()
+            # Execute rollback with strategy
+            env.rollback(
+                target=args.target,
+                force=getattr(args, 'force', False),
+                strategy=strategy
+            )
+
+            print("✓ Rollback complete")
 
             if args.target:
                 print(f"\nEnvironment is now at version {args.target}")
@@ -627,99 +826,78 @@ class EnvironmentCommands:
             print(f"✗ {e}", file=sys.stderr)
             print("\nTip: Run 'comfydock log' to see available versions")
             sys.exit(1)
+        except CDEnvironmentError as e:
+            print(f"✗ {e}", file=sys.stderr)
+            sys.exit(1)
         except Exception as e:
+            if logger:
+                logger.error(f"Rollback failed for environment '{env.name}': {e}", exc_info=True)
             print(f"✗ Rollback failed: {e}", file=sys.stderr)
             sys.exit(1)
 
     @with_env_logging("env commit")
-    def commit(self, args):
-        """Commit current state without applying (git commit only)."""
+    def commit(self, args, logger=None):
+        """Commit workflows with optional issue resolution."""
         env = self._get_env(args)
 
-        # Get or generate commit message
-        if args.message:
-            message = args.message
-        else:
-            # Auto-generate message based on changes
-            status = env.status()
-            if not status.git.has_changes:
+        print("📋 Analyzing workflows...")
+
+        # Get workflow status (read-only analysis)
+        try:
+            workflow_status = env.workflow_manager.get_workflow_status()
+
+            if logger:
+                logger.debug(f"Workflow status: {workflow_status.sync_status}")
+
+            # Check if there are ANY committable changes (workflows OR git)
+            if not env.has_committable_changes():
                 print("✓ No changes to commit")
                 return
 
-            message = self._generate_commit_message(status)
-            print(f"Auto-generated message: {message}")
-
-        # Commit changes
-        from comfydock_core.utils.git import git_commit
-
-        try:
-            git_commit(env.cec_path, message)
-            print(f"✓ Committed changes: {message}")
         except Exception as e:
+            if logger:
+                logger.error(f"Workflow analysis failed: {e}", exc_info=True)
+            print(f"✗ Failed to analyze workflows: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        # Check commit safety
+        if not workflow_status.is_commit_safe and not getattr(args, 'allow_issues', False):
+            print("\n⚠ Cannot commit - workflows have unresolved issues:\n")
+            for wf in workflow_status.workflows_with_issues:
+                print(f"  • {wf.name}: {wf.issue_summary}")
+
+            print("\n💡 Options:")
+            print("  1. Resolve issues: comfydock workflow resolve \"<name>\"")
+            print("  2. Force commit: comfydock commit -m 'msg' --allow-issues")
+            sys.exit(1)
+
+        # Execute commit with chosen strategies
+        try:
+            env.execute_commit(
+                workflow_status=workflow_status,
+                message=args.message,
+                allow_issues=getattr(args, 'allow_issues', False)
+            )
+        except Exception as e:
+            if logger:
+                logger.error(f"Commit failed for environment '{env.name}': {e}", exc_info=True)
             print(f"✗ Commit failed: {e}", file=sys.stderr)
             sys.exit(1)
 
-    def _generate_commit_message(self, status: EnvironmentStatus) -> str:
-        """Generate commit message based on git changes."""
-        parts = []
+        # Display results on success
+        print(f"✅ Commit successful: {args.message if args.message else 'Update workflows'}")
 
-        # Node changes (most specific)
-        if status.git.nodes_added and status.git.nodes_removed:
-            parts.append(f"Update nodes: +{len(status.git.nodes_added)}, -{len(status.git.nodes_removed)}")
-        elif status.git.nodes_added:
-            if len(status.git.nodes_added) == 1:
-                parts.append(f"Add {status.git.nodes_added[0]}")
-            else:
-                parts.append(f"Add {len(status.git.nodes_added)} nodes")
-        elif status.git.nodes_removed:
-            if len(status.git.nodes_removed) == 1:
-                parts.append(f"Remove {status.git.nodes_removed[0]}")
-            else:
-                parts.append(f"Remove {len(status.git.nodes_removed)} nodes")
+        # Show what was done
+        new_count = len(workflow_status.sync_status.new)
+        modified_count = len(workflow_status.sync_status.modified)
+        deleted_count = len(workflow_status.sync_status.deleted)
 
-        # Dependency changes
-        if status.git.dependencies_added or status.git.dependencies_removed or status.git.dependencies_updated:
-            dep_count = len(status.git.dependencies_added) + len(status.git.dependencies_removed) + len(status.git.dependencies_updated)
-            parts.append(f"Update {dep_count} dependencies")
-
-        # Constraint changes
-        if status.git.constraints_added or status.git.constraints_removed:
-            parts.append("Update constraints")
-
-        # Workflow tracking changes (prioritized)
-        if status.git.workflows_tracked and status.git.workflows_untracked:
-            parts.append(f"Update workflow tracking: +{len(status.git.workflows_tracked)}, -{len(status.git.workflows_untracked)}")
-        elif status.git.workflows_tracked:
-            if len(status.git.workflows_tracked) == 1:
-                parts.append(f"Track workflow: {status.git.workflows_tracked[0]}")
-            else:
-                parts.append(f"Track {len(status.git.workflows_tracked)} workflows")
-        elif status.git.workflows_untracked:
-            if len(status.git.workflows_untracked) == 1:
-                parts.append(f"Untrack workflow: {status.git.workflows_untracked[0]}")
-            else:
-                parts.append(f"Untrack {len(status.git.workflows_untracked)} workflows")
-
-
-        # Workflow file changes
-        if status.git.workflow_changes:
-            workflow_count = len(status.git.workflow_changes)
-            if workflow_count == 1:
-                workflow_name, workflow_status = list(status.git.workflow_changes.items())[0]
-                if workflow_status == "modified":
-                    parts.append(f"Update {workflow_name}")
-                elif workflow_status == "added":
-                    parts.append(f"Add {workflow_name}")
-                elif workflow_status == "deleted":
-                    parts.append(f"Remove {workflow_name}")
-            else:
-                parts.append(f"Update {workflow_count} workflows")
-
-        # Fallback
-        if not parts:
-            parts.append("Update environment configuration")
-
-        return "; ".join(parts)
+        if new_count > 0:
+            print(f"  • Added {new_count} workflow(s)")
+        if modified_count > 0:
+            print(f"  • Updated {modified_count} workflow(s)")
+        if deleted_count > 0:
+            print(f"  • Deleted {deleted_count} workflow(s)")
 
     @with_env_logging("env reset")
     def reset(self, args):
@@ -741,386 +919,215 @@ class EnvironmentCommands:
 
     # === Workflow management ===
 
-    @with_env_logging("workflow list")
+    @with_env_logging("workflow list", get_env_name=lambda self, args: self._get_env(args).name)
     def workflow_list(self, args):
-        """List workflow tracking status."""
+        """List all workflows with their sync status."""
         env = self._get_env(args)
 
-        workflows = env.scan_workflows()
+        workflows = env.list_workflows()
 
-        if not workflows:
+        if workflows.total_count == 0:
             print("No workflows found")
             return
 
         print(f"Workflows in '{env.name}':")
-        for name, info in workflows.items():
-            state_icon = "📋" if info.state == "tracked" else "👁️"
-            print(f"  {state_icon} {name} [{info.state}]")
 
-    @with_env_logging("workflow track")
-    def workflow_track(self, args):
-        """Start tracking a workflow."""
+        if workflows.synced:
+            print("\n✓ Synced (up to date):")
+            for name in workflows.synced:
+                print(f"  📋 {name}")
+
+        if workflows.modified:
+            print("\n⚠ Modified (changed since last commit):")
+            for name in workflows.modified:
+                print(f"  📝 {name}")
+
+        if workflows.new:
+            print("\n🆕 New (not committed yet):")
+            for name in workflows.new:
+                print(f"  ➕ {name}")
+
+        if workflows.deleted:
+            print("\n🗑 Deleted (removed from ComfyUI):")
+            for name in workflows.deleted:
+                print(f"  ➖ {name}")
+
+        # Show commit suggestion if there are changes
+        if workflows.has_changes:
+            print("\nRun 'comfydock commit' to save current state")
+
+    @with_env_logging("workflow resolve", get_env_name=lambda self, args: self._get_env(args).name)
+    def workflow_resolve(self, args, logger=None):
+        """Resolve workflow dependencies interactively."""
         env = self._get_env(args)
 
-        if args.all:
-            # Track all untracked workflows
-            workflows = env.scan_workflows()
-            untracked = [name for name, info in workflows.items() if info.state == "watched"]
-
-            if not untracked:
-                print("No untracked workflows found")
-                return
-
-            print(f"Tracking {len(untracked)} workflows...")
-            for name in untracked:
-                try:
-                    # Analyze and handle each workflow
-                    analysis = env.analyze_workflow(name)
-                    self._handle_workflow_analysis(env, analysis, args.install_mode)
-                    env.track_workflow(name, analysis)
-                    print(f"  ✓ {name}")
-                except Exception as e:
-                    print(f"  ✗ {name}: {e}")
-        elif args.name:
-            # Track single workflow
-            try:
-                # Step 1: Analyze the workflow
-                analysis = env.analyze_workflow(args.name)
-
-                # Step 2: Display analysis and handle missing nodes
-                self._handle_workflow_analysis(env, analysis, args.install_mode)
-
-                # Step 3: Track the workflow
-                env.track_workflow(args.name, analysis)
-                print(f"✓ Started tracking workflow '{args.name}'")
-            except Exception as e:
-                print(f"✗ Failed to track workflow '{args.name}': {e}", file=sys.stderr)
-                sys.exit(1)
+        # Choose strategy
+        if args.auto:
+            from comfydock_core.strategies.auto import AutoModelStrategy, AutoNodeStrategy
+            node_strategy = AutoNodeStrategy()
+            model_strategy = AutoModelStrategy()
         else:
-            print("✗ Either provide a workflow name or use --all", file=sys.stderr)
-            sys.exit(1)
+            node_strategy = InteractiveNodeStrategy()
+            model_strategy = InteractiveModelStrategy()
 
-    def _handle_workflow_analysis(self, env, analysis, install_mode):
-        """Handle workflow analysis results and missing dependencies."""
-        # Display installed packages
-        if analysis.installed_packages:
-            print("\n✅ Using existing nodes:")
-            for pkg in analysis.installed_packages:
-                print(f"  • {pkg.display_name or pkg.package_id} v{pkg.installed_version}")
-                if pkg.version_mismatch:
-                    print(f"    (workflow suggests v{pkg.suggested_version})")
+        # Phase 1: Resolve dependencies (updates pyproject.toml)
+        print("\n🔧 Resolving dependencies...")
+        try:
+            from comfydock_cli.utils.progress import create_batch_download_callbacks
 
-        # Display unresolved nodes
-        if analysis.unresolved_nodes:
-            print("\n❓ Unresolved nodes (may need manual installation):")
-            for node_type in analysis.unresolved_nodes:
-                print(f"  • {node_type}")
-
-        # Handle missing packages
-        if analysis.missing_packages:
-            print(f"\n📦 Missing {len(analysis.missing_packages)} packages:")
-            for i, pkg in enumerate(analysis.missing_packages, 1):
-                name = pkg.display_name or pkg.package_id
-                print(f"  {i}. {name} v{pkg.suggested_version}")
-
-            # Get installation decisions based on mode
-            to_install = self._get_installation_decisions(
-                analysis.missing_packages, install_mode
+            result = env.resolve_workflow(
+                name=args.name,
+                node_strategy=node_strategy,
+                model_strategy=model_strategy,
+                download_callbacks=create_batch_download_callbacks()
             )
+        except FileNotFoundError as e:
+            if logger:
+                logger.error(f"Resolution failed for '{args.name}': {e}", exc_info=True)
+            workflow_path = env.workflow_manager.comfyui_workflows / f"{args.name}.json"
+            print(f"✗ Workflow '{args.name}' not found at {workflow_path}")
+            sys.exit(1)
+        except Exception as e:
+            if logger:
+                logger.error(f"Resolution failed for '{args.name}': {e}", exc_info=True)
+            print(f"✗ Failed to resolve dependencies: {e}", file=sys.stderr)
+            sys.exit(1)
 
-            # Install selected packages
-            for identifier in to_install:
+        # Phase 2: Check for uninstalled nodes and prompt for installation
+        uninstalled_nodes = env.get_uninstalled_nodes(workflow_name=args.name)
+
+        if uninstalled_nodes:
+            print(f"\n📦 Found {len(uninstalled_nodes)} missing node packs:")
+            for node_id in uninstalled_nodes:
+                print(f"  • {node_id}")
+
+            # Determine if we should install
+            should_install = False
+
+            if hasattr(args, 'install') and args.install:
+                # Auto-install mode
+                should_install = True
+            elif hasattr(args, 'no_install') and args.no_install:
+                # Skip install mode
+                should_install = False
+            else:
+                # Interactive prompt (default)
                 try:
-                    print(f"Installing {identifier}...")
-                    env.add_node(identifier, no_test=True)
-                    print(f"✓ Installed {identifier}")
-                except Exception as e:
-                    print(f"✗ Failed to install {identifier}: {e}")
+                    response = input("\nInstall missing nodes? (Y/n): ").strip().lower()
+                    should_install = response in ['', 'y', 'yes']
+                except KeyboardInterrupt:
+                    print("\nSkipped node installation")
+                    should_install = False
 
-            if to_install:
-                print(f"Installed {len(to_install)} packages.")
+            if should_install:
+                print("\n⬇️  Installing nodes...")
+                installed_count = 0
+                failed_nodes = []
 
-    def _get_installation_decisions(self, missing_packages, install_mode):
-        """Determine which packages to install based on mode."""
-        if install_mode == "skip":
-            print("Skipping node installation (--install-mode=skip).")
-            return []
-        elif install_mode == "manual":
-            return self._manual_package_selection(missing_packages)
-        elif install_mode == "auto":
-            return self._auto_select_packages(missing_packages)
+                for node_id in uninstalled_nodes:
+                    try:
+                        print(f"  • Installing {node_id}...", end=" ", flush=True)
+                        node_info = env.add_node(node_id) # Should test every node transactionally and remove on failures
+
+                        # Show source indication if installed from github (not registry CDN)
+                        if node_info.source == "git" and node_info.registry_id:
+                            print("✓ (from GitHub)")
+                        else:
+                            print("✓")
+                        installed_count += 1
+                    except UVCommandError as e:
+                        # Handle UV-specific errors with enhanced logging and user messaging
+                        if logger:
+                            user_msg, _ = handle_uv_error(e, node_id, logger)
+                            print(f"✗ ({user_msg})")
+                        else:
+                            print("✗ (UV dependency resolution failed)")
+                        failed_nodes.append(node_id)
+                    except Exception as e:
+                        print(f"✗ ({e})")
+                        failed_nodes.append(node_id)
+                        if logger:
+                            logger.error(f"Failed to install node '{node_id}': {e}", exc_info=True)
+
+                if installed_count > 0:
+                    print(f"\n✅ Installed {installed_count}/{len(uninstalled_nodes)} nodes")
+
+                if failed_nodes:
+                    print(f"\n⚠️  Failed to install {len(failed_nodes)} nodes:")
+                    for node_id in failed_nodes:
+                        print(f"  • {node_id}")
+                    print("\n💡 For detailed error information:")
+                    print(f"   {self.workspace.path}/logs/{env.name}.log")
+                    print("\nYou can try installing them manually:")
+                    print("  comfydock node add <node-id>")
+            else:
+                print("\nℹ️  Skipped node installation. To install later:")
+                print("  • Install all: comfydock env repair")
+                print("  • Install individually: comfydock node add <node-id>")
+
+        # Display final results - check issues first
+        uninstalled = env.get_uninstalled_nodes(workflow_name=args.name)
+
+        if result.has_issues or uninstalled:
+            print("\n⚠️  Partial resolution - issues remain:")
+
+            # Show what was resolved
+            if result.models_resolved:
+                print(f"  ✓ Resolved {len(result.models_resolved)} models")
+            if result.nodes_resolved:
+                print(f"  ✓ Resolved {len(result.nodes_resolved)} nodes")
+
+            # Show what's still broken
+            if result.nodes_unresolved:
+                print(f"  ✗ {len(result.nodes_unresolved)} nodes couldn't be resolved")
+            if result.models_unresolved:
+                print(f"  ✗ {len(result.models_unresolved)} models not found")
+            if result.models_ambiguous:
+                print(f"  ✗ {len(result.models_ambiguous)} ambiguous models")
+            if uninstalled:
+                print(f"  ✗ {len(uninstalled)} packages need installation")
+
+            print("\n💡 Next:")
+            print(f"  Try again: comfydock workflow resolve \"{args.name}\"")
+            print("  Or install packages: comfydock env repair")
+            print("  Or commit with issues: comfydock commit -m \"...\" --allow-issues")
+
+        elif result.models_resolved or result.nodes_resolved:
+            # Check for failed download intents by querying current state (not stale result)
+            # Downloads execute AFTER result is created, so we need fresh state
+            current_models = env.pyproject.workflows.get_workflow_models(args.name)
+            failed_downloads = [
+                m for m in current_models
+                if m.status == 'unresolved' and m.sources  # Has download intent but still unresolved
+            ]
+
+            if failed_downloads:
+                print("\n⚠️  Resolution partially complete:")
+                # Count successful resolutions (not download intents or successful downloads)
+                successful_models = [
+                    m for m in result.models_resolved
+                    if m.match_type != 'download_intent' or m.resolved_model is not None
+                ]
+                if successful_models:
+                    print(f"  ✓ Resolved {len(successful_models)} models")
+                if result.nodes_resolved:
+                    print(f"  ✓ Resolved {len(result.nodes_resolved)} nodes")
+
+                print(f"  ⚠️  {len(failed_downloads)} model(s) queued for download (failed to fetch)")
+                for m in failed_downloads:
+                    print(f"      • {m.filename}")
+
+                print("\n💡 Next:")
+                print("  Add Civitai API key: comfydock config --civitai-key <your-token>")
+                print(f"  Try again: comfydock workflow resolve \"{args.name}\"")
+                print("  Or commit anyway: comfydock commit -m \"...\" --allow-issues")
+            else:
+                print("\n✅ Resolution complete!")
+                if result.models_resolved:
+                    print(f"  • Resolved {len(result.models_resolved)} models")
+                if result.nodes_resolved:
+                    print(f"  • Resolved {len(result.nodes_resolved)} nodes")
+                print("\n💡 Next:")
+                print(f"  Commit workflows: comfydock commit -m \"Resolved {args.name}\"")
         else:
-            # Interactive mode - prompt user
-            response = input("\nInstall missing nodes? (a)uto/(m)anual/(s)kip [a]: ").lower().strip()
-            if response == 's':
-                print("Skipping node installation.")
-                return []
-            elif response == 'm':
-                return self._manual_package_selection(missing_packages)
-            else:  # auto (default)
-                return self._auto_select_packages(missing_packages)
-
-    def _auto_select_packages(self, packages):
-        """Auto-select packages for installation with proper version."""
-        to_install = []
-        for pkg in packages:
-            # Prefer registry with version for reproducibility
-            if pkg.package_id and pkg.suggested_version:
-                # Use versioned registry install
-                identifier = f"{pkg.package_id}@{pkg.suggested_version}"
-            elif pkg.package_id:
-                # Use registry without version (will use latest)
-                identifier = pkg.package_id
-            elif pkg.github_url:
-                # Fall back to GitHub URL only if no registry ID available
-                identifier = pkg.github_url
-            else:
-                # Skip if we have no way to install
-                print(f"⚠️ Cannot install package - no registry ID or GitHub URL available")
-                continue
-
-            to_install.append(identifier)
-        return to_install
-
-    def _manual_package_selection(self, packages):
-        """Let user manually select package versions."""
-        to_install = []
-        for pkg in packages:
-            name = pkg.display_name or pkg.package_id
-            print(f"\n📋 {name}:")
-
-            # Show available versions from node mappings
-            versions = pkg.available_versions[:10]  # Limit display
-            if not versions:
-                print("  No versions available in registry")
-                if pkg.github_url:
-                    response = input("  Install from GitHub URL instead? (y/N): ").lower().strip()
-                    if response == 'y':
-                        to_install.append(pkg.github_url)
-                continue
-
-            for i, version in enumerate(versions, 1):
-                marker = " (suggested)" if version == pkg.suggested_version else ""
-                print(f"  {i}. v{version}{marker}")
-
-            selection = input(f"Select version [1]: ").strip()
-            if selection.isdigit() and 1 <= int(selection) <= len(versions):
-                selected_version = versions[int(selection) - 1]
-            else:
-                selected_version = versions[0] if versions else pkg.suggested_version
-
-            # Build versioned registry identifier
-            if pkg.package_id and selected_version:
-                identifier = f"{pkg.package_id}@{selected_version}"
-            elif pkg.package_id:
-                identifier = pkg.package_id
-            elif pkg.github_url:
-                # Only use GitHub as last resort
-                identifier = pkg.github_url
-                print(f"  ⚠️ Using GitHub URL (no registry version available)")
-            else:
-                print(f"  ⚠️ Cannot install {name} - no installation source available")
-                continue
-
-            to_install.append(identifier)
-            print(f"Will install {name} v{selected_version}")
-
-        return to_install
-
-    @with_env_logging("workflow untrack")
-    def workflow_untrack(self, args):
-        """Stop tracking a workflow."""
-        env = self._get_env(args)
-
-        try:
-            env.untrack_workflow(args.name)
-            print(f"✓ Stopped tracking workflow '{args.name}' (ComfyUI copy preserved)")
-        except Exception as e:
-            print(f"✗ Failed to untrack workflow '{args.name}': {e}", file=sys.stderr)
-            sys.exit(1)
-
-    # === Environment Model Commands ===
-
-    @with_env_logging("model add")
-    def model_add(self, args):
-        """Add model to environment manifest."""
-        env = self._get_env(args)
-        workspace = self.workspace
-
-        identifier = args.identifier
-        category = 'optional' if args.optional else 'required'
-
-        # if identifier.startswith('http'):
-        #     # Download from URL
-        #     print(f"📥 Downloading model from {identifier}...")
-        #     try:
-        #         from ..managers.model_download_manager import ModelDownloadManager
-        #         download_manager = ModelDownloadManager(workspace.model_manager)
-        #         model = download_manager.download_from_url(identifier)
-        #     except Exception as e:
-        #         print(f"✗ Failed to download model: {e}", file=sys.stderr)
-        #         sys.exit(1)
-        # else:
-        # Look up in workspace index by hash or filename
-        print(f"🔍 Searching for model: {identifier}")
-        matches = workspace.search_models(identifier)
-
-        if not matches:
-            print(f"✗ Model not found: {identifier}")
-            print("Try one of:")
-            print("  • Use full or partial hash from 'comfydock model index find'")
-            print("  • Use filename from 'comfydock model index list'")
-            print("  • Download with URL: comfydock model add https://...")
-            sys.exit(1)
-        elif len(matches) > 1:
-            # Interactive selection
-            print(f"Found {len(matches)} models:")
-            for i, m in enumerate(matches):
-                print(f"  {i+1}. {m.filename} [{m.hash[:8]}...] ({m.relative_path})")
-
-            try:
-                choice = input("Select model [1]: ").strip() or "1"
-                model_idx = int(choice) - 1
-                if 0 <= model_idx < len(matches):
-                    model = matches[model_idx]
-                else:
-                    print("✗ Invalid selection")
-                    sys.exit(1)
-            except (ValueError, KeyboardInterrupt):
-                print("✗ Invalid selection")
-                sys.exit(1)
-        else:
-            model = matches[0]
-
-        # Add to manifest
-        try:
-            env.pyproject.models.add_model(
-                model_hash=model.hash,
-                filename=model.filename,
-                file_size=model.file_size,
-                category=category
-            )
-
-            # Link to workflow if specified
-            if args.workflow:
-                workflow_config = env.pyproject.workflows.get_tracked().get(args.workflow)
-                if workflow_config:
-                    # Add model to workflow requirements
-                    if 'requires' not in workflow_config:
-                        workflow_config['requires'] = {}
-                    if 'models' not in workflow_config['requires']:
-                        workflow_config['requires']['models'] = []
-
-                    if model.hash not in workflow_config['requires']['models']:
-                        workflow_config['requires']['models'].append(model.hash)
-                        env.pyproject.save()
-                        print(f"✓ Linked model to workflow '{args.workflow}'")
-                else:
-                    print(f"Warning: Workflow '{args.workflow}' not found")
-
-        except Exception as e:
-            print(f"✗ Failed to add model to manifest: {e}", file=sys.stderr)
-            sys.exit(1)
-
-        print(f"✓ Added {category} model: {model.filename}")
-        print(f"  Hash: {model.hash[:12]}...")
-        print(f"  Path: {model.relative_path}")
-
-    @with_env_logging("model remove")
-    def model_remove(self, args):
-        """Remove model from environment manifest."""
-        env = self._get_env(args)
-
-        model_hash = args.hash
-
-        # Find and remove from manifest
-        try:
-            removed = env.pyproject.models.remove_model(model_hash)
-            if not removed:
-                print(f"✗ Model not in manifest: {model_hash}")
-                print("Use 'comfydock model list' to see current models")
-                sys.exit(1)
-
-        except Exception as e:
-            print(f"✗ Failed to remove model: {e}", file=sys.stderr)
-            sys.exit(1)
-
-        print(f"✓ Removed model: {model_hash[:12]}...")
-
-    @with_env_logging("model list")
-    def model_list(self, args):
-        """List models in environment manifest."""
-        env = self._get_env(args)
-        workspace = self.workspace
-
-        try:
-            manifest = env.pyproject.models.get_all()
-        except Exception as e:
-            print(f"✗ Failed to read model manifest: {e}", file=sys.stderr)
-            sys.exit(1)
-
-        required_models = manifest.get('required', {})
-        optional_models = manifest.get('optional', {})
-
-        if not required_models and not optional_models:
-            print("No models in environment manifest")
-            print("\nAdd models with:")
-            print("  • comfydock model add <hash|url>")
-            print("  • comfydock model add <hash|url> --optional")
-            return
-
-        # Check which models are available locally
-        print(f"Models in environment '{env.name}':")
-
-        if required_models:
-            print("\nRequired Models:")
-            for hash, spec in required_models.items():
-                local_models = workspace.model_index_manager.find_model_by_hash(hash)
-                status = "✓" if local_models else "✗"
-                print(f"  {status} {spec['filename']} [{hash[:8]}...]")
-                print(f"      Size: {self._format_size(spec['size'])}")
-
-                if not local_models:
-                    # Check if we have sources for re-downloading
-                    sources = workspace.model_index_manager.get_sources(hash)
-                    if sources:
-                        print(f"      Available from: {sources[0]['type']}")
-                    else:
-                        print("      No download sources available")
-
-        if optional_models:
-            print("\nOptional Models:")
-            for hash, spec in optional_models.items():
-                local_models = workspace.model_index_manager.find_model_by_hash(hash)
-                status = "✓" if local_models else "○"
-                print(f"  {status} {spec['filename']} [{hash[:8]}...]")
-                print(f"      Type: {spec['type']} | Size: {self._format_size(spec['size'])}")
-
-                if not local_models:
-                    sources = workspace.model_index_manager.get_sources(hash)
-                    if sources:
-                        print(f"      Available from: {sources[0]['type']}")
-
-        # Summary
-        total_required = len(required_models)
-        total_optional = len(optional_models)
-        available_required = sum(1 for hash in required_models.keys()
-                               if workspace.model_index_manager.find_model_by_hash(hash))
-        available_optional = sum(1 for hash in optional_models.keys()
-                               if workspace.model_index_manager.find_model_by_hash(hash))
-
-        print("\nSummary:")
-        print(f"  Required: {available_required}/{total_required} available")
-        print(f"  Optional: {available_optional}/{total_optional} available")
-
-        if available_required < total_required:
-            print(f"\n⚠️  {total_required - available_required} required models are missing!")
-
-    def _format_size(self, size_bytes: int) -> str:
-        """Format file size in human readable form."""
-        size = float(size_bytes)
-        for unit in ['B', 'KB', 'MB', 'GB']:
-            if size < 1024.0:
-                return f"{size:.1f} {unit}"
-            size /= 1024.0
-        return f"{size:.1f} TB"
+            print("✓ No changes needed - all dependencies already resolved")

@@ -3,10 +3,100 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+
+from ..services.model_downloader import ModelDownloader
+from ..models.node_mapping import (
+    GlobalNodePackage,
+)
 
 if TYPE_CHECKING:
-    from ..services.global_node_resolver import NodeMatch, PackageSuggestion
+    from .shared import ModelWithLocation, NodeInfo
+
+
+@dataclass
+class ScoredMatch:
+    """Model match with similarity score."""
+    model: ModelWithLocation
+    score: float
+    confidence: str  # "high", "good", "possible"
+
+
+@dataclass
+class ScoredPackageMatch:
+    """Node package match with similarity score for fuzzy search."""
+    package_id: str
+    package_data: GlobalNodePackage
+    score: float
+    confidence: str  # "high", "medium", "low"
+
+
+@dataclass
+class NodeResolutionContext:
+    """Context for enhanced node resolution with state tracking."""
+
+    # Existing packages in environment
+    installed_packages: dict[str, NodeInfo] = field(default_factory=dict)
+
+    # User-defined mappings (persisted in pyproject.toml)
+    custom_mappings: dict[str, str | bool] = field(default_factory=dict)  # node_type -> package_id or false (for optional node)
+
+    # Current workflow context
+    workflow_name: str = ""
+
+    # Search function for fuzzy package matching (injected by workflow_manager)
+    # Signature: (node_type: str, installed_packages: dict, include_registry: bool, limit: int) -> list[ResolvedNodePackage]
+    search_fn: Callable | None = None
+
+    # Auto-selection configuration (post-MVP: make this configurable via config file)
+    auto_select_ambiguous: bool = True  # Auto-select best package from registry mappings
+    
+@dataclass
+class WorkflowModelNodeMapping:
+    nodes: list[WorkflowNodeWidgetRef]
+
+@dataclass
+class BatchDownloadCallbacks:
+    """Callbacks for batch download coordination in core library.
+
+    All callbacks are optional - if None, core library performs operation silently.
+    CLI package provides implementations that render to terminal.
+    """
+
+    # Called once at start with total number of files
+    on_batch_start: Callable[[int], None] | None = None
+
+    # Called before each file download (filename, current_index, total_count)
+    on_file_start: Callable[[str, int, int], None] | None = None
+
+    # Called during download for progress updates (bytes_downloaded, total_bytes)
+    on_file_progress: Callable[[int, int | None], None] | None = None
+
+    # Called after each file completes (filename, success, error_message)
+    on_file_complete: Callable[[str, bool, str | None], None] | None = None
+
+    # Called once at end (success_count, total_count)
+    on_batch_complete: Callable[[int, int], None] | None = None
+
+
+@dataclass
+class ModelResolutionContext:
+    """Context for model resolution with search function and workflow info."""
+    workflow_name: str
+
+    # Lookup: ref → ManifestWorkflowModel (full model object with hash, sources, status, etc.)
+    # Changed from dict[WorkflowNodeWidgetRef, str] to support download intent detection
+    previous_resolutions: dict[WorkflowNodeWidgetRef, Any] = field(default_factory=dict)  # TYPE_CHECKING: ManifestWorkflowModel
+
+    # Search function for fuzzy matching (injected by workflow_manager)
+    # Signature: (search_term: str, node_type: str | None, limit: int) -> list[ScoredMatch]
+    search_fn: Callable | None = None
+
+    # Model downloader for URL-based downloads (injected by workflow_manager)
+    downloader: ModelDownloader | None = None
+
+    # Auto-selection configuration (for automated strategies)
+    auto_select_ambiguous: bool = True
 
 
 @dataclass
@@ -60,6 +150,14 @@ class Workflow:
     # Flexible containers (don't break these out into separate fields!)
     config: dict[str, Any] = field(default_factory=dict)
     extra: dict[str, Any] = field(default_factory=dict)
+
+    def __repr__(self) -> str:
+        """Concise representation showing node count and types."""
+        node_count = len(self.nodes)
+        type_summary = ", ".join(sorted(set(n.type for n in self.nodes.values()))[:5])
+        if len(self.node_types) > 5:
+            type_summary += f", ... ({len(self.node_types) - 5} more types)"
+        return f"Workflow(nodes={node_count}, types=[{type_summary}])"
 
     @cached_property
     def node_types(self) -> set[str]:
@@ -190,6 +288,10 @@ class WorkflowNode:
 
     # Extended properties
     properties: dict[str, Any] = field(default_factory=dict)
+
+    def __repr__(self) -> str:
+        """Concise representation showing only id and type."""
+        return f"WorkflowNode(id={self.id!r}, type={self.type!r})"
 
     @property
     def class_type(self) -> str:
@@ -326,70 +428,317 @@ class InstalledPackageInfo:
         return bool(self.suggested_version and
                    self.installed_version != self.suggested_version)
 
+@dataclass(frozen=True)
+class WorkflowNodeWidgetRef:
+    """Reference to a widget value in a workflow node."""
+    node_id: str
+    node_type: str
+    widget_index: int
+    widget_value: str  # Original value from workflow
+    
+    def __eq__(self, value: object) -> bool:
+        if isinstance(value, WorkflowNodeWidgetRef):
+            return self.node_id == value.node_id and \
+                self.node_type == value.node_type and \
+                self.widget_index == value.widget_index and \
+                self.widget_value == value.widget_value
+        return False
+    
+    def __hash__(self) -> int:
+        """Hash based on all fields for proper dict/set lookups."""
+        return hash((self.node_id, self.node_type, self.widget_index, self.widget_value))
 
 @dataclass
-class WorkflowAnalysisResult:
-    """Complete analysis of a workflow's dependencies and requirements.
+class WorkflowDependencies:
+    """Complete workflow dependency analysis results."""
+    workflow_name: str
+    found_models: list[WorkflowNodeWidgetRef] = field(default_factory=list)
+    builtin_nodes: list[WorkflowNode] = field(default_factory=list)
+    non_builtin_nodes: list[WorkflowNode] = field(default_factory=list)
 
-    This is a pure data structure returned by WorkflowManager.analyze_workflow()
-    to allow clients to make their own decisions about installation and tracking.
-    """
+    @property
+    def total_models(self) -> int:
+        """Total number of model references found."""
+        return len(self.found_models) + len(self.found_models)
+    
+@dataclass
+class ResolvedNodePackage:
+    """A potential match for an unknown node."""
+    node_type: str
+    match_type: str  # "exact", "type_only", "fuzzy", "optional", "manual"
+    package_id: str | None = None
+    package_data: GlobalNodePackage | None = None
+    versions: list[str] | None = None
+    match_confidence: float = 1.0
+    is_optional: bool = False
+    rank: int | None = None  # Popularity rank from registry (1 = most popular)
 
+    def __repr__(self) -> str:
+        """Concise representation showing resolution details."""
+        version_str = f"{len(self.versions)} version(s)" if self.versions else "no versions"
+        rank_str = f", rank={self.rank}" if self.rank else ""
+        return f"ResolvedNodePackage(package={self.package_id!r}, node={self.node_type!r}, match={self.match_type}, confidence={self.match_confidence:.2f}, {version_str}{rank_str})"
+
+@dataclass
+class ResolvedModel:
+    """A potential match for a model reference in a workflow"""
+    workflow: str # Resolved models are always associated with a workflow
+    reference: WorkflowNodeWidgetRef # Reference to the model in the workflow
+    resolved_model: ModelWithLocation | None = None
+    model_source: str | None = None # path or URL
+    is_optional: bool = False
+    match_type: str | None = None  # "exact", "case_insensitive", "filename", "ambiguous", "not_found", "download_intent"
+    match_confidence: float = 1.0  # 1.0 = exact, 0.5 = fuzzy
+    target_path: Path | None = None  # Where user intends to download model to (for download_intent match_type)
+    needs_path_sync: bool = False  # True if workflow path differs from resolved path
+
+    @property
+    def name(self) -> str:
+        return self.reference.widget_value
+
+    @property
+    def is_resolved(self) -> bool:
+        return self.resolved_model is not None or self.model_source is not None
+
+@dataclass
+class ResolutionResult:
+    """Result of resolution check or application."""
+    workflow_name: str
+    nodes_resolved: List[ResolvedNodePackage] = field(default_factory=list)  # Nodes resolved/added
+    nodes_unresolved: List[WorkflowNode] = field(default_factory=list)  # Nodes not found
+    nodes_ambiguous: List[List[ResolvedNodePackage]] = field(default_factory=list)  # Nodes with multiple matches
+    models_resolved: List[ResolvedModel] = field(default_factory=list)  # Models resolved (or candidates)
+    models_unresolved: List[WorkflowNodeWidgetRef] = field(default_factory=list)  # Models not found
+    models_ambiguous: List[List[ResolvedModel]] = field(default_factory=list)  # Models with multiple matches
+
+    @property
+    def has_issues(self) -> bool:
+        """Check if there are any unresolved issues."""
+        return bool(
+            self.models_unresolved
+            or self.models_ambiguous
+            or self.nodes_unresolved
+            or self.nodes_ambiguous
+        )
+
+    @property
+    def has_download_intents(self) -> bool:
+        """Check if any models have download intents pending."""
+        return any(m.match_type == "download_intent" for m in self.models_resolved)
+
+    @property
+    def summary(self) -> str:
+        """Generate summary of resolution."""
+        parts = []
+        if self.nodes_resolved:
+            parts.append(f"{len(self.nodes_resolved)} nodes")
+        if self.nodes_unresolved:
+            parts.append(f"{len(self.nodes_unresolved)} unresolved nodes")
+        if self.nodes_ambiguous:
+            parts.append(f"{len(self.nodes_ambiguous)} ambiguous nodes")
+        if self.models_resolved:
+            parts.append(f"{len(self.models_resolved)} models")
+        if self.models_unresolved:
+            parts.append(f"{len(self.models_unresolved)} unresolved models")
+        if self.models_ambiguous:
+            parts.append(f"{len(self.models_ambiguous)} ambiguous models")
+
+        return f"Resolutions: {', '.join(parts)}" if parts else "No resolutions"
+
+
+@dataclass
+class CommitAnalysis:
+    """Analysis of all workflows for commit."""
+    workflows_copied: Dict[str, str] = field(default_factory=dict)  # name -> status
+    analyses: List[WorkflowDependencies] = field(default_factory=list)
+    has_git_changes: bool = False  # Whether there are actual git changes to commit
+
+    @property
+    def summary(self) -> str:
+        """Generate commit summary."""
+        copied_count = len([s for s in self.workflows_copied.values() if s == "copied"])
+        if copied_count:
+            return f"Update {copied_count} workflow(s)"
+        return "Update workflows"
+
+
+# Status System Dataclasses
+
+@dataclass
+class WorkflowSyncStatus:
+    """File-level sync status between ComfyUI and .cec."""
+    new: list[str] = field(default_factory=list)
+    modified: list[str] = field(default_factory=list)
+    deleted: list[str] = field(default_factory=list)
+    synced: list[str] = field(default_factory=list)
+
+    @property
+    def has_changes(self) -> bool:
+        """Check if there are any file changes."""
+        return bool(self.new or self.modified or self.deleted)
+
+    @property
+    def is_synced(self) -> bool:
+        """Check if all workflows are synced (no pending changes)."""
+        return not self.has_changes
+
+    @property
+    def total_count(self) -> int:
+        """Total number of workflows."""
+        return len(self.new) + len(self.modified) + len(self.deleted) + len(self.synced)
+
+
+@dataclass
+class WorkflowAnalysisStatus:
+    """Complete analysis for a single workflow including dependencies and resolution."""
     name: str
-    workflow_path: Path
+    sync_state: str  # "new", "modified", "deleted", "synced"
 
-    # Node analysis
-    resolved_nodes: Dict[str, "NodeMatch"] = field(default_factory=dict)  # node_type -> match
-    unresolved_nodes: List[str] = field(default_factory=list)  # node types we couldn't resolve
-    installed_packages: List[InstalledPackageInfo] = field(default_factory=list)  # already in pyproject
-    missing_packages: List["PackageSuggestion"] = field(default_factory=list)  # need to install
+    # Analysis results
+    dependencies: WorkflowDependencies
+    resolution: ResolutionResult
 
-    # Model analysis
-    resolved_models: List[Any] = field(default_factory=list)  # Model objects or dicts
-    missing_models: List[str] = field(default_factory=list)  # Model hashes not found
-    model_hashes: List[str] = field(default_factory=list)  # All model hashes
-
-    # Other dependencies
-    python_dependencies: List[str] = field(default_factory=list)
-
-    # Metadata
-    total_custom_nodes: int = 0
-    total_builtin_nodes: int = 0
-    already_tracked: bool = False
+    # Installation status (for CLI display without pyproject access)
+    uninstalled_nodes: list[str] = field(default_factory=list)  # Node IDs needing installation
 
     @property
-    def has_missing_dependencies(self) -> bool:
-        """Check if workflow has any missing dependencies."""
-        return bool(self.missing_packages or self.missing_models or self.unresolved_nodes)
+    def has_issues(self) -> bool:
+        """Check if workflow has unresolved issues or pending download intents.
+
+        Note: Path sync issues are NOT included here as they're auto-fixable
+        and don't prevent commits. They're tracked separately via has_path_sync_issues.
+        """
+        has_download_intents = any(
+            m.match_type == "download_intent" for m in self.resolution.models_resolved
+        )
+        return (
+            self.resolution.has_issues
+            or bool(self.uninstalled_nodes)
+            or has_download_intents
+        )
 
     @property
-    def is_fully_resolvable(self) -> bool:
-        """Check if all dependencies can be resolved."""
-        return not self.unresolved_nodes
+    def issue_summary(self) -> str:
+        """Human-readable summary of issues."""
+        parts = []
+        if self.resolution.models_ambiguous:
+            parts.append(f"{len(self.resolution.models_ambiguous)} ambiguous models")
+        if self.resolution.models_unresolved:
+            parts.append(f"{len(self.resolution.models_unresolved)} unresolved models")
+        if self.resolution.nodes_unresolved:
+            parts.append(f"{len(self.resolution.nodes_unresolved)} missing nodes")
+        if self.resolution.nodes_ambiguous:
+            parts.append(f"{len(self.resolution.nodes_ambiguous)} ambiguous nodes")
+
+        return ", ".join(parts) if parts else "No issues"
 
     @property
-    def resolved_package_ids(self) -> List[str]:
-        """Get list of resolved package IDs."""
-        return [match.package_id for match in self.resolved_nodes.values()
-                if match and match.package_id]
+    def model_count(self) -> int:
+        """Total number of model references."""
+        return len(self.dependencies.found_models)
 
-    def to_pyproject_requires(self) -> dict:
-        """Convert analysis to pyproject.toml requires dict."""
-        requires = {
-            "nodes": sorted(set(self.resolved_package_ids)),
-            "models": self.model_hashes,
-            "python": self.python_dependencies
-        }
+    @property
+    def node_count(self) -> int:
+        """Total number of nodes in workflow."""
+        return len(self.dependencies.builtin_nodes) + len(self.dependencies.non_builtin_nodes)
 
-        # Store debug info if needed
-        if self.unresolved_nodes:
-            requires["_unknown_nodes"] = self.unresolved_nodes
+    @property
+    def models_resolved_count(self) -> int:
+        """Number of successfully resolved models."""
+        return len(self.resolution.models_resolved)
 
-        if self.missing_packages:
-            # Store package suggestions for future reference
-            requires["_missing_packages"] = [
-                {"id": pkg.package_id, "version": pkg.suggested_version}
-                for pkg in self.missing_packages
+    @property
+    def nodes_resolved_count(self) -> int:
+        """Number of successfully resolved nodes."""
+        return len(self.resolution.nodes_resolved)
+
+    @property
+    def uninstalled_count(self) -> int:
+        """Number of nodes that need installation."""
+        return len(self.uninstalled_nodes)
+
+    @property
+    def download_intents_count(self) -> int:
+        """Number of models queued for download."""
+        return sum(1 for m in self.resolution.models_resolved if m.match_type == "download_intent")
+
+    @property
+    def models_needing_path_sync_count(self) -> int:
+        """Number of models that resolved but have wrong paths in workflow JSON."""
+        return sum(1 for m in self.resolution.models_resolved if m.needs_path_sync)
+
+    @property
+    def has_path_sync_issues(self) -> bool:
+        """Check if workflow has model paths that need syncing."""
+        return self.models_needing_path_sync_count > 0
+
+
+@dataclass
+class DetailedWorkflowStatus:
+    """Complete status for all workflows in environment."""
+    sync_status: WorkflowSyncStatus
+    analyzed_workflows: list[WorkflowAnalysisStatus] = field(default_factory=list)
+
+    @property
+    def total_issues(self) -> int:
+        """Count of workflows with issues."""
+        return sum(1 for w in self.analyzed_workflows if w.has_issues)
+
+    @property
+    def workflows_with_issues(self) -> list[WorkflowAnalysisStatus]:
+        """List of workflows that have unresolved issues."""
+        return [w for w in self.analyzed_workflows if w.has_issues]
+
+    @property
+    def total_unresolved_models(self) -> int:
+        """Total count of unresolved/ambiguous models across all workflows."""
+        return sum(
+            len(w.resolution.models_unresolved) + len(w.resolution.models_ambiguous)
+            for w in self.analyzed_workflows
+        )
+
+    @property
+    def total_missing_nodes(self) -> int:
+        """Total count of missing/ambiguous nodes across all workflows."""
+        return sum(
+            len(w.resolution.nodes_unresolved) + len(w.resolution.nodes_ambiguous)
+            for w in self.analyzed_workflows
+        )
+
+    @property
+    def is_commit_safe(self) -> bool:
+        """Check if safe to commit without issues."""
+        return not any(w.has_issues for w in self.analyzed_workflows)
+
+    def get_suggested_actions(self) -> list[str]:
+        """Generate actionable suggestions for workflow-specific issues."""
+        actions = []
+
+        # Model resolution suggestions
+        if self.total_unresolved_models > 0:
+            workflows_with_model_issues = [
+                w.name for w in self.workflows_with_issues
+                if w.resolution.models_ambiguous or w.resolution.models_unresolved
             ]
+            if len(workflows_with_model_issues) == 1:
+                actions.append(f"Resolve model issues: comfydock workflow resolve {workflows_with_model_issues[0]}")
+            else:
+                actions.append(f"Resolve model issues in {len(workflows_with_model_issues)} workflows")
 
-        return requires
+        # Node installation suggestions
+        missing_nodes = set()
+        for w in self.analyzed_workflows:
+            for node in w.resolution.nodes_unresolved:
+                missing_nodes.add(node.type)
+
+        if missing_nodes:
+            for node_type in list(missing_nodes)[:3]:  # Show max 3
+                actions.append(f"Install missing node: {node_type}")
+            if len(missing_nodes) > 3:
+                actions.append(f"... and {len(missing_nodes) - 3} more nodes")
+
+        # Commit warnings (workflow issues only, not commit suggestions)
+        if not self.is_commit_safe:
+            actions.append("Fix issues above before committing (or use --allow-issues flag)")
+
+        return actions

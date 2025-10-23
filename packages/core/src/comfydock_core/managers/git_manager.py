@@ -5,6 +5,8 @@ with business logic. It builds on top of the low-level git utilities in git.py.
 """
 from __future__ import annotations
 
+import os
+import socket
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -15,14 +17,18 @@ if TYPE_CHECKING:
     from .pyproject_manager import PyprojectManager
 
 from ..utils.git import (
-    ensure_git_identity,
-    get_workflow_git_changes,
+    get_uncommitted_changes,
     git_checkout,
     git_commit,
+    git_config_get,
+    git_config_set,
     git_diff,
     git_history,
     git_init,
+    git_ls_files,
+    git_ls_tree,
     git_show,
+    git_status_porcelain,
 )
 
 logger = get_logger(__name__)
@@ -41,7 +47,7 @@ class GitManager:
         self.gitignore_content = """# Staging area
 staging/
 
-# Staging metadata  
+# Staging metadata
 metadata/
 
 # logs
@@ -55,6 +61,73 @@ __pycache__/
 *.tmp
 *.bak
 """
+
+    def ensure_git_identity(self) -> None:
+        """Ensure git has a user identity configured for commits.
+
+        Sets up local git config (not global) with sensible defaults.
+        """
+        # Check if identity is already configured
+        existing_name = git_config_get(self.repo_path, "user.name")
+        existing_email = git_config_get(self.repo_path, "user.email")
+
+        # If both are set, we're good
+        if existing_name and existing_email:
+            return
+
+        # Determine git identity using fallback chain
+        git_name = self._get_git_identity()
+        git_email = self._get_git_email()
+
+        # Set identity locally for this repository only
+        git_config_set(self.repo_path, "user.name", git_name)
+        git_config_set(self.repo_path, "user.email", git_email)
+
+        logger.info(f"Set local git identity: {git_name} <{git_email}>")
+
+    def _get_git_identity(self) -> str:
+        """Get a suitable git user name with smart fallbacks."""
+        # Try environment variables first
+        git_name = os.environ.get("GIT_AUTHOR_NAME")
+        if git_name:
+            return git_name
+
+        # Try to get system username as fallback for name
+        try:
+            import pwd
+            git_name = (
+                pwd.getpwuid(os.getuid()).pw_gecos or pwd.getpwuid(os.getuid()).pw_name
+            )
+            if git_name:
+                return git_name
+        except Exception:
+            pass
+
+        try:
+            git_name = os.getlogin()
+            if git_name:
+                return git_name
+        except Exception:
+            pass
+
+        return "ComfyDock User"
+
+    def _get_git_email(self) -> str:
+        """Get a suitable git email with smart fallbacks."""
+        # Try environment variables first
+        git_email = os.environ.get("GIT_AUTHOR_EMAIL")
+        if git_email:
+            return git_email
+
+        # Try to construct from username and hostname
+        try:
+            hostname = socket.gethostname()
+            username = os.getlogin()
+            return f"{username}@{hostname}"
+        except Exception:
+            pass
+
+        return "user@comfydock.local"
 
     def initialize_environment_repo(
         self, initial_message: str = "Initial environment setup"
@@ -74,7 +147,7 @@ __pycache__/
         git_init(self.repo_path)
 
         # Ensure git identity is configured
-        ensure_git_identity(self.repo_path)
+        self.ensure_git_identity()
 
         # Create standard .gitignore
         self._create_gitignore()
@@ -92,10 +165,37 @@ __pycache__/
             add_all: Whether to stage all changes first
         """
         # Ensure identity before committing
-        ensure_git_identity(self.repo_path)
+        self.ensure_git_identity()
 
         # Perform the commit
         git_commit(self.repo_path, message, add_all)
+
+    def _get_files_in_commit(self, commit_hash: str) -> set[str]:
+        """Get all tracked file paths in a specific commit.
+
+        Args:
+            commit_hash: Git commit hash
+
+        Returns:
+            Set of file paths that exist in the commit
+        """
+        result = git_ls_tree(self.repo_path, commit_hash, recursive=True)
+        if not result.strip():
+            return set()
+
+        return {line for line in result.splitlines() if line}
+
+    def _get_tracked_files(self) -> set[str]:
+        """Get all currently tracked file paths in working tree.
+
+        Returns:
+            Set of file paths currently tracked by git
+        """
+        result = git_ls_files(self.repo_path)
+        if not result.strip():
+            return set()
+
+        return {line for line in result.splitlines() if line}
 
     def apply_version(self, version: str, leave_unstaged: bool = True) -> None:
         """Apply files from a specific version to working directory.
@@ -103,6 +203,7 @@ __pycache__/
         This is a high-level rollback operation that:
         - Resolves version identifiers (v1, v2, etc.) to commits
         - Applies files from that commit
+        - Deletes files that don't exist in target commit
         - Optionally leaves them unstaged for review
 
         Args:
@@ -117,8 +218,33 @@ __pycache__/
 
         logger.info(f"Applying files from version {version} (commit {commit_hash[:8]})")
 
-        # Apply all files from that commit
+        # Phase 1: Get file lists
+        target_files = self._get_files_in_commit(commit_hash)
+        current_files = self._get_tracked_files()
+        files_to_delete = current_files - target_files
+
+        # Phase 2: Restore files from target commit
         git_checkout(self.repo_path, commit_hash, files=["."], unstage=leave_unstaged)
+
+        # Phase 3: Delete files that don't exist in target version
+        if files_to_delete:
+            from ..utils.common import run_command
+
+            for file_path in files_to_delete:
+                full_path = self.repo_path / file_path
+                if full_path.exists():
+                    full_path.unlink()
+                    logger.info(f"Deleted {file_path} (not in target version)")
+
+            # Stage only the specific deletions (not all modifications)
+            # git add <file> will stage the deletion when file doesn't exist
+            for file_path in files_to_delete:
+                run_command(["git", "add", file_path], cwd=self.repo_path, check=True)
+
+            # If leave_unstaged, unstage the deletions again
+            if leave_unstaged:
+                run_command(["git", "reset", "HEAD"] + list(files_to_delete),
+                          cwd=self.repo_path, check=True)
 
     def discard_uncommitted(self) -> None:
         """Discard all uncommitted changes in the repository."""
@@ -129,12 +255,15 @@ __pycache__/
         """Get simplified version history with v1, v2 labels.
 
         Args:
-            limit: Maximum number of versions to return
+            limit: DEPRECATED - Now always shows all commits for version stability.
+                   Parameter kept for API compatibility but is ignored.
 
         Returns:
-            List of version info dicts
+            List of version info dicts with stable version numbers
         """
-        return self._get_commit_versions(limit)
+        # Always get ALL commits to ensure version numbers remain stable
+        # Pagination can be added post-MVP if needed
+        return self._get_commit_versions(limit=1000)
 
     def resolve_version(self, version: str) -> str:
         """Resolve a version identifier to a commit hash.
@@ -174,13 +303,59 @@ __pycache__/
         commit_hash = self.resolve_version(version)
         return git_show(self.repo_path, commit_hash, Path("pyproject.toml"))
 
+    def commit_all(self, message: str | None = None) -> None:
+        """Commit all changes in the repository.
+
+        Args:
+            message: Commit message
+
+        Raises:
+            OSError: If git commands fail
+
+        """
+        if message is None:
+            message = "Committing all changes"
+        return git_commit(self.repo_path, message, add_all=True)
+
+    def get_workflow_git_changes(self) -> dict[str, str]:
+        """Get git status for workflow files specifically.
+
+        Returns:
+            Dict mapping workflow names to their git status:
+            - 'modified' for modified files
+            - 'added' for new/untracked files
+            - 'deleted' for deleted files
+        """
+        status_entries = git_status_porcelain(self.repo_path)
+        workflow_changes = {}
+
+        for index_status, working_status, filename in status_entries:
+            logger.debug(f"index status: {index_status}, working status: {working_status}, filename: {filename}")
+
+            # Only process workflow files
+            if filename.startswith('workflows/') and filename.endswith('.json'):
+                # Extract workflow name from path (keep spaces as-is)
+                workflow_name = Path(filename).stem
+                logger.debug(f"Workflow name: {workflow_name}")
+
+                # Determine status (prioritize working tree status)
+                if working_status == 'M' or index_status == 'M':
+                    workflow_changes[workflow_name] = 'modified'
+                elif working_status == 'D' or index_status == 'D':
+                    workflow_changes[workflow_name] = 'deleted'
+                elif working_status == '?' or index_status == 'A':
+                    workflow_changes[workflow_name] = 'added'
+
+        logger.debug(f"Workflow changes: {str(workflow_changes)}")
+        return workflow_changes
+
     def get_workflow_changes(self) -> dict[str, str]:
         """Get git status for workflow files.
 
         Returns:
             Dict mapping workflow names to their git status
         """
-        return get_workflow_git_changes(self.repo_path)
+        return self.get_workflow_git_changes()
 
     def has_uncommitted_changes(self) -> bool:
         """Check if there are any uncommitted changes.
@@ -188,8 +363,6 @@ __pycache__/
         Returns:
             True if there are uncommitted changes
         """
-        from ..utils.git import get_uncommitted_changes
-
         return bool(get_uncommitted_changes(self.repo_path))
 
     def _create_gitignore(self) -> None:
@@ -199,19 +372,18 @@ __pycache__/
 
     def _get_commit_versions(self, limit: int = 10) -> list[dict]:
         """Get simplified version list from git history.
-        
+
         Returns commits with simple identifiers instead of full hashes.
-        
+
         Args:
             limit: Maximum number of commits to return
-            
+
         Returns:
             List of commit info dicts with keys: version, hash, message, date
-            
+
         Raises:
             OSError: If git command fails
         """
-        # result = _git(["log", f"--max-count={limit}", "--pretty=format:%H|%s|%ai"], self.repo_path)
         result = git_history(self.repo_path, max_count=limit, pretty="format:%H|%s|%ai")
 
         commits = []
@@ -282,7 +454,7 @@ __pycache__/
 
         # Parse changes if we have them and a pyproject manager
         if has_changes and pyproject_manager:
-            from ..utils.git_change_parser import GitChangeParser
+            from ..analyzers.git_change_parser import GitChangeParser
             parser = GitChangeParser(self.repo_path)
             current_config = pyproject_manager.load()
 
@@ -291,3 +463,76 @@ __pycache__/
 
         return status
 
+    def create_checkpoint(self, description: str | None = None) -> str:
+        """Create a version checkpoint of the current state.
+
+        Args:
+            description: Optional description for the checkpoint
+
+        Returns:
+            Version identifier (e.g., "v3")
+        """
+        # Generate automatic message if not provided
+        if not description:
+            from datetime import datetime
+
+            description = f"Checkpoint created at {datetime.now().isoformat()}"
+
+        # Commit current state
+        self.commit_with_identity(description)
+
+        # Get the new version number
+        versions = self.get_version_history(limit=1)
+        if versions:
+            return versions[-1]["version"]
+        return "v1"
+
+    def rollback_to(self, version: str, safe: bool = False, force: bool = False) -> None:
+        """Rollback environment to a previous version.
+
+        Args:
+            version: Version to rollback to
+            safe: If True, leaves changes unstaged for review (default: False for clean state)
+            force: If True, discard uncommitted changes without error
+
+        Raises:
+            ValueError: If version doesn't exist
+            CDEnvironmentError: If uncommitted changes exist and force=False
+        """
+        from comfydock_core.models.exceptions import CDEnvironmentError
+
+        # Check for uncommitted changes
+        if self.has_uncommitted_changes():
+            if not force:
+                raise CDEnvironmentError(
+                    "Cannot rollback with uncommitted changes.\n"
+                    "Options:\n"
+                    "  • Commit: comfydock commit -m '<message>'\n"
+                    "  • Force discard: comfydock rollback --force <version>\n"
+                    "  • See changes: comfydock status"
+                )
+            logger.warning("Discarding uncommitted changes (--force flag used)")
+            self.discard_uncommitted()
+
+        # Apply the target version (clean state by default)
+        self.apply_version(version, leave_unstaged=safe)
+
+        logger.info(f"Rolled back to {version}")
+
+    def get_version_summary(self) -> dict:
+        """Get a summary of the version state.
+
+        Returns:
+            Dict with current version, has_changes, total_versions
+        """
+        versions = self.get_version_history(limit=100)
+        has_changes = self.has_uncommitted_changes()
+
+        current_version = versions[-1]["version"] if versions else None
+
+        return {
+            "current_version": current_version,
+            "has_uncommitted_changes": has_changes,
+            "total_versions": len(versions),
+            "latest_message": versions[-1]["message"] if versions else None,
+        }

@@ -1,12 +1,21 @@
 """ComfyDock MVP CLI - Workspace and Environment Management."""
+# PYTHON_ARGCOMPLETE_OK
 
 import argparse
 import sys
 from pathlib import Path
 
-from .logging.logging_config import setup_logging
+import argcomplete
+
+from .completion_commands import CompletionCommands
+from .completers import (
+    environment_completer,
+    installed_node_completer,
+    workflow_completer,
+)
 from .env_commands import EnvironmentCommands
 from .global_commands import GlobalCommands
+from .logging.logging_config import setup_logging
 
 
 def main():
@@ -16,24 +25,17 @@ def main():
     setup_logging(level="INFO", simple_format=True, console_level="CRITICAL")
 
     # Special handling for 'run' command to pass through ComfyUI args
+    parser = create_parser()
     if 'run' in sys.argv:
-        # Find where 'run' appears
-        try:
-            run_idx = sys.argv.index('run')
-            # Everything after 'run' is ComfyUI args
-            comfyui_args = sys.argv[run_idx + 1:]
-            # Parse only up to 'run'
-            parser = create_parser()
-            args = parser.parse_args(sys.argv[1:run_idx + 1])
-            # Add ComfyUI args manually
-            args.args = comfyui_args
-        except (ValueError, SystemExit):
-            # Fall back to normal parsing
-            parser = create_parser()
+        # Parse known args, pass unknown to ComfyUI
+        args, unknown = parser.parse_known_args()
+        if getattr(args, 'command', None) == 'run':
+            args.args = unknown
+        else:
+            # Not actually the run command, do normal parsing
             args = parser.parse_args()
     else:
         # Normal parsing for all other commands
-        parser = create_parser()
         args = parser.parse_args()
 
     if not hasattr(args, 'func'):
@@ -63,7 +65,7 @@ def create_parser():
         '-e', '--env',
         help='Target environment (uses active if not specified)',
         dest='target_env'
-    )
+    ).completer = environment_completer
     parser.add_argument(
         '-v', '--verbose',
         action='store_true',
@@ -75,6 +77,9 @@ def create_parser():
     # Add all commands (workspace and environment)
     _add_global_commands(subparsers)
     _add_env_commands(subparsers)
+
+    # Enable argcomplete for tab completion
+    argcomplete.autocomplete(parser)
 
     return parser
 
@@ -100,60 +105,102 @@ def _add_global_commands(subparsers):
     migrate_parser.set_defaults(func=global_cmds.migrate)
 
     # import - Import ComfyDock environment
-    import_parser = subparsers.add_parser("import", help="Import ComfyDock environment (packed in .tar.gz usually)")
-    import_parser.add_argument("path", type=Path, nargs="?", help="Path to input file")
+    import_parser = subparsers.add_parser("import", help="Import ComfyDock environment from tarball or git repository")
+    import_parser.add_argument("path", type=str, nargs="?", help="Path to .tar.gz file or git repository URL (use #subdirectory for subdirectory imports)")
+    import_parser.add_argument("--name", type=str, help="Name for imported environment (skip prompt)")
+    import_parser.add_argument("--branch", "-b", type=str, help="Git branch, tag, or commit to import (git imports only)")
+    import_parser.add_argument("--use", action="store_true", help="Set imported environment as active")
     import_parser.set_defaults(func=global_cmds.import_env)
 
     # export - Export ComfyDock environment
     export_parser = subparsers.add_parser("export", help="Export ComfyDock environment (include relevant files from .cec)")
     export_parser.add_argument("path", type=Path, nargs="?", help="Path to output file")
+    export_parser.add_argument("--allow-issues", action="store_true", help="Skip confirmation if models are missing source URLs")
     export_parser.set_defaults(func=global_cmds.export_env)
 
-    # Index management subcommands
-    index_parser = subparsers.add_parser("index", help="Manage workspace indexes")
-    index_subparsers = index_parser.add_subparsers(dest="index_command", help="Index commands")
+    # Model management subcommands
+    model_parser = subparsers.add_parser("model", help="Manage model index")
+    model_subparsers = model_parser.add_subparsers(dest="model_command", help="Model commands")
 
-    # index model subcommands
-    index_model_parser = index_subparsers.add_parser("model", help="Model index operations")
-    index_model_subparsers = index_model_parser.add_subparsers(dest="index_model_command", help="Model index commands")
+    # model index subcommands
+    model_index_parser = model_subparsers.add_parser("index", help="Model index operations")
+    model_index_subparsers = model_index_parser.add_subparsers(dest="model_index_command", help="Model index commands")
 
-    # index model find
-    index_model_find_parser = index_model_subparsers.add_parser("find", help="Find models by hash or filename")
-    index_model_find_parser.add_argument("query", help="Search query (hash prefix or filename)")
-    index_model_find_parser.set_defaults(func=global_cmds.model_index_find)
+    # model index find
+    model_index_find_parser = model_index_subparsers.add_parser("find", help="Find models by hash or filename")
+    model_index_find_parser.add_argument("query", help="Search query (hash prefix or filename)")
+    model_index_find_parser.set_defaults(func=global_cmds.model_index_find)
 
-    # index model list
-    index_model_list_parser = index_model_subparsers.add_parser("list", help="List all indexed models")
-    index_model_list_parser.set_defaults(func=global_cmds.model_index_list)
+    # model index list
+    model_index_list_parser = model_index_subparsers.add_parser("list", help="List all indexed models")
+    model_index_list_parser.set_defaults(func=global_cmds.model_index_list)
 
-    # index model status
-    index_model_status_parser = index_model_subparsers.add_parser("status", help="Show models directory and index status")
-    index_model_status_parser.set_defaults(func=global_cmds.model_index_status)
+    # model index show
+    model_index_show_parser = model_index_subparsers.add_parser("show", help="Show detailed model information")
+    model_index_show_parser.add_argument("identifier", help="Model hash, hash prefix, filename, or path")
+    model_index_show_parser.set_defaults(func=global_cmds.model_index_show)
 
-    # index model sync
-    index_model_sync_parser = index_model_subparsers.add_parser("sync", help="Scan models directory and update index")
-    index_model_sync_parser.set_defaults(func=global_cmds.model_index_sync)
+    # model index status
+    model_index_status_parser = model_index_subparsers.add_parser("status", help="Show models directory and index status")
+    model_index_status_parser.set_defaults(func=global_cmds.model_index_status)
 
-    # index model dir subcommands
-    index_model_dir_parser = index_model_subparsers.add_parser("dir", help="Model directory management")
-    index_model_dir_subparsers = index_model_dir_parser.add_subparsers(dest="index_model_dir_command", help="Directory commands")
+    # model index sync
+    model_index_sync_parser = model_index_subparsers.add_parser("sync", help="Scan models directory and update index")
+    model_index_sync_parser.set_defaults(func=global_cmds.model_index_sync)
 
-    # index model dir add
-    index_model_dir_add_parser = index_model_dir_subparsers.add_parser("add", help="Set global models directory")
-    index_model_dir_add_parser.add_argument("path", type=Path, help="Path to models directory")
-    index_model_dir_add_parser.set_defaults(func=global_cmds.model_dir_add)
+    # model index dir
+    model_index_dir_parser = model_index_subparsers.add_parser("dir", help="Set global models directory to index")
+    model_index_dir_parser.add_argument("path", type=Path, help="Path to models directory")
+    model_index_dir_parser.set_defaults(func=global_cmds.model_dir_add)
 
-    # index registry subcommands
-    index_registry_parser = index_subparsers.add_parser("registry", help="Node registry cache operations")
-    index_registry_subparsers = index_registry_parser.add_subparsers(dest="index_registry_command", help="Registry commands")
+    # model download
+    model_download_parser = model_subparsers.add_parser("download", help="Download model from URL")
+    model_download_parser.add_argument("url", help="Model download URL (Civitai, HuggingFace, or direct)")
+    model_download_parser.add_argument("--path", type=str, help="Target path relative to models directory (e.g., checkpoints/model.safetensors)")
+    model_download_parser.add_argument("-c", "--category", type=str, help="Model category for auto-path (e.g., checkpoints, loras, vae)")
+    model_download_parser.add_argument("-y", "--yes", action="store_true", help="Skip path confirmation prompt")
+    model_download_parser.set_defaults(func=global_cmds.model_download)
 
-    # index registry status
-    index_registry_status_parser = index_registry_subparsers.add_parser("status", help="Show registry cache status")
-    index_registry_status_parser.set_defaults(func=global_cmds.registry_status)
+    # model add-source
+    model_add_source_parser = model_subparsers.add_parser("add-source", help="Add download source URL to model(s)")
+    model_add_source_parser.add_argument("model", nargs="?", help="Model filename or hash (omit for interactive mode)")
+    model_add_source_parser.add_argument("url", nargs="?", help="Download URL")
+    model_add_source_parser.set_defaults(func=global_cmds.model_add_source)
 
-    # index registry update
-    index_registry_update_parser = index_registry_subparsers.add_parser("update", help="Update registry data from GitHub")
-    index_registry_update_parser.set_defaults(func=global_cmds.registry_update)
+    # Registry management subcommands
+    registry_parser = subparsers.add_parser("registry", help="Manage node registry cache")
+    registry_subparsers = registry_parser.add_subparsers(dest="registry_command", help="Registry commands")
+
+    # registry status
+    registry_status_parser = registry_subparsers.add_parser("status", help="Show registry cache status")
+    registry_status_parser.set_defaults(func=global_cmds.registry_status)
+
+    # registry update
+    registry_update_parser = registry_subparsers.add_parser("update", help="Update registry data from GitHub")
+    registry_update_parser.set_defaults(func=global_cmds.registry_update)
+
+    # Config management
+    config_parser = subparsers.add_parser("config", help="Manage configuration settings")
+    config_parser.add_argument("--civitai-key", type=str, help="Set Civitai API key (use empty string to clear)")
+    config_parser.add_argument("--show", action="store_true", help="Show current configuration")
+    config_parser.set_defaults(func=global_cmds.config)
+
+    # Shell completion management
+    completion_cmds = CompletionCommands()
+    completion_parser = subparsers.add_parser("completion", help="Manage shell tab completion")
+    completion_subparsers = completion_parser.add_subparsers(dest="completion_command", help="Completion commands")
+
+    # completion install
+    completion_install_parser = completion_subparsers.add_parser("install", help="Install tab completion for your shell")
+    completion_install_parser.set_defaults(func=completion_cmds.install)
+
+    # completion uninstall
+    completion_uninstall_parser = completion_subparsers.add_parser("uninstall", help="Remove tab completion from your shell")
+    completion_uninstall_parser.set_defaults(func=completion_cmds.uninstall)
+
+    # completion status
+    completion_status_parser = completion_subparsers.add_parser("status", help="Show tab completion installation status")
+    completion_status_parser.set_defaults(func=completion_cmds.status)
 
 
 def _add_env_commands(subparsers):
@@ -173,19 +220,20 @@ def _add_env_commands(subparsers):
 
     # use - Set active environment
     use_parser = subparsers.add_parser("use", help="Set active environment")
-    use_parser.add_argument("name", help="Environment name")
+    use_parser.add_argument("name", help="Environment name").completer = environment_completer
     use_parser.set_defaults(func=env_cmds.use)
 
     # delete - Delete environment
     delete_parser = subparsers.add_parser("delete", help="Delete environment")
-    delete_parser.add_argument("name", help="Environment name")
+    delete_parser.add_argument("name", help="Environment name").completer = environment_completer
     delete_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
     delete_parser.set_defaults(func=env_cmds.delete)
 
     # Environment Operation Commands (operate IN environments, require -e or active)
 
     # run - Run ComfyUI (special handling for ComfyUI args)
-    run_parser = subparsers.add_parser("run", help="Run ComfyUI", add_help=False)
+    run_parser = subparsers.add_parser("run", help="Run ComfyUI")
+    run_parser.add_argument("--no-sync", action="store_true", help="Skip environment sync before running")
     run_parser.set_defaults(func=env_cmds.run, args=[])
 
     # status - Show environment status
@@ -193,14 +241,16 @@ def _add_env_commands(subparsers):
     status_parser.add_argument("-v", "--verbose", action="store_true", help="Show full details")
     status_parser.set_defaults(func=env_cmds.status)
 
-    # sync - Apply changes from pyproject.toml
-    sync_parser = subparsers.add_parser("sync", help="Apply changes from pyproject.toml to current environment")
-    sync_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
-    sync_parser.set_defaults(func=env_cmds.sync)
+    # repair - Repair environment drift (manual edits or git operations)
+    repair_parser = subparsers.add_parser("repair", help="Repair environment to match pyproject.toml")
+    repair_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
+    repair_parser.set_defaults(func=env_cmds.repair)
 
     # commit - Commit unsaved changes
     commit_parser = subparsers.add_parser("commit", help="Commit unsaved changes to pyproject.toml (or uv.lock)")
     commit_parser.add_argument("-m", "--message", help="Commit message (auto-generated if not provided)")
+    commit_parser.add_argument("--auto", action="store_true", help="Auto-resolve issues without interaction")
+    commit_parser.add_argument("--allow-issues", action="store_true", help="Allow committing workflows with unresolved issues")
     commit_parser.set_defaults(func=env_cmds.commit)
 
     # log - Show commit history
@@ -212,6 +262,7 @@ def _add_env_commands(subparsers):
     rollback_parser = subparsers.add_parser("rollback", help="Rollback to a previous version or discard uncommitted changes")
     rollback_parser.add_argument("target", nargs="?", help="Version to rollback to (e.g., 'v1', 'v2') - leave empty to discard uncommitted changes")
     rollback_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
+    rollback_parser.add_argument("--force", action="store_true", help="Force rollback, discarding uncommitted changes without error")
     rollback_parser.set_defaults(func=env_cmds.rollback)
 
     # Node management subcommands
@@ -220,63 +271,44 @@ def _add_env_commands(subparsers):
 
     # node add
     node_add_parser = node_subparsers.add_parser("add", help="Add custom node")
-    node_add_parser.add_argument("node_name", help="Node registry ID")
+    node_add_parser.add_argument("node_name", help="Node directory name or registry ID")
+    node_add_parser.add_argument("--dev", action="store_true", help="Track existing local development node")
     node_add_parser.add_argument("--no-test", action="store_true", help="Don't test resolution")
+    node_add_parser.add_argument("--force", action="store_true", help="Force overwrite existing directory")
     node_add_parser.set_defaults(func=env_cmds.node_add)
 
     # node remove
     node_remove_parser = node_subparsers.add_parser("remove", help="Remove custom node")
-    node_remove_parser.add_argument("node_name", help="Node registry ID")
+    node_remove_parser.add_argument("node_name", help="Node registry ID or name").completer = installed_node_completer
+    node_remove_parser.add_argument("--dev", action="store_true", help="Remove development node specifically")
     node_remove_parser.set_defaults(func=env_cmds.node_remove)
 
     # node list
     node_list_parser = node_subparsers.add_parser("list", help="List custom nodes")
     node_list_parser.set_defaults(func=env_cmds.node_list)
 
+    # node update
+    node_update_parser = node_subparsers.add_parser("update", help="Update custom node")
+    node_update_parser.add_argument("node_name", help="Node identifier or name to update").completer = installed_node_completer
+    node_update_parser.add_argument("-y", "--yes", action="store_true", help="Auto-confirm updates (skip prompts)")
+    node_update_parser.add_argument("--no-test", action="store_true", help="Don't test resolution")
+    node_update_parser.set_defaults(func=env_cmds.node_update)
+
     # Workflow management subcommands
     workflow_parser = subparsers.add_parser("workflow", help="Manage workflows")
     workflow_subparsers = workflow_parser.add_subparsers(dest="workflow_command", help="Workflow commands")
 
-    # workflow track
-    workflow_track_parser = workflow_subparsers.add_parser("track", help="Start tracking workflow(s)")
-    workflow_track_parser.add_argument("name", nargs="?", help="Workflow name to track")
-    workflow_track_parser.add_argument("--all", action="store_true", help="Track all untracked workflows")
-    workflow_track_parser.add_argument(
-        "--install-mode",
-        choices=["auto", "manual", "skip"],
-        default="auto",
-        help="How to handle missing nodes: auto (default), manual, or skip"
-    )
-    workflow_track_parser.set_defaults(func=env_cmds.workflow_track)
-
-    # workflow untrack
-    workflow_untrack_parser = workflow_subparsers.add_parser("untrack", help="Stop tracking workflow")
-    workflow_untrack_parser.add_argument("name", help="Workflow name to untrack")
-    workflow_untrack_parser.set_defaults(func=env_cmds.workflow_untrack)
-
     # workflow list
-    workflow_list_parser = workflow_subparsers.add_parser("list", help="List workflow tracking status")
+    workflow_list_parser = workflow_subparsers.add_parser("list", help="List all workflows with sync status")
     workflow_list_parser.set_defaults(func=env_cmds.workflow_list)
 
-    # Environment Model management subcommands
-    env_model_parser = subparsers.add_parser("model", help="Manage environment model requirements")
-    env_model_subparsers = env_model_parser.add_subparsers(dest="env_model_command", help="Environment model commands")
-
-    # model add
-    env_model_add_parser = env_model_subparsers.add_parser("add", help="Add model to environment manifest")
-    env_model_add_parser.add_argument("identifier", help="Model hash or URL")
-    env_model_add_parser.add_argument("--optional", action="store_true", help="Add as optional model")
-    env_model_add_parser.add_argument("--workflow", help="Link to specific workflow")
-    env_model_add_parser.set_defaults(func=env_cmds.model_add)
-
-    # model remove
-    env_model_remove_parser = env_model_subparsers.add_parser("remove", help="Remove model from environment manifest")
-    env_model_remove_parser.add_argument("hash", help="Model hash to remove")
-    env_model_remove_parser.set_defaults(func=env_cmds.model_remove)
-
-    # model list
-    env_model_list_parser = env_model_subparsers.add_parser("list", help="List models in environment manifest")
-    env_model_list_parser.set_defaults(func=env_cmds.model_list)
+    # workflow resolve
+    workflow_resolve_parser = workflow_subparsers.add_parser("resolve", help="Resolve workflow dependencies (nodes & models)")
+    workflow_resolve_parser.add_argument("name", help="Workflow name to resolve").completer = workflow_completer
+    workflow_resolve_parser.add_argument("--auto", action="store_true", help="Auto-resolve without interaction")
+    workflow_resolve_parser.add_argument("--install", action="store_true", help="Auto-install missing nodes without prompting")
+    workflow_resolve_parser.add_argument("--no-install", action="store_true", help="Skip node installation prompt")
+    workflow_resolve_parser.set_defaults(func=env_cmds.workflow_resolve)
 
     # Constraint management subcommands
     constraint_parser = subparsers.add_parser("constraint", help="Manage UV constraint dependencies")

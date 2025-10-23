@@ -1,12 +1,15 @@
 """Environment-specific logging for ComfyDock."""
 
 import logging
+import os
 from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import datetime
 from functools import wraps
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
+from .compressed_handler import CompressedDualHandler
 
 
 class EnvironmentLogger:
@@ -44,10 +47,10 @@ class EnvironmentLogger:
     @classmethod
     def _add_env_handler(cls, env_name: str) -> logging.Handler | None:
         """Add a file handler for the environment to the root logger.
-        
+
         Args:
             env_name: Environment name
-            
+
         Returns:
             The handler that was added, or None if workspace not set
         """
@@ -57,14 +60,30 @@ class EnvironmentLogger:
         # Remove any existing environment handler
         cls._remove_env_handler()
 
-        # Create rotating file handler for this environment
-        log_file = cls._workspace_path / "logs" / f"{env_name}.log"
-        handler = RotatingFileHandler(
-            log_file,
-            maxBytes=cls.MAX_BYTES,
-            backupCount=cls.BACKUP_COUNT,
-            encoding='utf-8'
-        )
+        # Check if compressed logging is enabled via env var
+        enable_compressed = os.environ.get('COMFYDOCK_DEV_COMPRESS_LOGS', '').lower() in ('true', '1', 'yes')
+
+        if enable_compressed:
+            # Use dual-output handler (full.log + compressed.log)
+            log_dir = cls._workspace_path / "logs" / env_name
+            handler = CompressedDualHandler(
+                log_dir=log_dir,
+                env_name=env_name,
+                compression_level='medium',  # Configurable in future
+                maxBytes=cls.MAX_BYTES,
+                backupCount=cls.BACKUP_COUNT,
+                encoding='utf-8'
+            )
+        else:
+            # Legacy: single flat file
+            log_file = cls._workspace_path / "logs" / f"{env_name}.log"
+            handler = RotatingFileHandler(
+                log_file,
+                maxBytes=cls.MAX_BYTES,
+                backupCount=cls.BACKUP_COUNT,
+                encoding='utf-8'
+            )
+
         handler.setLevel(logging.DEBUG)
 
         # Set formatter
@@ -390,14 +409,21 @@ def with_env_logging(command_name: str, get_env_name: Callable | None = None, lo
             # Determine environment name
             env_name = None
             if get_env_name:
-                env_name = get_env_name(args)
-            elif hasattr(self, '_get_env_name'):
-                # Prefer _get_env_name for EnvironmentCommands as it handles -e flag and active env
-                env_name = self._get_env_name(args)
+                # Try calling with self first, fall back to just args
+                import inspect
+                sig = inspect.signature(get_env_name)
+                if len(sig.parameters) >= 2:
+                    env_name = get_env_name(self, args)
+                else:
+                    env_name = get_env_name(args)
             elif hasattr(args, 'name'):
+                # For commands like 'create', args.name is the target environment
                 env_name = args.name
             elif hasattr(args, 'env_name'):
                 env_name = args.env_name
+            elif hasattr(self, '_get_env'):
+                # For commands operating IN an environment, fall back to active env
+                env_name = self._get_env(args).name
 
             # If no environment name available, run without logging
             if not env_name:
@@ -434,7 +460,12 @@ def with_env_logging(command_name: str, get_env_name: Callable | None = None, lo
                     context[key] = value
 
             # Run with logging context
-            with EnvironmentLogger.log_command(env_name, command_name, **context):
+            with EnvironmentLogger.log_command(env_name, command_name, **context) as logger:
+                # Pass logger to function if it accepts it
+                import inspect
+                sig = inspect.signature(func)
+                if 'logger' in sig.parameters:
+                    kwargs['logger'] = logger
                 return func(self, args, *extra_args, **kwargs)
 
         return wrapper

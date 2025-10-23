@@ -7,17 +7,20 @@ from __future__ import annotations
 
 import hashlib
 import re
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import tomlkit
 from tomlkit.exceptions import TOMLKitError
 
+from comfydock_core.models.manifest import ManifestWorkflowModel, ManifestModel
+
 from ..logging.logging_config import get_logger
 from ..models.exceptions import CDPyprojectError, CDPyprojectInvalidError, CDPyprojectNotFoundError
 
 if TYPE_CHECKING:
-    from ..services.node_registry import NodeInfo
+    from ..models.shared import NodeInfo
 
 from ..utils.dependency_parser import parse_dependency_string
 
@@ -29,53 +32,36 @@ class PyprojectManager:
 
     def __init__(self, pyproject_path: Path):
         """Initialize the PyprojectManager.
-        
+
         Args:
             pyproject_path: Path to the pyproject.toml file
         """
         self.path = pyproject_path
 
-        # Lazy-initialized handlers
-        self._dependencies: DependencyHandler | None = None
-        self._nodes: NodeHandler | None = None
-        self._uv_config: UVConfigHandler | None = None
-        self._workflows: WorkflowHandler | None = None
-        self._models: ModelHandler | None = None
-
-    @property
+    @cached_property
     def dependencies(self) -> DependencyHandler:
         """Get dependency handler."""
-        if self._dependencies is None:
-            self._dependencies = DependencyHandler(self)
-        return self._dependencies
+        return DependencyHandler(self)
 
-    @property
+    @cached_property
     def nodes(self) -> NodeHandler:
         """Get node handler."""
-        if self._nodes is None:
-            self._nodes = NodeHandler(self)
-        return self._nodes
+        return NodeHandler(self)
 
-    @property
+    @cached_property
     def uv_config(self) -> UVConfigHandler:
         """Get UV configuration handler."""
-        if self._uv_config is None:
-            self._uv_config = UVConfigHandler(self)
-        return self._uv_config
+        return UVConfigHandler(self)
 
-    @property
+    @cached_property
     def workflows(self) -> WorkflowHandler:
         """Get workflow handler."""
-        if self._workflows is None:
-            self._workflows = WorkflowHandler(self)
-        return self._workflows
+        return WorkflowHandler(self)
 
-    @property
+    @cached_property
     def models(self) -> ModelHandler:
         """Get model handler."""
-        if self._models is None:
-            self._models = ModelHandler(self)
-        return self._models
+        return ModelHandler(self)
 
     # ===== Core Operations =====
 
@@ -110,17 +96,24 @@ class PyprojectManager:
 
         return config
 
+
     def save(self, config: dict | None = None) -> None:
         """Save the configuration to pyproject.toml.
-        
+
         Args:
             config: Configuration to save (uses cache if not provided)
-            
+
         Raises:
             CDPyprojectError: If no configuration to save or write fails
         """
         if config is None:
             raise CDPyprojectError("No configuration to save")
+
+        # Clean up empty sections before saving
+        self._cleanup_empty_sections(config)
+
+        # Ensure proper spacing between major sections
+        self._ensure_section_spacing(config)
 
         try:
             # Ensure parent directory exists
@@ -132,6 +125,109 @@ class PyprojectManager:
             raise CDPyprojectError(f"Failed to write pyproject.toml to {self.path}: {e}")
 
         logger.debug(f"Saved pyproject.toml to {self.path}")
+
+    def reset_lazy_handlers(self):
+        """Clear cached properties to force re-initialization."""
+        for attr in ('dependencies', 'nodes', 'uv_config', 'workflows', 'models', 'node_mappings'):
+            if attr in self.__dict__:
+                del self.__dict__[attr]
+
+    def _cleanup_empty_sections(self, config: dict) -> None:
+        """Recursively remove empty sections from config."""
+        def _clean_dict(d: dict) -> bool:
+            """Recursively clean dict, return True if dict became empty."""
+            keys_to_remove = []
+            for key, value in list(d.items()):
+                if isinstance(value, dict):
+                    if _clean_dict(value) or not value:
+                        keys_to_remove.append(key)
+            for key in keys_to_remove:
+                del d[key]
+            return not d
+
+        _clean_dict(config)
+
+    def _ensure_section_spacing(self, config: dict) -> None:
+        """Ensure proper spacing between major sections in tool.comfydock.
+
+        This adds visual separation between:
+        - [tool.comfydock] metadata and workflows
+        - workflows section and models section
+        """
+        if 'tool' not in config or 'comfydock' not in config['tool']:
+            return
+
+        comfydock = config['tool']['comfydock']
+
+        # Track which sections exist
+        has_metadata = any(k in comfydock for k in ['comfyui_version', 'python_version', 'manifest_state'])
+        has_nodes = 'nodes' in comfydock
+        has_workflows = 'workflows' in comfydock
+        has_models = 'models' in comfydock
+
+        # Only rebuild if we have workflows or models (need spacing)
+        if not (has_workflows or has_models):
+            return
+
+        # Deep copy sections to strip any accumulated whitespace
+        def deep_copy_table(obj):
+            """Recursively copy tomlkit objects, preserving special types."""
+            if isinstance(obj, dict):
+                # Determine if inline table or regular table
+                is_inline = hasattr(obj, '__class__') and 'InlineTable' in obj.__class__.__name__
+                new_dict = tomlkit.inline_table() if is_inline else tomlkit.table()
+                for k, v in obj.items():
+                    # Skip whitespace items (empty keys)
+                    if k == '':
+                        continue
+                    new_dict[k] = deep_copy_table(v)
+                return new_dict
+            elif isinstance(obj, list):
+                # Check if this is a tomlkit array (preserve inline table items)
+                is_tomlkit_array = hasattr(obj, '__class__') and 'Array' in obj.__class__.__name__
+                if is_tomlkit_array:
+                    new_array = tomlkit.array()
+                    for item in obj:
+                        # Preserve inline tables inside arrays
+                        if hasattr(item, '__class__') and 'InlineTable' in item.__class__.__name__:
+                            new_inline = tomlkit.inline_table()
+                            for k, v in item.items():
+                                new_inline[k] = deep_copy_table(v)
+                            new_array.append(new_inline)
+                        else:
+                            new_array.append(deep_copy_table(item))
+                    return new_array
+                else:
+                    return [deep_copy_table(item) for item in obj]
+            else:
+                return obj
+
+        # Create a new table with sections in the correct order
+        new_table = tomlkit.table()
+
+        # Add metadata fields first
+        for key in ['comfyui_version', 'python_version', 'manifest_state']:
+            if key in comfydock:
+                new_table[key] = comfydock[key]
+
+        # Add nodes if it exists
+        if has_nodes:
+            new_table['nodes'] = deep_copy_table(comfydock['nodes'])
+
+        # Add workflows with preceding newline if needed
+        if has_workflows:
+            if has_metadata or has_nodes:
+                new_table.add(tomlkit.nl())
+            new_table['workflows'] = deep_copy_table(comfydock['workflows'])
+
+        # Add models with preceding newline if needed
+        if has_models:
+            if has_metadata or has_nodes or has_workflows:
+                new_table.add(tomlkit.nl())
+            new_table['models'] = deep_copy_table(comfydock['models'])
+
+        # Replace the comfydock table
+        config['tool']['comfydock'] = new_table
 
     def get_manifest_state(self) -> str:
         """Get the current manifest state.
@@ -146,22 +242,42 @@ class PyprojectManager:
 
     def set_manifest_state(self, state: str) -> None:
         """Set the manifest state.
-        
+
         Args:
             state: 'local' or 'exportable'
         """
         if state not in ('local', 'exportable'):
             raise ValueError(f"Invalid manifest state: {state}")
-        
+
         config = self.load()
         if 'tool' not in config:
             config['tool'] = {}
         if 'comfydock' not in config['tool']:
             config['tool']['comfydock'] = {}
-        
+
         config['tool']['comfydock']['manifest_state'] = state
         self.save(config)
         logger.info(f"Set manifest state to: {state}")
+
+    def snapshot(self) -> dict:
+        """Create a deep copy of current pyproject.toml state for rollback.
+
+        Returns:
+            Deep copy of the entire config dictionary
+        """
+        import copy
+        return copy.deepcopy(self.load())
+
+    def restore(self, snapshot: dict) -> None:
+        """Restore pyproject.toml from a snapshot.
+
+        Args:
+            snapshot: Previously captured state from snapshot()
+        """
+        self.save(snapshot)
+        # Reset lazy handlers so they reload from restored state
+        self.reset_lazy_handlers()
+        logger.debug("Restored pyproject.toml from snapshot")
 
 
 class BaseHandler:
@@ -175,7 +291,11 @@ class BaseHandler:
         return self.manager.load()
 
     def save(self, config: dict) -> None:
-        """Save configuration through manager."""
+        """Save configuration through manager.
+        
+        Raises:
+            CDPyprojectError
+        """
         self.manager.save(config)
 
     def ensure_section(self, config: dict, *path: str) -> dict:
@@ -480,6 +600,7 @@ class NodeHandler(BaseHandler):
         config = self.load()
         identifier = node_identifier or (node_info.registry_id if node_info.registry_id else node_info.name)
 
+        # Only create nodes section when actually adding a node
         self.ensure_section(config, 'tool', 'comfydock', 'nodes')
 
         # Build node data, excluding any None values (tomlkit requirement)
@@ -496,9 +617,25 @@ class NodeHandler(BaseHandler):
         logger.info(f"Added custom node: {identifier}")
         self.save(config)
 
+    def add_development(self, name: str) -> None:
+        """Add a development node (version='dev')."""
+        from ..models.shared import NodeInfo
+        node_info = NodeInfo(
+            name=name,
+            version='dev',
+            source='development'
+        )
+        self.add(node_info, name)
+
+    # def is_development(self, identifier: str) -> bool:
+    #     """Check if a node is a development node."""
+    #     nodes = self.get_existing()
+    #     node = nodes.get(identifier)
+    #     return node and hasattr(node, 'version') and node.version == 'dev'
+
     def get_existing(self) -> dict[str, NodeInfo]:
         """Get all existing custom nodes from pyproject.toml."""
-        from ..services.node_registry import NodeInfo
+        from ..models.shared import NodeInfo
         config = self.load()
         nodes_data = config.get('tool', {}).get('comfydock', {}).get('nodes', {})
 
@@ -570,267 +707,421 @@ class NodeHandler(BaseHandler):
         return f"{normalized}-{hash_digest}"
 
 
+# DevNodeHandler removed - development nodes now handled by NodeHandler with version='dev'
+
+
 class WorkflowHandler(BaseHandler):
-    """Handles workflow management."""
-
-    def add(self, name: str, workflow_info: dict) -> None:
-        """Add a workflow to tracking in pyproject.toml."""
-        config = self.load()
-        self.ensure_section(config, 'tool', 'comfydock')
-
-        if 'workflows' not in config['tool']['comfydock']:
-            config['tool']['comfydock']['workflows'] = tomlkit.table()
-
-        if 'tracked' not in config['tool']['comfydock']['workflows']:
-            config['tool']['comfydock']['workflows']['tracked'] = tomlkit.table()
-
-        # Create inline table for requires to keep everything grouped
-        requires = workflow_info.get('requires', {})
-        requires_table = tomlkit.inline_table()
-
-        # Add each requires section, filtering out None values
-        for key, value in requires.items():
-            if value is None:
-                continue
-
-            if isinstance(value, list):
-                # Filter out None values from lists
-                filtered_value = [v for v in value if v is not None]
-                if filtered_value:  # Only add non-empty lists
-                    requires_table[key] = filtered_value
-            elif isinstance(value, dict):
-                # Skip private/debug keys that start with underscore
-                # These are for debugging and shouldn't be saved to TOML
-                if key.startswith('_'):
-                    continue
-                # For other dict values, create a proper nested table
-                dict_table = tomlkit.table()
-                for dict_key, dict_value in value.items():
-                    if dict_key is not None and dict_value is not None:
-                        # Ensure dict values are properly formatted
-                        if isinstance(dict_value, list):
-                            # Filter None from nested lists
-                            filtered_dict_value = [v for v in dict_value if v is not None]
-                            if filtered_dict_value:
-                                dict_table[dict_key] = filtered_dict_value
-                        else:
-                            dict_table[dict_key] = dict_value
-                if dict_table:  # Only add non-empty tables
-                    requires_table[key] = dict_table
-            else:
-                # For other scalar values, wrap in list
-                requires_table[key] = [value]
-
-        # Create the workflow entry with None checks
-        workflow_entry = tomlkit.table()
-
-        # Ensure file path is not None
-        file_path = workflow_info.get('file')
-        if file_path is None:
-            raise ValueError(f"Workflow file path cannot be None for workflow '{name}'")
-
-        workflow_entry['file'] = file_path
-        workflow_entry['requires'] = requires_table
-
-        config['tool']['comfydock']['workflows']['tracked'][name] = workflow_entry
-
-
-        self.save(config)
-        logger.info(f"Added tracked workflow: {name}")
-
-    def get_tracked(self) -> dict:
-        """Get all tracked workflows from pyproject.toml."""
+    """Handles workflow model resolutions and tracking."""
+    
+    def get_workflow(self, name: str) -> dict | None:
+        """Get a workflow from pyproject.toml."""
         try:
             config = self.load()
-            return config.get('tool', {}).get('comfydock', {}).get('workflows', {}).get('tracked', {})
+            return config.get('tool', {}).get('comfydock', {}).get('workflows', {}).get(name, None)
+        except Exception:
+            logger.error(f"Failed to load config for workflow: {name}")
+            return None
+
+    def add_workflow(self, name: str) -> None:
+        """Add a new workflow to the pyproject.toml."""
+        config = self.load()
+        self.ensure_section(config, 'tool', 'comfydock', 'workflows')
+        config['tool']['comfydock']['workflows'][name] = tomlkit.table()
+        config['tool']['comfydock']['workflows'][name]['path'] = f"workflows/{name}.json"
+        logger.info(f"Added new workflow: {name}")
+        self.save(config)
+
+    def get_workflow_models(
+        self,
+        workflow_name: str
+    ) -> list["ManifestWorkflowModel"]:
+        """Get all models for a workflow.
+
+        Args:
+            workflow_name: Workflow name
+
+        Returns:
+            List of ManifestWorkflowModel objects (resolved and unresolved)
+        """
+        try:
+            config = self.load()
+            workflow_data = config.get('tool', {}).get('comfydock', {}).get('workflows', {}).get(workflow_name, {})
+            models_data = workflow_data.get('models', [])
+
+            return [ManifestWorkflowModel.from_toml_dict(m) for m in models_data]
+        except Exception as e:
+            logger.debug(f"Error loading workflow models for '{workflow_name}': {e}")
+            return []
+
+    def set_workflow_models(
+        self,
+        workflow_name: str,
+        models: list["ManifestWorkflowModel"]
+    ) -> None:
+        """Set all models for a workflow (unified list).
+
+        Args:
+            workflow_name: Workflow name
+            models: List of ManifestWorkflowModel objects (resolved and unresolved)
+        """
+        config = self.load()
+
+        # Ensure sections exist
+        self.ensure_section(config, 'tool', 'comfydock', 'workflows')
+
+        # Ensure specific workflow exists
+        if workflow_name not in config['tool']['comfydock']['workflows']:
+            config['tool']['comfydock']['workflows'][workflow_name] = tomlkit.table()
+
+        # Set workflow path
+        if 'path' not in config['tool']['comfydock']['workflows'][workflow_name]:
+            config['tool']['comfydock']['workflows'][workflow_name]['path'] = f"workflows/{workflow_name}.json"
+
+        # Serialize to array of tables
+        models_array = []
+        for model in models:
+            model_dict = model.to_toml_dict()
+            # Convert to inline table for compact representation
+            models_array.append(model_dict)
+
+        config['tool']['comfydock']['workflows'][workflow_name]['models'] = models_array
+        self.save(config)
+        logger.debug(f"Set {len(models)} model(s) for workflow '{workflow_name}'")
+
+    def add_workflow_model(
+        self,
+        workflow_name: str,
+        model: "ManifestWorkflowModel"
+    ) -> None:
+        """Add or update a single model in workflow (progressive write).
+
+        Args:
+            workflow_name: Workflow name
+            model: ManifestWorkflowModel to add or update
+
+        Note:
+            - If same node reference exists, replaces/upgrades that entry
+            - If model with same hash exists, merges nodes
+            - Otherwise, appends as new model
+        """
+        existing = self.get_workflow_models(workflow_name)
+
+        # Build set of node references in new model
+        new_refs = {(n.node_id, n.widget_index) for n in model.nodes}
+
+        # Check for overlap with existing models
+        updated = False
+        for i, existing_model in enumerate(existing):
+            existing_refs = {(n.node_id, n.widget_index) for n in existing_model.nodes}
+
+            # If any node references overlap, this is a resolution of an existing entry
+            if new_refs & existing_refs:
+                if model.hash:
+                    # Resolved version replaces unresolved
+                    existing[i] = model
+                    logger.debug(f"Replaced unresolved model '{existing_model.filename}' with resolved '{model.filename}'")
+                else:
+                    # Both unresolved - merge nodes and update mutable fields
+                    non_overlapping = [n for n in model.nodes if (n.node_id, n.widget_index) not in existing_refs]
+                    existing_model.nodes.extend(non_overlapping)
+                    existing_model.criticality = model.criticality
+                    existing_model.status = model.status
+                    # Update download intent fields if present
+                    if model.sources:
+                        existing_model.sources = model.sources
+                    if model.relative_path:
+                        existing_model.relative_path = model.relative_path
+                    logger.debug(f"Updated unresolved model '{existing_model.filename}' with {len(non_overlapping)} new ref(s)")
+                updated = True
+                break
+
+            # Fallback: hash matching (for models resolved to same file from different nodes)
+            elif model.hash and existing_model.hash == model.hash:
+                non_overlapping = [n for n in model.nodes if (n.node_id, n.widget_index) not in existing_refs]
+                existing_model.nodes.extend(non_overlapping)
+                logger.debug(f"Merged {len(non_overlapping)} new node(s) into existing model '{model.filename}'")
+                updated = True
+                break
+
+        if not updated:
+            # Completely new model
+            existing.append(model)
+            logger.debug(f"Added new model '{model.filename}' to workflow '{workflow_name}'")
+
+        self.set_workflow_models(workflow_name, existing)
+
+
+    def get_all_with_resolutions(self) -> dict:
+        """Get all workflows that have model resolutions."""
+        try:
+            config = self.load()
+            return config.get('tool', {}).get('comfydock', {}).get('workflows', {})
         except Exception:
             return {}
 
-    def remove(self, name: str) -> bool:
-        """Remove a tracked workflow from pyproject.toml."""
+    def set_node_packs(self, name: str, node_pack_ids: set[str] | None) -> None:
+        """Set node pack references for a workflow.
+
+        Args:
+            name: Workflow name
+            node_pack_ids: List of node pack identifiers (e.g., ["comfyui-akatz-nodes"]) | None which clears node packs
+        """
         config = self.load()
-        workflows = config.get('tool', {}).get('comfydock', {}).get('workflows', {}).get('tracked', {})
+        self.ensure_section(config, 'tool', 'comfydock', 'workflows', name)
+        if not node_pack_ids:
+            if 'nodes' in config['tool']['comfydock']['workflows'][name]:
+                logger.info(f"Clearing node packs for workflow: {name}")
+                del config['tool']['comfydock']['workflows'][name]['nodes']
+        else:
+            logger.info(f"Set {len(node_pack_ids)} node pack(s) for workflow: {name}")
+            config['tool']['comfydock']['workflows'][name]['nodes'] = sorted(node_pack_ids)
+        self.save(config)
+
+    def clear_workflow_resolutions(self, name: str) -> bool:
+        """Clear model resolutions for a workflow."""
+        config = self.load()
+        workflows = config.get('tool', {}).get('comfydock', {}).get('workflows', {})
 
         if name not in workflows:
             return False
 
         del workflows[name]
         # Clean up empty sections
-        self.clean_empty_sections(config, 'tool', 'comfydock', 'workflows', 'tracked')
         self.clean_empty_sections(config, 'tool', 'comfydock', 'workflows')
         self.save(config)
-        logger.info(f"Removed tracked workflow: {name}")
+        logger.info(f"Cleared model resolutions for workflow: {name}")
         return True
 
+    # === Per-workflow custom_node_map methods ===
 
-class ModelHandler(BaseHandler):
-    """Handles model configuration in pyproject.toml."""
-
-    def _ensure_structure(self, config: dict) -> None:
-        """Ensure tool.comfydock.models exists."""
-        if "tool" not in config:
-            config["tool"] = tomlkit.table()
-        if "comfydock" not in config["tool"]:
-            config["tool"]["comfydock"] = tomlkit.table()
-        if "models" not in config["tool"]["comfydock"]:
-            models_table = tomlkit.table()
-            models_table["required"] = tomlkit.table()
-            models_table["optional"] = tomlkit.table()
-            config["tool"]["comfydock"]["models"] = models_table
-
-    def add_model(
-        self,
-        model_hash: str,
-        filename: str,
-        file_size: int,
-        category: str = "required",
-        **metadata,
-    ) -> None:
-        """Add a model to the manifest.
+    def get_custom_node_map(self, workflow_name: str) -> dict[str, str | bool]:
+        """Get custom_node_map for a specific workflow.
 
         Args:
-            model_hash: Model hash (short hash used as key)
-            filename: Model filename
-            file_size: File size in bytes
-            category: 'required' or 'optional'
-            **metadata: Additional metadata (blake3, sha256, sources, etc.)
+            workflow_name: Name of workflow
+
+        Returns:
+            Dict mapping node_type -> package_id (or false for optional)
+        """
+        try:
+            config = self.load()
+            workflow_data = config.get('tool', {}).get('comfydock', {}).get('workflows', {}).get(workflow_name, {})
+            return workflow_data.get('custom_node_map', {})
+        except Exception:
+            return {}
+
+    def set_custom_node_mapping(self, workflow_name: str, node_type: str, package_id: str | None) -> None:
+        """Set a single custom_node_map entry for a workflow (progressive write).
+
+        Args:
+            workflow_name: Name of workflow
+            node_type: Node type to map
+            package_id: Package ID (or None for optional = false)
         """
         config = self.load()
-        self._ensure_structure(config)
+        self.ensure_section(config, 'tool', 'comfydock', 'workflows', workflow_name)
 
-        models_section = config["tool"]["comfydock"]["models"][category]
-        models_section[model_hash] = {
-            "filename": filename,
-            "size": file_size,
-            **metadata,
-        }
+        # Ensure custom_node_map exists
+        if 'custom_node_map' not in config['tool']['comfydock']['workflows'][workflow_name]:
+            config['tool']['comfydock']['workflows'][workflow_name]['custom_node_map'] = {}
+
+        # Set mapping (false for optional, package_id string for resolved)
+        if package_id is None:
+            config['tool']['comfydock']['workflows'][workflow_name]['custom_node_map'][node_type] = False
+        else:
+            config['tool']['comfydock']['workflows'][workflow_name]['custom_node_map'][node_type] = package_id
 
         self.save(config)
-        logger.info(f"Added {category} model: {filename} ({model_hash[:8]}...)")
+        logger.debug(f"Set custom_node_map for workflow '{workflow_name}': {node_type} -> {package_id}")
 
-    def remove_model(self, model_hash: str, category: str | None = None) -> bool:
-        """Remove a model from the manifest.
-        
+    def remove_custom_node_mapping(self, workflow_name: str, node_type: str) -> bool:
+        """Remove a single custom_node_map entry for a workflow.
+
         Args:
-            model_hash: Model hash to remove
-            category: Specific category to remove from, or None to check both
-            
+            workflow_name: Name of workflow
+            node_type: Node type to remove
+
         Returns:
             True if removed, False if not found
         """
         config = self.load()
-        self._ensure_structure(config)
+        workflow_data = config.get('tool', {}).get('comfydock', {}).get('workflows', {}).get(workflow_name, {})
 
-        models = config["tool"]["comfydock"]["models"]
+        if 'custom_node_map' not in workflow_data or node_type not in workflow_data['custom_node_map']:
+            return False
 
-        if category:
-            # Remove from specific category
-            if model_hash in models.get(category, {}):
-                del models[category][model_hash]
-                # Clean up empty sections
-                self.clean_empty_sections(config, 'tool', 'comfydock', 'models', category)
-                self.clean_empty_sections(config, 'tool', 'comfydock', 'models')
-                self.save(config)
-                logger.info(f"Removed model from {category}: {model_hash[:8]}...")
-                return True
-        else:
-            # Remove from any category
-            for cat in ['required', 'optional']:
-                if model_hash in models.get(cat, {}):
-                    del models[cat][model_hash]
-                    # Clean up empty sections
-                    self.clean_empty_sections(config, 'tool', 'comfydock', 'models', cat)
-                    self.clean_empty_sections(config, 'tool', 'comfydock', 'models')
-                    self.save(config)
-                    logger.info(f"Removed model from {cat}: {model_hash[:8]}...")
-                    return True
+        del workflow_data['custom_node_map'][node_type]
 
-        return False
+        # Clean up empty custom_node_map
+        if not workflow_data['custom_node_map']:
+            del workflow_data['custom_node_map']
 
-    def get_all(self) -> dict:
-        """Get all models in manifest.
-        
+        self.save(config)
+        logger.debug(f"Removed custom_node_map entry for workflow '{workflow_name}': {node_type}")
+        return True
+
+    def remove_workflows(self, workflow_names: list[str]) -> int:
+        """Remove workflow sections from pyproject.toml.
+
+        Args:
+            workflow_names: List of workflow names to remove
+
         Returns:
-            Dictionary with 'required' and 'optional' sections
+            Number of workflows removed
+        """
+        if not workflow_names:
+            return 0
+
+        config = self.load()
+        workflows = config.get('tool', {}).get('comfydock', {}).get('workflows', {})
+
+        removed_count = 0
+        for name in workflow_names:
+            if name in workflows:
+                del workflows[name]
+                removed_count += 1
+                logger.debug(f"Removed workflow section: {name}")
+
+        if removed_count > 0:
+            # Clean up empty workflows section
+            self.clean_empty_sections(config, 'tool', 'comfydock', 'workflows')
+            self.save(config)
+            logger.info(f"Removed {removed_count} workflow section(s) from pyproject.toml")
+
+        return removed_count
+
+
+class ModelHandler(BaseHandler):
+    """Handles global model manifest in pyproject.toml.
+
+    Note: This stores ONLY resolved models with hashes for deduplication.
+    Unresolved models are stored per-workflow only.
+    """
+
+    def add_model(self, model: "ManifestModel") -> None:
+        """Add a model to the global manifest.
+
+        Args:
+            model: ManifestModel object with hash, filename, size, etc.
+
+        Raises:
+            CDPyprojectError: If save fails
         """
         config = self.load()
-        self._ensure_structure(config)
-        return config["tool"]["comfydock"]["models"]
 
-    def get_category(self, category: str) -> dict:
-        """Get models from specific category.
-        
-        Args:
-            category: 'required' or 'optional'
-            
+        # Ensure sections exist
+        self.ensure_section(config, "tool", "comfydock", "models")
+
+        # Serialize to inline table for compact representation
+        model_dict = model.to_toml_dict()
+        model_entry = tomlkit.inline_table()
+        for key, value in model_dict.items():
+            model_entry[key] = value
+
+        config["tool"]["comfydock"]["models"][model.hash] = model_entry
+        self.save(config)
+        logger.debug(f"Added model: {model.filename} ({model.hash[:8]}...)")
+
+    def get_all(self) -> list["ManifestModel"]:
+        """Get all models in manifest.
+
         Returns:
-            Dictionary of models in that category
+            List of ManifestModel objects
         """
-        models = self.get_all()
-        return models.get(category, {})
+        try:
+            config = self.load()
+            models_data = config.get("tool", {}).get("comfydock", {}).get("models", {})
 
-    def has_model(self, model_hash: str) -> str | None:
-        """Check if model exists in manifest.
-        
+            return [
+                ManifestModel.from_toml_dict(hash_key, data)
+                for hash_key, data in models_data.items()
+            ]
+        except Exception as e:
+            logger.debug(f"Error loading models: {e}")
+            return []
+
+    def get_by_hash(self, model_hash: str) -> "ManifestModel | None":
+        """Get a specific model by hash.
+
         Args:
-            model_hash: Model hash to check
-            
+            model_hash: Model hash to look up
+
         Returns:
-            Category name if found ('required' or 'optional'), None otherwise
+            ManifestModel if found, None otherwise
         """
-        models = self.get_all()
+        try:
+            config = self.load()
+            models_data = config.get("tool", {}).get("comfydock", {}).get("models", {})
 
-        if model_hash in models.get('required', {}):
-            return 'required'
-        elif model_hash in models.get('optional', {}):
-            return 'optional'
+            if model_hash in models_data:
+                return ManifestModel.from_toml_dict(model_hash, models_data[model_hash])
+            return None
+        except Exception as e:
+            logger.warning(f"Error getting model by hash {model_hash}: {e}")
+            return None
 
-        return None
+    def remove_model(self, model_hash: str) -> bool:
+        """Remove a model from the manifest.
 
-    def update_model_metadata(self, model_hash: str, **metadata) -> bool:
-        """Update metadata for existing model.
-        
         Args:
-            model_hash: Model hash to update
-            **metadata: Metadata to add/update (blake3, sha256, etc.)
-            
+            model_hash: Model hash to remove
+
         Returns:
-            True if updated, False if model not found
+            True if removed, False if not found
         """
         config = self.load()
         models = config.get("tool", {}).get("comfydock", {}).get("models", {})
 
-        # Find which category the model is in
-        for category in ['required', 'optional']:
-            if model_hash in models.get(category, {}):
-                models[category][model_hash].update(metadata)
-                self.save(config)
-                logger.debug(f"Updated metadata for model {model_hash[:8]}...")
-                return True
+        if model_hash in models:
+            del models[model_hash]
+            self.save(config)
+            logger.debug(f"Removed model: {model_hash[:8]}...")
+            return True
 
         return False
 
     def get_all_model_hashes(self) -> set[str]:
         """Get all model hashes in manifest.
-        
-        Returns:
-            Set of all model hashes across both categories
-        """
-        models = self.get_all()
-        all_hashes = set()
-        all_hashes.update(models.get('required', {}).keys())
-        all_hashes.update(models.get('optional', {}).keys())
-        return all_hashes
 
-    def get_model_count(self) -> dict[str, int]:
-        """Get count of models by category.
-        
         Returns:
-            Dictionary with counts for each category
+            Set of all model hashes
         """
-        models = self.get_all()
-        return {
-            'required': len(models.get('required', {})),
-            'optional': len(models.get('optional', {})),
-            'total': len(models.get('required', {})) + len(models.get('optional', {}))
-        }
+        config = self.load()
+        models = config.get("tool", {}).get("comfydock", {}).get("models", {})
+        return set(models.keys())
+
+    def cleanup_orphans(self) -> None:
+        """Remove models from global table that aren't referenced by any workflow.
+
+        This should be called after all workflows have been processed to clean up
+        models that were removed from all workflows.
+        """
+        # Collect all model hashes referenced by ANY workflow
+        referenced_hashes = set()
+        all_workflows = self.manager.workflows.get_all_with_resolutions()
+
+        for workflow_name in all_workflows:
+            workflow_models = self.manager.workflows.get_workflow_models(workflow_name)
+            for model in workflow_models:
+                # Only track resolved models (unresolved models aren't in global table)
+                if model.hash and model.status == "resolved":
+                    referenced_hashes.add(model.hash)
+
+        # Get all hashes in global models table
+        global_hashes = self.get_all_model_hashes()
+
+        # Remove orphans (in global but not referenced)
+        orphaned_hashes = global_hashes - referenced_hashes
+
+        if orphaned_hashes:
+            config = self.load()
+            models_section = config.get("tool", {}).get("comfydock", {}).get("models", {})
+
+            for model_hash in orphaned_hashes:
+                if model_hash in models_section:
+                    del models_section[model_hash]
+                    logger.debug(f"Removed orphaned model: {model_hash[:8]}...")
+
+            self.save(config)
+            logger.info(f"Cleaned up {len(orphaned_hashes)} orphaned model(s)")
+

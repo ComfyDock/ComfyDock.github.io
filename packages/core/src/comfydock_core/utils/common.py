@@ -20,7 +20,7 @@ def run_command(
     env: dict | None = None
 ) -> subprocess.CompletedProcess:
     """Run a subprocess command with proper error handling.
-    
+
     Args:
         cmd: Command and arguments as a list
         cwd: Working directory for the command
@@ -29,10 +29,10 @@ def run_command(
         text: Whether to decode output as text
         check: Whether to raise exception on non-zero exit code
         env: Environment variables to pass to subprocess
-        
+
     Returns:
         CompletedProcess instance
-        
+
     Raises:
         CDProcessError: If command fails and check=True
         subprocess.TimeoutExpired: If command times out
@@ -45,7 +45,7 @@ def run_command(
         result = subprocess.run(
             cmd,
             cwd=str(cwd) if cwd else None,
-            check=check,  # Use the actual check parameter
+            check=check,
             timeout=timeout,
             capture_output=capture_output,
             text=text,
@@ -76,38 +76,6 @@ def run_command(
         error_msg = f"Error running command {' '.join(cmd)}: {e}"
         logger.error(error_msg)
         raise
-
-
-def normalize_package_name(name: str) -> str:
-    """Normalize package name according to PEP 503.
-    
-    Args:
-        name: Package name to normalize
-        
-    Returns:
-        Normalized package name (lowercase, with underscores/hyphens as hyphens)
-    """
-    # Convert to lowercase and replace underscores/dots with hyphens
-    normalized = re.sub(r"[-_.]+", "-", name).lower()
-    return normalized
-
-
-def is_valid_version(version_str: str) -> bool:
-    """Check if a version string is valid.
-    
-    Args:
-        version_str: Version string to validate
-        
-    Returns:
-        True if version is valid, False otherwise
-    """
-    if not version_str:
-        return False
-
-    # Basic version pattern: major.minor.patch with optional suffixes
-    pattern = r'^\d+(?:\.\d+)*(?:[a-zA-Z]\d*)?(?:\+[a-zA-Z0-9.-]+)?$'
-    return bool(re.match(pattern, version_str))
-
 
 def format_size(size_bytes: int) -> str:
     """Format a size in bytes as human-readable string.

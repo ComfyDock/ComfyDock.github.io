@@ -1,0 +1,34 @@
+"""Simplified sync models for ComfyDock - workflow sync removed."""
+
+from dataclasses import dataclass, field
+from typing import List
+
+
+@dataclass
+class SyncResult:
+    """Result from environment sync operation - no workflow sync anymore."""
+
+    # Package sync
+    packages_synced: bool = False
+
+    # Node sync
+    nodes_installed: List[str] = field(default_factory=list)
+    nodes_removed: List[str] = field(default_factory=list)
+    nodes_updated: List[str] = field(default_factory=list)
+
+    # Model paths
+    model_paths_configured: bool = False
+
+    # Overall status
+    success: bool = True
+    errors: List[str] = field(default_factory=list)
+
+    @property
+    def has_changes(self) -> bool:
+        """Check if any changes were made during sync."""
+        return (
+            self.packages_synced or
+            bool(self.nodes_installed) or
+            bool(self.nodes_removed) or
+            bool(self.nodes_updated)
+        )
