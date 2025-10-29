@@ -354,6 +354,33 @@ class TestStripBaseDirectoryForNode:
 
         assert result == "4x-UltraSharp.pth"
 
+    def test_windows_backslash_normalized_to_forward_slash(self, workflow_manager):
+        """Windows backslash paths are normalized to forward slashes."""
+        node_type = "CheckpointLoaderSimple"
+        relative_path = r"checkpoints\SD1.5\model.safetensors"
+
+        result = workflow_manager._strip_base_directory_for_node(node_type, relative_path)
+
+        assert result == "SD1.5/model.safetensors"
+
+    def test_windows_backslash_stripped_correctly(self, workflow_manager):
+        """Windows paths with backslashes have base directory stripped correctly."""
+        node_type = "CheckpointLoaderSimple"
+        relative_path = r"checkpoints\v1-5-pruned-emaonly-fp16.safetensors"
+
+        result = workflow_manager._strip_base_directory_for_node(node_type, relative_path)
+
+        assert result == "v1-5-pruned-emaonly-fp16.safetensors"
+
+    def test_mixed_slashes_normalized(self, workflow_manager):
+        """Mixed forward and backslashes are normalized."""
+        node_type = "LoraLoader"
+        relative_path = r"loras\style/detail_tweaker.safetensors"
+
+        result = workflow_manager._strip_base_directory_for_node(node_type, relative_path)
+
+        assert result == "style/detail_tweaker.safetensors"
+
 
 class TestOptionalUnresolvedModelPersistence:
     """Test that optional unresolved models persist through resolution cycles.
