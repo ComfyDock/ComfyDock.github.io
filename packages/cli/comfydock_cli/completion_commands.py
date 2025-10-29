@@ -11,6 +11,7 @@ class CompletionCommands:
 
     COMMANDS = ['cfd']
     COMPLETION_COMMENT = "# ComfyDock tab completion"
+    COMPLETION_LINE = 'eval "$(register-python-argcomplete cfd)"'
 
     @classmethod
     def _completion_lines(cls):
@@ -100,15 +101,12 @@ class CompletionCommands:
             if cls.COMPLETION_COMMENT in line:
                 in_completion_block = True
                 continue
-            # Skip lines in completion block
+            # Skip completion lines
             if in_completion_block and any(comp_line in line for comp_line in cls._completion_lines()):
+                in_completion_block = False  # Exit block after completion line
                 continue
-            # End of completion block (non-completion line)
-            if in_completion_block and not line.strip():
-                in_completion_block = False
 
-            if not in_completion_block:
-                new_lines.append(line)
+            new_lines.append(line)
 
         config_file.write_text(''.join(new_lines))
         return True

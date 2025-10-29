@@ -289,14 +289,22 @@ class UVProjectManager:
     # ===== Package Operations =====
 
     def install_packages(self, packages: list[str] | None = None, requirements_file: Path | None = None,
-                        python: Path | None = None, **flags) -> str:
+                        python: Path | None = None, torch_backend: str | None = None,
+                        verbose: bool = False, **flags) -> str:
         """Install packages using uv pip install."""
         result = self.uv.pip_install(
             packages=packages,
             requirements_file=requirements_file,
             python=python,
+            torch_backend=torch_backend,
+            verbose=verbose,
             **flags
         )
+        return result.stdout
+
+    def show_package(self, package: str, python: Path) -> str:
+        """Show package information."""
+        result = self.uv.pip_show(package, python)
         return result.stdout
 
     def list_packages(self, python: Path) -> str:

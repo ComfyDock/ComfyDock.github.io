@@ -82,7 +82,8 @@ class EnvironmentCommands:
                 name=args.name,
                 comfyui_version=args.comfyui,
                 python_version=args.python,
-                template_path=args.template
+                template_path=args.template,
+                torch_backend=args.torch_backend,
             )
         except Exception as e:
             if logger:

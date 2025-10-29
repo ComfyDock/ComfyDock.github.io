@@ -1,7 +1,11 @@
 """ComfyDock workspace - manages multiple environments within a validated workspace."""
 
 import json
+import os
+import platform
 import shutil
+import stat
+import time
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -251,6 +255,7 @@ class Workspace:
         python_version: str = "3.12",
         comfyui_version: str | None = None,
         template_path: Path | None = None,
+        torch_backend: str = "auto",
     ) -> Environment:
         """Create a new environment.
 
@@ -259,6 +264,7 @@ class Workspace:
             python_version: Python version (e.g., "3.12")
             comfyui_version: ComfyUI version
             template_path: Optional template to copy from
+            torch_backend: PyTorch backend (auto, cpu, cu118, cu121, etc.)
 
         Returns:
             Environment
@@ -284,7 +290,8 @@ class Workspace:
                 env_path=env_path,
                 workspace=self,
                 python_version=python_version,
-                comfyui_version=comfyui_version
+                comfyui_version=comfyui_version,
+                torch_backend=torch_backend,
             )
 
             # TODO: Apply template if provided
@@ -372,7 +379,8 @@ class Workspace:
         tarball_path: Path,
         name: str,
         model_strategy: str = "all",
-        callbacks: "ImportCallbacks | None" = None
+        callbacks: "ImportCallbacks | None" = None,
+        torch_backend: str = "auto",
     ) -> Environment:
         """Import environment from tarball bundle.
 
@@ -385,6 +393,7 @@ class Workspace:
             name: Name for imported environment
             model_strategy: "all", "required", or "skip"
             callbacks: Optional callbacks for progress updates
+            torch_backend: PyTorch backend (auto, cpu, cu118, cu121, etc.)
 
         Returns:
             Fully initialized Environment
@@ -409,7 +418,8 @@ class Workspace:
                 tarball_path=tarball_path,
                 name=name,
                 env_path=env_path,
-                workspace=self
+                workspace=self,
+                torch_backend=torch_backend,
             )
 
             # Step 2: Let environment complete its setup
@@ -434,7 +444,8 @@ class Workspace:
         name: str,
         model_strategy: str = "all",
         branch: str | None = None,
-        callbacks: "ImportCallbacks | None" = None
+        callbacks: "ImportCallbacks | None" = None,
+        torch_backend: str = "auto",
     ) -> Environment:
         """Import environment from git repository.
 
@@ -448,6 +459,7 @@ class Workspace:
             model_strategy: "all", "required", or "skip"
             branch: Optional branch/tag/commit
             callbacks: Optional callbacks for progress updates
+            torch_backend: PyTorch backend (auto, cpu, cu118, cu121, etc.)
 
         Returns:
             Fully initialized Environment
@@ -474,7 +486,8 @@ class Workspace:
                 name=name,
                 env_path=env_path,
                 workspace=self,
-                branch=branch
+                branch=branch,
+                torch_backend=torch_backend,
             )
 
             # Step 2: Let environment complete its setup
@@ -513,12 +526,27 @@ class Workspace:
         if active and active.name == name:
             self.set_active_environment(None)
 
-        # Delete the directory
+        # Delete the directory with Windows file lock handling
+        def _handle_remove_readonly(func, path, exc_info):
+            """Handle Windows readonly/locked files during deletion."""
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                time.sleep(0.05)  # Brief delay for handle release
+                func(path)
+            except Exception:
+                pass  # Let rmtree handle final error
+
         try:
-            shutil.rmtree(env_path)
+            if platform.system() == "Windows":
+                shutil.rmtree(env_path, onexc=_handle_remove_readonly)
+            else:
+                shutil.rmtree(env_path)
             logger.info(f"Deleted environment '{name}'")
         except PermissionError as e:
-            raise PermissionError(f"Cannot delete '{name}': insufficient permissions") from e
+            raise PermissionError(
+                f"Cannot delete '{name}': files may be in use. "
+                f"Try closing applications using this environment."
+            ) from e
         except OSError as e:
             raise OSError(f"Failed to delete environment '{name}': {e}") from e
 

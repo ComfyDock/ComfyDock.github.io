@@ -266,14 +266,16 @@ class GlobalCommands:
                     name=env_name,
                     model_strategy=strategy,
                     branch=getattr(args, 'branch', None),
-                    callbacks=CLIImportCallbacks()
+                    callbacks=CLIImportCallbacks(),
+                    torch_backend=args.torch_backend,
                 )
             else:
                 env = self.workspace.import_environment(
                     tarball_path=Path(args.path),
                     name=env_name,
                     model_strategy=strategy,
-                    callbacks=CLIImportCallbacks()
+                    callbacks=CLIImportCallbacks(),
+                    torch_backend=args.torch_backend,
                 )
 
             print(f"\n✅ Import complete: {env.name}")

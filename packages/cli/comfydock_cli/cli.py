@@ -149,6 +149,16 @@ def _add_global_commands(subparsers):
     import_parser.add_argument("path", type=str, nargs="?", help="Path to .tar.gz file or git repository URL (use #subdirectory for subdirectory imports)")
     import_parser.add_argument("--name", type=str, help="Name for imported environment (skip prompt)")
     import_parser.add_argument("--branch", "-b", type=str, help="Git branch, tag, or commit to import (git imports only)")
+    import_parser.add_argument(
+        "--torch-backend",
+        default="auto",
+        metavar="BACKEND",
+        help=(
+            "PyTorch backend. Examples: auto (detect GPU), cpu, "
+            "cu128 (CUDA 12.8), cu126, cu124, rocm6.3 (AMD), xpu (Intel). "
+            "Default: auto"
+        ),
+    )
     import_parser.add_argument("--use", action="store_true", help="Set imported environment as active")
     import_parser.set_defaults(func=global_cmds.import_env)
 
@@ -255,6 +265,16 @@ def _add_env_commands(subparsers):
     create_parser.add_argument("--template", type=Path, help="Template manifest")
     create_parser.add_argument("--python", default="3.11", help="Python version")
     create_parser.add_argument("--comfyui", help="ComfyUI version")
+    create_parser.add_argument(
+        "--torch-backend",
+        default="auto",
+        metavar="BACKEND",
+        help=(
+            "PyTorch backend. Examples: auto (detect GPU), cpu, "
+            "cu128 (CUDA 12.8), cu126, cu124, rocm6.3 (AMD), xpu (Intel). "
+            "Default: auto"
+        ),
+    )
     create_parser.add_argument("--use", action="store_true", help="Set active environment after creation")
     create_parser.set_defaults(func=env_cmds.create)
 

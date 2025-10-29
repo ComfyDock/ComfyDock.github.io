@@ -45,6 +45,7 @@ class UVCommand:
         python_install_dir: Path | None = None,
         link_mode: str | None = "hardlink",
         cwd: Path | None = None,
+        torch_backend: str | None = None,
     ):
         self._binary = self._check_uv_installed(binary_path)
         self.timeout = self.DEFAULT_TIMEOUT
@@ -53,6 +54,7 @@ class UVCommand:
         self._python_install_dir = python_install_dir
         self._link_mode = link_mode
         self._cwd = cwd
+        self._torch_backend = torch_backend
         self._base_env = self._setup_base_environment()
 
     def _check_uv_installed(self, binary_path: Path | None) -> str:
@@ -83,6 +85,8 @@ class UVCommand:
             env["UV_PYTHON_INSTALL_DIR"] = str(self._python_install_dir)
         if self._link_mode:
             env["UV_LINK_MODE"] = self._link_mode
+        if self._torch_backend:
+            env["UV_TORCH_BACKEND"] = self._torch_backend
 
         return env
 
@@ -192,11 +196,15 @@ class UVCommand:
     # ===== Pip Compatibility =====
 
     def pip_install(self, packages: list[str] | None = None, requirements_file: Path | None = None,
-                   python: Path | None = None, **flags) -> CommandResult:
+                   python: Path | None = None, torch_backend: str | None = None,
+                   verbose: bool = False, **flags) -> CommandResult:
         cmd = [self._binary, "pip", "install"]
 
         if python:
             cmd.extend(["--python", str(python)])
+
+        if torch_backend:
+            cmd.extend(["--torch-backend", torch_backend])
 
         for key, value in flags.items():
             if value is None or value is False:
@@ -212,6 +220,10 @@ class UVCommand:
         elif packages:
             cmd.extend(packages)
 
+        return self._execute(cmd, verbose=verbose)
+
+    def pip_show(self, package: str, python: Path, **flags) -> CommandResult:
+        cmd = [self._binary, "pip", "show", "--python", str(python), package]
         return self._execute(cmd)
 
     def pip_list(self, python: Path, **flags) -> CommandResult:
