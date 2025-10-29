@@ -76,9 +76,9 @@ class GlobalCommands:
                 pass
 
             print("\nNext steps:")
-            print("  1. Create an environment: comfydock create <name>")
-            print("  2. Add custom nodes: comfydock -e <name> node add <node>")
-            print("  3. Run ComfyUI: comfydock -e <name> run")
+            print("  1. Create an environment: cfd create <name>")
+            print("  2. Add custom nodes: cfd -e <name> node add <node>")
+            print("  3. Run ComfyUI: cfd -e <name> run")
         except Exception as e:
             print(f"✗ Failed to initialize workspace: {e}", file=sys.stderr)
             sys.exit(1)
@@ -97,7 +97,7 @@ class GlobalCommands:
 
             if not environments:
                 print("No environments found.")
-                print("Create one with: comfydock create <name>")
+                print("Create one with: cfd create <name>")
                 return
 
             print("Environments:")
@@ -116,10 +116,10 @@ class GlobalCommands:
         """Migrate an existing ComfyUI installation (not implemented in MVP)."""
         print("⚠️  Migration is not yet implemented in this MVP")
         print("\nFor now, you can:")
-        print("  1. Create a new environment: comfydock create <name>")
+        print("  1. Create a new environment: cfd create <name>")
         print("  2. Manually add your custom nodes:")
-        print("     comfydock -e <name> node add <node-name-or-url>")
-        print("  3. Apply changes: comfydock -e <name> sync")
+        print("     cfd -e <name> node add <node-name-or-url>")
+        print("  3. Apply changes: cfd -e <name> sync")
 
         # Still do a basic scan if requested
         if args.scan_only:

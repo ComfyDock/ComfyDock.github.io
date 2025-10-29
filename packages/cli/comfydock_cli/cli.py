@@ -18,8 +18,48 @@ from .global_commands import GlobalCommands
 from .logging.logging_config import setup_logging
 
 
+def _get_cfd_config_dir() -> Path:
+    """Get CFD config directory (creates if needed)."""
+    config_dir = Path.home() / ".config" / "cfd"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return config_dir
+
+
+def _check_for_old_docker_installation():
+    """Warn once about old Docker-based ComfyDock installation."""
+    old_config = Path.home() / ".comfydock" / "environments.json"
+    if not old_config.exists():
+        return  # No old Docker installation detected
+
+    # Check if we've already shown this warning
+    warning_flag = _get_cfd_config_dir() / ".docker_warning_shown"
+    if warning_flag.exists():
+        return  # Already warned user
+
+    # Show warning (compact, informative)
+    print("\n" + "="*70)
+    print("ℹ️  OLD DOCKER-BASED COMFYDOCK DETECTED")
+    print("="*70)
+    print("\nYou have an old Docker-based ComfyDock (v0.3.x) at ~/.comfydock")
+    print("This is the NEW ComfyDock v1.0+ (UV-based).")
+    print("\nKey differences:")
+    print("  • Old version: Docker containers, 'comfydock' command")
+    print("  • New version: UV packages, 'cfd' command")
+    print("\nBoth versions can coexist. Your old environments are unchanged.")
+    print("\nTo use old version: pip install comfydock==0.1.6")
+    print("To use new version: cfd init")
+    print("\nMigration guide: https://github.com/ComfyDock/comfydock/blob/main/MIGRATION.md")
+    print("="*70 + "\n")
+
+    # Mark warning as shown
+    warning_flag.touch()
+
+
 def main():
     """Main entry point for ComfyDock CLI."""
+    # Check for old Docker installation (show warning once)
+    _check_for_old_docker_installation()
+
     # Initialize logging system with minimal console output
     # Environment commands will add file handlers as needed
     setup_logging(level="INFO", simple_format=True, console_level="CRITICAL")
@@ -57,7 +97,7 @@ def create_parser():
     """Create the argument parser with hierarchical command structure."""
     parser = argparse.ArgumentParser(
         description="ComfyDock - Manage ComfyUI workspaces and environments",
-        prog="comfydock"
+        prog="cfd"
     )
 
     # Global options

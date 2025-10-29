@@ -104,13 +104,13 @@ class EnvironmentCommands:
         if args.use:
             print(f"✓ Active environment set to: {args.name}")
             print("\nNext steps:")
-            print("  • Run ComfyUI: comfydock run")
-            print("  • Add nodes: comfydock node add <node-name>")
+            print("  • Run ComfyUI: cfd run")
+            print("  • Add nodes: cfd node add <node-name>")
         else:
             print("\nNext steps:")
-            print(f"  • Run ComfyUI: comfydock -e {args.name} run")
-            print(f"  • Add nodes: comfydock -e {args.name} node add <node-name>")
-            print(f"  • Set as active: comfydock use {args.name}")
+            print(f"  • Run ComfyUI: cfd -e {args.name} run")
+            print(f"  • Add nodes: cfd -e {args.name} node add <node-name>")
+            print(f"  • Set as active: cfd use {args.name}")
 
     @with_env_logging("env use")
     def use(self, args, logger=None):
@@ -356,7 +356,7 @@ class EnvironmentCommands:
 
         # Missing models + environment drift: check if repair needed first
         if status.missing_models and has_orphan_nodes:
-            suggestions.append("Install missing nodes: comfydock repair")
+            suggestions.append("Install missing nodes: cfd repair")
 
             # Group workflows with missing models
             workflows_with_missing = {}
@@ -368,11 +368,11 @@ class EnvironmentCommands:
 
             if len(workflows_with_missing) == 1:
                 wf_name = list(workflows_with_missing.keys())[0]
-                suggestions.append(f"Then resolve workflow: comfydock workflow resolve \"{wf_name}\"")
+                suggestions.append(f"Then resolve workflow: cfd workflow resolve \"{wf_name}\"")
             else:
                 suggestions.append("Then resolve workflow (pick one):")
                 for wf_name in list(workflows_with_missing.keys())[:2]:
-                    suggestions.append(f"  comfydock workflow resolve \"{wf_name}\"")
+                    suggestions.append(f"  cfd workflow resolve \"{wf_name}\"")
 
             print("\n💡 Next:")
             for s in suggestions:
@@ -390,11 +390,11 @@ class EnvironmentCommands:
 
             if len(workflows_with_missing) == 1:
                 wf_name = list(workflows_with_missing.keys())[0]
-                suggestions.append(f"Resolve workflow: comfydock workflow resolve \"{wf_name}\"")
+                suggestions.append(f"Resolve workflow: cfd workflow resolve \"{wf_name}\"")
             else:
                 suggestions.append("Resolve workflows with missing models (pick one):")
                 for wf_name in list(workflows_with_missing.keys())[:3]:
-                    suggestions.append(f"  comfydock workflow resolve \"{wf_name}\"")
+                    suggestions.append(f"  cfd workflow resolve \"{wf_name}\"")
                 if len(workflows_with_missing) > 3:
                     suggestions.append(f"  ... and {len(workflows_with_missing) - 3} more")
 
@@ -405,7 +405,7 @@ class EnvironmentCommands:
 
         # Environment drift only (no workflow issues)
         if not status.comparison.is_synced:
-            suggestions.append("Run: comfydock repair")
+            suggestions.append("Run: cfd repair")
             print("\n💡 Next:")
             for s in suggestions:
                 print(f"  {s}")
@@ -420,9 +420,9 @@ class EnvironmentCommands:
         if workflows_needing_sync:
             workflow_names = [w.name for w in workflows_needing_sync]
             if len(workflow_names) == 1:
-                suggestions.append(f"Sync model paths: comfydock workflow resolve \"{workflow_names[0]}\"")
+                suggestions.append(f"Sync model paths: cfd workflow resolve \"{workflow_names[0]}\"")
             else:
-                suggestions.append(f"Sync model paths in {len(workflow_names)} workflows: comfydock workflow resolve \"<name>\"")
+                suggestions.append(f"Sync model paths in {len(workflow_names)} workflows: cfd workflow resolve \"<name>\"")
 
         # Check for workflows with download intents
         workflows_with_downloads = []
@@ -435,33 +435,33 @@ class EnvironmentCommands:
         workflows_with_issues = [w.name for w in status.workflow.workflows_with_issues]
         if workflows_with_issues:
             if len(workflows_with_issues) == 1:
-                suggestions.append(f"Fix issues: comfydock workflow resolve \"{workflows_with_issues[0]}\"")
+                suggestions.append(f"Fix issues: cfd workflow resolve \"{workflows_with_issues[0]}\"")
             else:
                 suggestions.append("Fix workflows (pick one):")
                 for wf_name in workflows_with_issues[:3]:
-                    suggestions.append(f"  comfydock workflow resolve \"{wf_name}\"")
+                    suggestions.append(f"  cfd workflow resolve \"{wf_name}\"")
                 if len(workflows_with_issues) > 3:
                     suggestions.append(f"  ... and {len(workflows_with_issues) - 3} more")
 
             # Only suggest committing if there are uncommitted changes
             if status.git.has_changes:
-                suggestions.append("Or commit anyway: comfydock commit -m \"...\" --allow-issues")
+                suggestions.append("Or commit anyway: cfd commit -m \"...\" --allow-issues")
 
         # Workflows with queued downloads (no other issues)
         elif workflows_with_downloads:
             if len(workflows_with_downloads) == 1:
-                suggestions.append(f"Complete downloads: comfydock workflow resolve \"{workflows_with_downloads[0]}\"")
+                suggestions.append(f"Complete downloads: cfd workflow resolve \"{workflows_with_downloads[0]}\"")
             else:
                 suggestions.append("Complete downloads (pick one):")
                 for wf_name in workflows_with_downloads[:3]:
-                    suggestions.append(f"  comfydock workflow resolve \"{wf_name}\"")
+                    suggestions.append(f"  cfd workflow resolve \"{wf_name}\"")
 
         # Ready to commit (workflow changes OR git changes)
         elif status.workflow.sync_status.has_changes and status.workflow.is_commit_safe:
-            suggestions.append("Commit workflows: comfydock commit -m \"<message>\"")
+            suggestions.append("Commit workflows: cfd commit -m \"<message>\"")
         elif status.git.has_changes:
             # Uncommitted pyproject changes without workflow issues
-            suggestions.append("Commit changes: comfydock commit -m \"<message>\"")
+            suggestions.append("Commit changes: cfd commit -m \"<message>\"")
 
         # Dev node updates
         if dev_drift:
@@ -1064,7 +1064,7 @@ class EnvironmentCommands:
 
             if args.target:
                 print(f"\nEnvironment is now at version {args.target}")
-                print("• Run 'comfydock commit -m \"message\"' to save any new changes")
+                print("• Run 'cfd commit -m \"message\"' to save any new changes")
                 print("• Run 'comfydock log' to see version history")
             else:
                 print("\nUncommitted changes have been discarded")
@@ -1116,8 +1116,8 @@ class EnvironmentCommands:
                 print(f"  • {wf.name}: {wf.issue_summary}")
 
             print("\n💡 Options:")
-            print("  1. Resolve issues: comfydock workflow resolve \"<name>\"")
-            print("  2. Force commit: comfydock commit -m 'msg' --allow-issues")
+            print("  1. Resolve issues: cfd workflow resolve \"<name>\"")
+            print("  2. Force commit: cfd commit -m 'msg' --allow-issues")
             sys.exit(1)
 
         # Execute commit with chosen strategies
@@ -1178,7 +1178,7 @@ class EnvironmentCommands:
             print("⚠️  You have uncommitted changes")
             print()
             print("💡 Options:")
-            print("  • Commit: comfydock commit -m 'message'")
+            print("  • Commit: cfd commit -m 'message'")
             print("  • Discard: comfydock rollback")
             print("  • Force: comfydock pull --force")
             sys.exit(1)
@@ -1281,7 +1281,7 @@ class EnvironmentCommands:
                 print("   3. Edit conflicts and resolve")
                 print("   4. git add <resolved-files>")
                 print("   5. git commit")
-                print("   6. comfydock repair  # Sync environment")
+                print("   6. cfd repair  # Sync environment")
             else:
                 print(f"✗ Pull failed: {e}", file=sys.stderr)
             sys.exit(1)
@@ -1301,7 +1301,7 @@ class EnvironmentCommands:
                 print("   3. Edit conflicts and resolve")
                 print("   4. git add <resolved-files>")
                 print("   5. git commit")
-                print("   6. comfydock repair  # Sync environment")
+                print("   6. cfd repair  # Sync environment")
             else:
                 print(f"✗ Pull failed: {e}", file=sys.stderr)
             sys.exit(1)
@@ -1321,7 +1321,7 @@ class EnvironmentCommands:
             print("⚠️  You have uncommitted changes")
             print()
             print("💡 Commit first:")
-            print("   comfydock commit -m 'your message'")
+            print("   cfd commit -m 'your message'")
             sys.exit(1)
 
         # Check remote exists
@@ -1464,7 +1464,7 @@ class EnvironmentCommands:
 
         # Show commit suggestion if there are changes
         if workflows.has_changes:
-            print("\nRun 'comfydock commit' to save current state")
+            print("\nRun 'cfd commit' to save current state")
 
     @with_env_logging("workflow resolve", get_env_name=lambda self, args: self._get_env(args).name)
     def workflow_resolve(self, args, logger=None):
@@ -1575,12 +1575,12 @@ class EnvironmentCommands:
                     print("\n💡 For detailed error information:")
                     print(f"   {self.workspace.path}/logs/{env.name}.log")
                     print("\nYou can try installing them manually:")
-                    print("  comfydock node add <node-id>")
+                    print("  cfd node add <node-id>")
             else:
                 print("\nℹ️  Skipped node installation")
                 # print("\nℹ️  Skipped node installation. To install later:")
-                # print(f"  • Re-run: comfydock workflow resolve \"{args.name}\"")
-                # print("  • Or install individually: comfydock node add <node-id>")
+                # print(f"  • Re-run: cfd workflow resolve \"{args.name}\"")
+                # print("  • Or install individually: cfd node add <node-id>")
 
         # Display final results - check issues first
         uninstalled = env.get_uninstalled_nodes(workflow_name=args.name)
@@ -1605,8 +1605,8 @@ class EnvironmentCommands:
                 print(f"  ✗ {len(uninstalled)} packages need installation")
 
             print("\n💡 Next:")
-            print(f"  Re-run: comfydock workflow resolve \"{args.name}\"")
-            print("  Or commit with issues: comfydock commit -m \"...\" --allow-issues")
+            print(f"  Re-run: cfd workflow resolve \"{args.name}\"")
+            print("  Or commit with issues: cfd commit -m \"...\" --allow-issues")
 
         elif result.models_resolved or result.nodes_resolved:
             # Check for failed download intents by querying current state (not stale result)
@@ -1634,9 +1634,9 @@ class EnvironmentCommands:
                     print(f"      • {m.filename}")
 
                 print("\n💡 Next:")
-                print("  Add Civitai API key: comfydock config --civitai-key <your-token>")
-                print(f"  Try again: comfydock workflow resolve \"{args.name}\"")
-                print("  Or commit anyway: comfydock commit -m \"...\" --allow-issues")
+                print("  Add Civitai API key: cfd config --civitai-key <your-token>")
+                print(f"  Try again: cfd workflow resolve \"{args.name}\"")
+                print("  Or commit anyway: cfd commit -m \"...\" --allow-issues")
             else:
                 print("\n✅ Resolution complete!")
                 if result.models_resolved:
@@ -1644,6 +1644,6 @@ class EnvironmentCommands:
                 if result.nodes_resolved:
                     print(f"  • Resolved {len(result.nodes_resolved)} nodes")
                 print("\n💡 Next:")
-                print(f"  Commit workflows: comfydock commit -m \"Resolved {args.name}\"")
+                print(f"  Commit workflows: cfd commit -m \"Resolved {args.name}\"")
         else:
             print("✓ No changes needed - all dependencies already resolved")

@@ -9,7 +9,7 @@ from pathlib import Path
 class CompletionCommands:
     """Handle shell completion installation and management."""
 
-    COMMANDS = ['comfydock', 'cfd']
+    COMMANDS = ['cfd']
     COMPLETION_COMMENT = "# ComfyDock tab completion"
 
     @classmethod

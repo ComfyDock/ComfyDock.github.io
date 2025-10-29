@@ -39,7 +39,11 @@ def test_missing_models_with_workflow_nodes_only(env_commands, mock_env):
     status.comparison.missing_nodes = ['rgthree-comfy', 'comfyui-akatz-nodes']
     status.comparison.extra_nodes = []
     status.comparison.is_synced = False
-    status.workflow.analyzed_workflows = [MagicMock(name='default')]
+
+    # Mock workflow with uninstalled_nodes matching missing_nodes
+    mock_wf = MagicMock(name='default')
+    mock_wf.uninstalled_nodes = ['rgthree-comfy', 'comfyui-akatz-nodes']
+    status.workflow.analyzed_workflows = [mock_wf]
 
     # Mock _get_env to return our mock
     with patch.object(env_commands, '_get_env', return_value=mock_env):
@@ -54,7 +58,7 @@ def test_missing_models_with_workflow_nodes_only(env_commands, mock_env):
 
     # Should suggest workflow resolve (not repair first)
     assert 'workflow resolve "default"' in output
-    assert 'comfydock repair' not in output
+    assert 'cfd repair' not in output
 
 
 def test_missing_models_with_orphan_nodes(env_commands, mock_env):
@@ -86,8 +90,8 @@ def test_missing_models_with_orphan_nodes(env_commands, mock_env):
         output = captured_output.getvalue()
 
     # Should suggest repair first, then workflow resolve
-    assert 'comfydock repair' in output
-    assert 'Then resolve workflow: comfydock workflow resolve "default"' in output
+    assert 'cfd repair' in output
+    assert 'Then resolve workflow: cfd workflow resolve "default"' in output
 
 
 def test_missing_models_with_extra_nodes(env_commands, mock_env):
@@ -119,8 +123,8 @@ def test_missing_models_with_extra_nodes(env_commands, mock_env):
         output = captured_output.getvalue()
 
     # Should suggest repair first (to remove extra nodes), then workflow resolve
-    assert 'comfydock repair' in output
-    assert 'Then resolve workflow: comfydock workflow resolve "default"' in output
+    assert 'cfd repair' in output
+    assert 'Then resolve workflow: cfd workflow resolve "default"' in output
 
 
 def test_environment_drift_only(env_commands, mock_env):
@@ -149,5 +153,5 @@ def test_environment_drift_only(env_commands, mock_env):
         output = captured_output.getvalue()
 
     # Should only suggest repair
-    assert 'comfydock repair' in output
+    assert 'cfd repair' in output
     assert 'workflow resolve' not in output

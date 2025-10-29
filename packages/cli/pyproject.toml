@@ -10,7 +10,6 @@ dependencies = [
 ]
 
 [project.scripts]
-comfydock = "comfydock_cli.cli:main"
 cfd = "comfydock_cli.cli:main"
 
 [build-system]
