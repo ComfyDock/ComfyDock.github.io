@@ -234,10 +234,16 @@ class EnvironmentCommands:
             for name in status.workflow.sync_status.modified:
                 if name in all_workflows:
                     wf = all_workflows[name]['analysis']
+                    # Check if workflow has missing models
+                    missing_for_wf = [m for m in status.missing_models if name in m.workflow_names]
+
                     # Show warning if has issues OR path sync needed
                     if wf.has_issues or wf.has_path_sync_issues:
                         print(f"  ⚠️  {name} (modified)")
                         self._print_workflow_issues(wf)
+                    elif missing_for_wf:
+                        print(f"  ⬇️  {name} (modified, missing models)")
+                        print(f"      {len(missing_for_wf)} model(s) need downloading")
                     else:
                         print(f"  📝 {name} (modified)")
 
@@ -340,7 +346,64 @@ class EnvironmentCommands:
         """Show contextual suggestions based on current state."""
         suggestions = []
 
-        # Environment drift - highest priority
+        # Differentiate workflow-related nodes from orphan nodes
+        uninstalled_workflow_nodes = set()
+        for wf in status.workflow.analyzed_workflows:
+            uninstalled_workflow_nodes.update(wf.uninstalled_nodes)
+
+        orphan_missing_nodes = set(status.comparison.missing_nodes) - uninstalled_workflow_nodes
+        has_orphan_nodes = bool(orphan_missing_nodes or status.comparison.extra_nodes)
+
+        # Missing models + environment drift: check if repair needed first
+        if status.missing_models and has_orphan_nodes:
+            suggestions.append("Install missing nodes: comfydock repair")
+
+            # Group workflows with missing models
+            workflows_with_missing = {}
+            for missing_info in status.missing_models:
+                for wf_name in missing_info.workflow_names:
+                    if wf_name not in workflows_with_missing:
+                        workflows_with_missing[wf_name] = []
+                    workflows_with_missing[wf_name].append(missing_info)
+
+            if len(workflows_with_missing) == 1:
+                wf_name = list(workflows_with_missing.keys())[0]
+                suggestions.append(f"Then resolve workflow: comfydock workflow resolve \"{wf_name}\"")
+            else:
+                suggestions.append("Then resolve workflow (pick one):")
+                for wf_name in list(workflows_with_missing.keys())[:2]:
+                    suggestions.append(f"  comfydock workflow resolve \"{wf_name}\"")
+
+            print("\n💡 Next:")
+            for s in suggestions:
+                print(f"  {s}")
+            return
+
+        # Missing models only (no orphan nodes) - workflow resolve handles everything
+        if status.missing_models:
+            workflows_with_missing = {}
+            for missing_info in status.missing_models:
+                for wf_name in missing_info.workflow_names:
+                    if wf_name not in workflows_with_missing:
+                        workflows_with_missing[wf_name] = []
+                    workflows_with_missing[wf_name].append(missing_info)
+
+            if len(workflows_with_missing) == 1:
+                wf_name = list(workflows_with_missing.keys())[0]
+                suggestions.append(f"Resolve workflow: comfydock workflow resolve \"{wf_name}\"")
+            else:
+                suggestions.append("Resolve workflows with missing models (pick one):")
+                for wf_name in list(workflows_with_missing.keys())[:3]:
+                    suggestions.append(f"  comfydock workflow resolve \"{wf_name}\"")
+                if len(workflows_with_missing) > 3:
+                    suggestions.append(f"  ... and {len(workflows_with_missing) - 3} more")
+
+            print("\n💡 Next:")
+            for s in suggestions:
+                print(f"  {s}")
+            return
+
+        # Environment drift only (no workflow issues)
         if not status.comparison.is_synced:
             suggestions.append("Run: comfydock repair")
             print("\n💡 Next:")
@@ -518,29 +581,69 @@ class EnvironmentCommands:
 
     @with_env_logging("env node add")
     def node_add(self, args, logger=None):
-        """Add a custom node - directly modifies pyproject.toml."""
+        """Add custom node(s) - directly modifies pyproject.toml."""
         env = self._get_env(args)
 
+        # Batch mode: multiple nodes
+        if len(args.node_names) > 1:
+            print(f"📦 Adding {len(args.node_names)} nodes...")
+
+            # Create callbacks for progress display
+            def on_node_start(node_id, idx, total):
+                print(f"  [{idx}/{total}] Installing {node_id}...", end=" ", flush=True)
+
+            def on_node_complete(node_id, success, error):
+                if success:
+                    print("✓")
+                else:
+                    print(f"✗ ({error})")
+
+            from comfydock_core.models.workflow import NodeInstallCallbacks
+            callbacks = NodeInstallCallbacks(
+                on_node_start=on_node_start,
+                on_node_complete=on_node_complete
+            )
+
+            # Install nodes with progress feedback
+            installed_count, failed_nodes = env.install_nodes_with_progress(
+                args.node_names,
+                callbacks=callbacks
+            )
+
+            if installed_count > 0:
+                print(f"\n✅ Installed {installed_count}/{len(args.node_names)} nodes")
+
+            if failed_nodes:
+                print(f"\n⚠️  Failed to install {len(failed_nodes)} nodes:")
+                for node_id, error in failed_nodes:
+                    print(f"  • {node_id}: {error}")
+
+            print(f"\nRun 'comfydock -e {env.name} env status' to review changes")
+            return
+
+        # Single node mode (original behavior)
+        node_name = args.node_names[0]
+
         if args.dev:
-            print(f"📦 Adding development node: {args.node_name}")
+            print(f"📦 Adding development node: {node_name}")
         else:
-            print(f"📦 Adding node: {args.node_name}")
+            print(f"📦 Adding node: {node_name}")
 
         # Directly add the node
         try:
-            node_info = env.add_node(args.node_name, is_development=args.dev, no_test=args.no_test, force=args.force)
+            node_info = env.add_node(node_name, is_development=args.dev, no_test=args.no_test, force=args.force)
         except CDNodeConflictError as e:
             # Use formatter to render error with CLI commands
             formatted = NodeErrorFormatter.format_conflict_error(e)
             if logger:
-                logger.error(f"Node conflict for '{args.node_name}': {e}", exc_info=True)
-            print(f"✗ Cannot add node '{args.node_name}'", file=sys.stderr)
+                logger.error(f"Node conflict for '{node_name}': {e}", exc_info=True)
+            print(f"✗ Cannot add node '{node_name}'", file=sys.stderr)
             print(formatted, file=sys.stderr)
             sys.exit(1)
         except Exception as e:
             if logger:
-                logger.error(f"Node add failed for '{args.node_name}': {e}", exc_info=True)
-            print(f"✗ Failed to add node '{args.node_name}'", file=sys.stderr)
+                logger.error(f"Node add failed for '{node_name}': {e}", exc_info=True)
+            print(f"✗ Failed to add node '{node_name}'", file=sys.stderr)
             print(f"   {e}", file=sys.stderr)
             sys.exit(1)
 
@@ -553,18 +656,58 @@ class EnvironmentCommands:
 
     @with_env_logging("env node remove")
     def node_remove(self, args, logger=None):
-        """Remove a custom node - handles filesystem immediately."""
+        """Remove custom node(s) - handles filesystem immediately."""
         env = self._get_env(args)
 
-        print(f"🗑 Removing node: {args.node_name}")
+        # Batch mode: multiple nodes
+        if len(args.node_names) > 1:
+            print(f"🗑 Removing {len(args.node_names)} nodes...")
+
+            # Create callbacks for progress display
+            def on_node_start(node_id, idx, total):
+                print(f"  [{idx}/{total}] Removing {node_id}...", end=" ", flush=True)
+
+            def on_node_complete(node_id, success, error):
+                if success:
+                    print("✓")
+                else:
+                    print(f"✗ ({error})")
+
+            from comfydock_core.models.workflow import NodeInstallCallbacks
+            callbacks = NodeInstallCallbacks(
+                on_node_start=on_node_start,
+                on_node_complete=on_node_complete
+            )
+
+            # Remove nodes with progress feedback
+            removed_count, failed_nodes = env.remove_nodes_with_progress(
+                args.node_names,
+                callbacks=callbacks
+            )
+
+            if removed_count > 0:
+                print(f"\n✅ Removed {removed_count}/{len(args.node_names)} nodes")
+
+            if failed_nodes:
+                print(f"\n⚠️  Failed to remove {len(failed_nodes)} nodes:")
+                for node_id, error in failed_nodes:
+                    print(f"  • {node_id}: {error}")
+
+            print(f"\nRun 'comfydock -e {env.name} env status' to review changes")
+            return
+
+        # Single node mode (original behavior)
+        node_name = args.node_names[0]
+
+        print(f"🗑 Removing node: {node_name}")
 
         # Remove the node (handles filesystem imperatively)
         try:
-            result = env.remove_node(args.node_name)
+            result = env.remove_node(node_name)
         except Exception as e:
             if logger:
-                logger.error(f"Node remove failed for '{args.node_name}': {e}", exc_info=True)
-            print(f"✗ Failed to remove node '{args.node_name}'", file=sys.stderr)
+                logger.error(f"Node remove failed for '{node_name}': {e}", exc_info=True)
+            print(f"✗ Failed to remove node '{node_name}'", file=sys.stderr)
             print(f"   {e}", file=sys.stderr)
             sys.exit(1)
 
@@ -587,27 +730,15 @@ class EnvironmentCommands:
         """List custom nodes in the environment."""
         env = self._get_env(args)
 
-        # Load pyproject.toml and list nodes
-        config = env.pyproject.load()
-        nodes = config.get('tool', {}).get('comfydock', {}).get('nodes', {})
+        nodes = env.list_nodes()
 
         if not nodes:
             print("No custom nodes installed")
             return
 
         print(f"Custom nodes in '{env.name}':")
-
-        # List regular nodes
-        for node_name, info in nodes.items():
-            if node_name == 'development':
-                continue  # Skip development section
-            source = info.get('source', 'unknown')
-            print(f"  • {node_name} ({source})")
-
-        # List development nodes
-        dev_nodes = nodes.get('development', {})
-        for dev_name, _dev_info in dev_nodes.items():
-            print(f"  • {dev_name} (development)")
+        for node in nodes:
+            print(f"  • {node.registry_id or node.name} ({node.source})")
 
     @with_env_logging("env node update")
     def node_update(self, args, logger=None):
@@ -740,6 +871,24 @@ class EnvironmentCommands:
         # Confirm unless --yes
         if not args.yes:
             preview = status.get_sync_preview()
+
+            # Check if there are actually any changes to show
+            has_changes = (
+                preview['nodes_to_install'] or
+                preview['nodes_to_remove'] or
+                preview['nodes_to_update'] or
+                preview['packages_to_sync'] or
+                preview['workflows_to_add'] or
+                preview['workflows_to_update'] or
+                preview['workflows_to_remove'] or
+                preview.get('models_downloadable') or
+                preview.get('models_unavailable')
+            )
+
+            if not has_changes:
+                print("✓ No changes to apply (environment is synced)")
+                return
+
             print("This will apply the following changes:")
 
             if preview['nodes_to_install']:
@@ -760,6 +909,48 @@ class EnvironmentCommands:
             if preview['packages_to_sync']:
                 print("  • Sync Python packages")
 
+            # Show workflow changes categorized by operation
+            if preview['workflows_to_add']:
+                print(f"  • Add {len(preview['workflows_to_add'])} new workflow(s) to ComfyUI:")
+                for workflow_name in preview['workflows_to_add']:
+                    print(f"    - {workflow_name}")
+
+            if preview['workflows_to_update']:
+                print(f"  • Update {len(preview['workflows_to_update'])} workflow(s) in ComfyUI:")
+                for workflow_name in preview['workflows_to_update']:
+                    print(f"    - {workflow_name}")
+
+            if preview['workflows_to_remove']:
+                print(f"  • Remove {len(preview['workflows_to_remove'])} workflow(s) from ComfyUI:")
+                for workflow_name in preview['workflows_to_remove']:
+                    print(f"    - {workflow_name}")
+
+            # Show model download preview with URLs and paths
+            if preview.get('models_downloadable'):
+                print(f"\n  Models:")
+                count = len(preview['models_downloadable'])
+                print(f"    • Download {count} missing model(s):\n")
+                for idx, missing_info in enumerate(preview['models_downloadable'][:5], 1):
+                    print(f"      [{idx}/{min(count, 5)}] {missing_info.model.filename} ({missing_info.criticality})")
+                    # Show source URL
+                    if missing_info.model.sources:
+                        source_url = missing_info.model.sources[0]
+                        # Truncate long URLs
+                        if len(source_url) > 70:
+                            display_url = source_url[:67] + "..."
+                        else:
+                            display_url = source_url
+                        print(f"         From: {display_url}")
+                    # Show target path
+                    print(f"           To: {missing_info.model.relative_path}")
+                if count > 5:
+                    print(f"\n      ... and {count - 5} more")
+
+            if preview.get('models_unavailable'):
+                print(f"\n  ⚠️  Models unavailable:")
+                for missing_info in preview['models_unavailable'][:3]:
+                    print(f"      - {missing_info.model.filename} (no sources)")
+
             response = input("\nContinue? (y/N): ")
             if response.lower() != 'y':
                 print("Cancelled")
@@ -767,14 +958,72 @@ class EnvironmentCommands:
 
         print(f"⚙️ Applying changes to: {env.name}")
 
-        # Apply changes with interactive model resolver
+        # Create callbacks for node and model progress
+        from comfydock_core.models.workflow import BatchDownloadCallbacks, NodeInstallCallbacks
+        from .utils.progress import create_progress_callback
+
+        # Node installation callbacks
+        def on_node_start(node_id, idx, total):
+            print(f"  [{idx}/{total}] Installing {node_id}...", end=" ", flush=True)
+
+        def on_node_complete(node_id, success, error):
+            if success:
+                print("✓")
+            else:
+                print(f"✗ ({error})")
+
+        node_callbacks = NodeInstallCallbacks(
+            on_node_start=on_node_start,
+            on_node_complete=on_node_complete
+        )
+
+        # Model download callbacks
+        def on_file_start(filename, idx, total):
+            print(f"   [{idx}/{total}] Downloading {filename}...")
+
+        def on_file_complete(filename, success, error):
+            print()  # New line after progress bar
+            if success:
+                print(f"   ✓ {filename}")
+            else:
+                print(f"   ✗ {filename}: {error}")
+
+        model_callbacks = BatchDownloadCallbacks(
+            on_file_start=on_file_start,
+            on_file_progress=create_progress_callback(),
+            on_file_complete=on_file_complete
+        )
+
+        # Apply changes with node and model callbacks
         try:
-            sync_result = env.sync()
+            # Show header if nodes to install
+            if preview['nodes_to_install']:
+                print("\n⬇️  Installing nodes...")
+
+            model_strategy = getattr(args, 'models', 'all')
+            sync_result = env.sync(
+                model_strategy=model_strategy,
+                model_callbacks=model_callbacks,
+                node_callbacks=node_callbacks
+            )
+
+            # Show completion message if nodes were installed
+            if preview['nodes_to_install']:
+                print()  # Blank line after node installation
 
             # Check for errors
             if not sync_result.success:
                 for error in sync_result.errors:
                     print(f"⚠️  {error}", file=sys.stderr)
+
+            # Show model download summary
+            if sync_result.models_downloaded:
+                print(f"\n✓ Downloaded {len(sync_result.models_downloaded)} model(s)")
+
+            if sync_result.models_failed:
+                print(f"\n⚠️  {len(sync_result.models_failed)} model(s) failed:")
+                for filename, error in sync_result.models_failed[:3]:
+                    print(f"   • {filename}: {error}")
 
         except Exception as e:
             if logger:
@@ -917,6 +1166,267 @@ class EnvironmentCommands:
             print("✗ Reset failed", file=sys.stderr)
             sys.exit(1)
 
+    # === Git remote operations ===
+
+    @with_env_logging("env pull")
+    def pull(self, args, logger=None):
+        """Pull from remote and repair environment."""
+        env = self._get_env(args)
+
+        # Check for uncommitted changes first
+        if env.has_committable_changes() and not getattr(args, 'force', False):
+            print("⚠️  You have uncommitted changes")
+            print()
+            print("💡 Options:")
+            print("  • Commit: comfydock commit -m 'message'")
+            print("  • Discard: comfydock rollback")
+            print("  • Force: comfydock pull --force")
+            sys.exit(1)
+
+        # Check remote exists
+        if not env.git_manager.has_remote(args.remote):
+            print(f"✗ Remote '{args.remote}' not configured")
+            print()
+            print("💡 Set up a remote first:")
+            print(f"   comfydock remote add {args.remote} <url>")
+            sys.exit(1)
+
+        try:
+            print(f"📥 Pulling from {args.remote}...")
+
+            # Create callbacks for node and model progress (reuse repair command patterns)
+            from comfydock_core.models.workflow import BatchDownloadCallbacks, NodeInstallCallbacks
+            from .utils.progress import create_progress_callback
+
+            # Node installation callbacks
+            def on_node_start(node_id, idx, total):
+                print(f"  [{idx}/{total}] Installing {node_id}...", end=" ", flush=True)
+
+            def on_node_complete(node_id, success, error):
+                if success:
+                    print("✓")
+                else:
+                    print(f"✗ ({error})")
+
+            node_callbacks = NodeInstallCallbacks(
+                on_node_start=on_node_start,
+                on_node_complete=on_node_complete
+            )
+
+            # Model download callbacks
+            def on_file_start(filename, idx, total):
+                print(f"   [{idx}/{total}] Downloading {filename}...")
+
+            def on_file_complete(filename, success, error):
+                print()  # New line after progress bar
+                if success:
+                    print(f"   ✓ {filename}")
+                else:
+                    print(f"   ✗ {filename}: {error}")
+
+            model_callbacks = BatchDownloadCallbacks(
+                on_file_start=on_file_start,
+                on_file_progress=create_progress_callback(),
+                on_file_complete=on_file_complete
+            )
+
+            # Pull and repair with progress callbacks
+            result = env.pull_and_repair(
+                remote=args.remote,
+                model_strategy=getattr(args, 'models', 'all'),
+                model_callbacks=model_callbacks,
+                node_callbacks=node_callbacks
+            )
+
+            # Extract sync result for summary
+            sync_result = result.get('sync_result')
+
+            print(f"\n✓ Pulled changes from {args.remote}")
+
+            # Show summary of what was synced (like repair command)
+            if sync_result:
+                summary_items = []
+                if sync_result.nodes_installed:
+                    summary_items.append(f"Installed {len(sync_result.nodes_installed)} node(s)")
+                if sync_result.nodes_removed:
+                    summary_items.append(f"Removed {len(sync_result.nodes_removed)} node(s)")
+                if sync_result.models_downloaded:
+                    summary_items.append(f"Downloaded {len(sync_result.models_downloaded)} model(s)")
+
+                if summary_items:
+                    for item in summary_items:
+                        print(f"   • {item}")
+
+            print("\n⚙️  Environment synced successfully")
+
+        except KeyboardInterrupt:
+            # User pressed Ctrl+C - git changes already rolled back by core
+            if logger:
+                logger.warning("Pull interrupted by user")
+            print("\n⚠️  Pull interrupted - git changes rolled back", file=sys.stderr)
+            sys.exit(1)
+        except ValueError as e:
+            # Merge conflicts
+            if logger:
+                logger.error(f"Pull failed: {e}", exc_info=True)
+
+            # Check if it's a merge conflict
+            error_str = str(e)
+            if "Merge conflict" in error_str or "conflict" in error_str.lower():
+                print(f"\n✗ Merge conflict detected", file=sys.stderr)
+                print()
+                print("💡 To resolve:")
+                print(f"   1. cd {env.cec_path}")
+                print("   2. git status  # See conflicted files")
+                print("   3. Edit conflicts and resolve")
+                print("   4. git add <resolved-files>")
+                print("   5. git commit")
+                print("   6. comfydock repair  # Sync environment")
+            else:
+                print(f"✗ Pull failed: {e}", file=sys.stderr)
+            sys.exit(1)
+        except OSError as e:
+            # Network, auth, or other git errors
+            if logger:
+                logger.error(f"Pull failed: {e}", exc_info=True)
+
+            # Check if it's a merge conflict (OSError from git_merge)
+            error_str = str(e)
+            if "Merge conflict" in error_str or "conflict" in error_str.lower():
+                print(f"\n✗ Merge conflict detected", file=sys.stderr)
+                print()
+                print("💡 To resolve:")
+                print(f"   1. cd {env.cec_path}")
+                print("   2. git status  # See conflicted files")
+                print("   3. Edit conflicts and resolve")
+                print("   4. git add <resolved-files>")
+                print("   5. git commit")
+                print("   6. comfydock repair  # Sync environment")
+            else:
+                print(f"✗ Pull failed: {e}", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            if logger:
+                logger.error(f"Pull failed: {e}", exc_info=True)
+            print(f"✗ Pull failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    @with_env_logging("env push")
+    def push(self, args, logger=None):
+        """Push commits to remote."""
+        env = self._get_env(args)
+
+        # Check for uncommitted changes
+        if env.has_committable_changes():
+            print("⚠️  You have uncommitted changes")
+            print()
+            print("💡 Commit first:")
+            print("   comfydock commit -m 'your message'")
+            sys.exit(1)
+
+        # Check remote exists
+        if not env.git_manager.has_remote(args.remote):
+            print(f"✗ Remote '{args.remote}' not configured")
+            print()
+            print("💡 Set up a remote first:")
+            print(f"   comfydock remote add {args.remote} <url>")
+            sys.exit(1)
+
+        try:
+            force = getattr(args, 'force', False)
+
+            if force:
+                print(f"📤 Force pushing to {args.remote}...")
+            else:
+                print(f"📤 Pushing to {args.remote}...")
+
+            # Push (with force flag if specified)
+            push_output = env.push_commits(remote=args.remote, force=force)
+
+            if force:
+                print(f"   ✓ Force pushed commits to {args.remote}")
+            else:
+                print(f"   ✓ Pushed commits to {args.remote}")
+
+            # Show remote URL
+            from comfydock_core.utils.git import git_remote_get_url
+            remote_url = git_remote_get_url(env.cec_path, args.remote)
+            if remote_url:
+                print()
+                print(f"💾 Remote: {remote_url}")
+
+        except ValueError as e:
+            # No remote or workflow issues
+            if logger:
+                logger.error(f"Push failed: {e}", exc_info=True)
+            print(f"✗ Push failed: {e}", file=sys.stderr)
+            sys.exit(1)
+        except OSError as e:
+            # Network, auth, or git errors
+            if logger:
+                logger.error(f"Push failed: {e}", exc_info=True)
+            print(f"✗ Push failed: {e}", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            if logger:
+                logger.error(f"Push failed: {e}", exc_info=True)
+            print(f"✗ Push failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    @with_env_logging("env remote")
+    def remote(self, args, logger=None):
+        """Manage git remotes."""
+        env = self._get_env(args)
+
+        subcommand = args.remote_command
+
+        try:
+            if subcommand == "add":
+                # Add remote
+                if not args.name or not args.url:
+                    print("✗ Usage: comfydock remote add <name> <url>")
+                    sys.exit(1)
+
+                env.git_manager.add_remote(args.name, args.url)
+                print(f"✓ Added remote '{args.name}': {args.url}")
+
+            elif subcommand == "remove":
+                # Remove remote
+                if not args.name:
+                    print("✗ Usage: comfydock remote remove <name>")
+                    sys.exit(1)
+
+                env.git_manager.remove_remote(args.name)
+                print(f"✓ Removed remote '{args.name}'")
+
+            elif subcommand == "list":
+                # List remotes
+                remotes = env.git_manager.list_remotes()
+
+                if not remotes:
+                    print("No remotes configured")
+                    print()
+                    print("💡 Add a remote:")
+                    print("   comfydock remote add origin <url>")
+                else:
+                    print("Remotes:")
+                    for name, url, remote_type in remotes:
+                        print(f"  {name}\t{url} ({remote_type})")
+
+            else:
+                print(f"✗ Unknown remote command: {subcommand}")
+                print("   Usage: comfydock remote [add|remove|list]")
+                sys.exit(1)
+
+        except ValueError as e:
+            print(f"✗ {e}", file=sys.stderr)
+            sys.exit(1)
+        except OSError as e:
+            if logger:
+                logger.error(f"Remote operation failed: {e}", exc_info=True)
+            print(f"✗ {e}", file=sys.stderr)
+            sys.exit(1)
+
     # === Workflow management ===
 
     @with_env_logging("workflow list", get_env_name=lambda self, args: self._get_env(args).name)
@@ -1020,50 +1530,57 @@ class EnvironmentCommands:
                     should_install = False
 
             if should_install:
+                from comfydock_core.models.workflow import NodeInstallCallbacks
+
                 print("\n⬇️  Installing nodes...")
-                installed_count = 0
-                failed_nodes = []
 
-                for node_id in uninstalled_nodes:
-                    try:
-                        print(f"  • Installing {node_id}...", end=" ", flush=True)
-                        node_info = env.add_node(node_id) # Should test every node transactionally and remove on failures
+                # Create callbacks for progress display
+                def on_node_start(node_id, idx, total):
+                    print(f"  [{idx}/{total}] Installing {node_id}...", end=" ", flush=True)
 
-                        # Show source indication if installed from github (not registry CDN)
-                        if node_info.source == "git" and node_info.registry_id:
-                            print("✓ (from GitHub)")
+                def on_node_complete(node_id, success, error):
+                    if success:
+                        print("✓")
+                    else:
+                        # Handle UV-specific errors
+                        if "UVCommandError" in str(error) and logger:
+                            from comfydock_core.integrations.uv_command import UVCommandError
+                            try:
+                                # Try to extract meaningful error
+                                user_msg = error.split(":", 1)[1].strip() if ":" in error else error
+                                print(f"✗ ({user_msg})")
+                            except:
+                                print(f"✗ ({error})")
                         else:
-                            print("✓")
-                        installed_count += 1
-                    except UVCommandError as e:
-                        # Handle UV-specific errors with enhanced logging and user messaging
-                        if logger:
-                            user_msg, _ = handle_uv_error(e, node_id, logger)
-                            print(f"✗ ({user_msg})")
-                        else:
-                            print("✗ (UV dependency resolution failed)")
-                        failed_nodes.append(node_id)
-                    except Exception as e:
-                        print(f"✗ ({e})")
-                        failed_nodes.append(node_id)
-                        if logger:
-                            logger.error(f"Failed to install node '{node_id}': {e}", exc_info=True)
+                            print(f"✗ ({error})")
+
+                callbacks = NodeInstallCallbacks(
+                    on_node_start=on_node_start,
+                    on_node_complete=on_node_complete
+                )
+
+                # Install nodes with progress feedback
+                installed_count, failed_nodes = env.install_nodes_with_progress(
+                    uninstalled_nodes,
+                    callbacks=callbacks
+                )
 
                 if installed_count > 0:
                     print(f"\n✅ Installed {installed_count}/{len(uninstalled_nodes)} nodes")
 
                 if failed_nodes:
                     print(f"\n⚠️  Failed to install {len(failed_nodes)} nodes:")
-                    for node_id in failed_nodes:
+                    for node_id, error in failed_nodes:
                         print(f"  • {node_id}")
                     print("\n💡 For detailed error information:")
                     print(f"   {self.workspace.path}/logs/{env.name}.log")
                     print("\nYou can try installing them manually:")
                     print("  comfydock node add <node-id>")
             else:
-                print("\nℹ️  Skipped node installation. To install later:")
-                print("  • Install all: comfydock env repair")
-                print("  • Install individually: comfydock node add <node-id>")
+                print("\nℹ️  Skipped node installation")
+                # print("\nℹ️  Skipped node installation. To install later:")
+                # print(f"  • Re-run: comfydock workflow resolve \"{args.name}\"")
+                # print("  • Or install individually: comfydock node add <node-id>")
 
         # Display final results - check issues first
         uninstalled = env.get_uninstalled_nodes(workflow_name=args.name)
@@ -1088,8 +1605,7 @@ class EnvironmentCommands:
                 print(f"  ✗ {len(uninstalled)} packages need installation")
 
             print("\n💡 Next:")
-            print(f"  Try again: comfydock workflow resolve \"{args.name}\"")
-            print("  Or install packages: comfydock env repair")
+            print(f"  Re-run: comfydock workflow resolve \"{args.name}\"")
             print("  Or commit with issues: comfydock commit -m \"...\" --allow-issues")
 
         elif result.models_resolved or result.nodes_resolved:

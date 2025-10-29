@@ -244,6 +244,12 @@ def _add_env_commands(subparsers):
     # repair - Repair environment drift (manual edits or git operations)
     repair_parser = subparsers.add_parser("repair", help="Repair environment to match pyproject.toml")
     repair_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
+    repair_parser.add_argument(
+        "--models",
+        choices=["all", "required", "skip"],
+        default="all",
+        help="Model download strategy: all (default), required only, or skip"
+    )
     repair_parser.set_defaults(func=env_cmds.repair)
 
     # commit - Commit unsaved changes
@@ -265,21 +271,103 @@ def _add_env_commands(subparsers):
     rollback_parser.add_argument("--force", action="store_true", help="Force rollback, discarding uncommitted changes without error")
     rollback_parser.set_defaults(func=env_cmds.rollback)
 
+    # pull - Pull from remote and sync
+    pull_parser = subparsers.add_parser(
+        "pull",
+        help="Pull changes from remote and repair environment"
+    )
+    pull_parser.add_argument(
+        "-r", "--remote",
+        default="origin",
+        help="Git remote name (default: origin)"
+    )
+    pull_parser.add_argument(
+        "--models",
+        choices=["all", "required", "skip"],
+        default="all",
+        help="Model download strategy (default: all)"
+    )
+    pull_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Discard uncommitted changes and force pull"
+    )
+    pull_parser.set_defaults(func=env_cmds.pull)
+
+    # push - Push commits to remote
+    push_parser = subparsers.add_parser(
+        "push",
+        help="Push committed changes to remote"
+    )
+    push_parser.add_argument(
+        "-r", "--remote",
+        default="origin",
+        help="Git remote name (default: origin)"
+    )
+    push_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force push using --force-with-lease (overwrite remote)"
+    )
+    push_parser.set_defaults(func=env_cmds.push)
+
+    # remote - Manage git remotes
+    remote_parser = subparsers.add_parser(
+        "remote",
+        help="Manage git remotes"
+    )
+    remote_subparsers = remote_parser.add_subparsers(
+        dest="remote_command",
+        required=True
+    )
+
+    # remote add
+    remote_add_parser = remote_subparsers.add_parser(
+        "add",
+        help="Add a git remote"
+    )
+    remote_add_parser.add_argument(
+        "name",
+        help="Remote name (e.g., origin)"
+    )
+    remote_add_parser.add_argument(
+        "url",
+        help="Remote URL"
+    )
+
+    # remote remove
+    remote_remove_parser = remote_subparsers.add_parser(
+        "remove",
+        help="Remove a git remote"
+    )
+    remote_remove_parser.add_argument(
+        "name",
+        help="Remote name to remove"
+    )
+
+    # remote list
+    remote_list_parser = remote_subparsers.add_parser(
+        "list",
+        help="List all git remotes"
+    )
+
+    remote_parser.set_defaults(func=env_cmds.remote)
+
     # Node management subcommands
     node_parser = subparsers.add_parser("node", help="Manage custom nodes")
     node_subparsers = node_parser.add_subparsers(dest="node_command", help="Node commands")
 
     # node add
-    node_add_parser = node_subparsers.add_parser("add", help="Add custom node")
-    node_add_parser.add_argument("node_name", help="Node directory name or registry ID")
+    node_add_parser = node_subparsers.add_parser("add", help="Add custom node(s)")
+    node_add_parser.add_argument("node_names", nargs="+", help="Node identifier(s): registry-id[@version], github-url[@ref], or directory name")
     node_add_parser.add_argument("--dev", action="store_true", help="Track existing local development node")
     node_add_parser.add_argument("--no-test", action="store_true", help="Don't test resolution")
     node_add_parser.add_argument("--force", action="store_true", help="Force overwrite existing directory")
     node_add_parser.set_defaults(func=env_cmds.node_add)
 
     # node remove
-    node_remove_parser = node_subparsers.add_parser("remove", help="Remove custom node")
-    node_remove_parser.add_argument("node_name", help="Node registry ID or name").completer = installed_node_completer
+    node_remove_parser = node_subparsers.add_parser("remove", help="Remove custom node(s)")
+    node_remove_parser.add_argument("node_names", nargs="+", help="Node registry ID(s) or name(s)").completer = installed_node_completer
     node_remove_parser.add_argument("--dev", action="store_true", help="Remove development node specifically")
     node_remove_parser.set_defaults(func=env_cmds.node_remove)
 

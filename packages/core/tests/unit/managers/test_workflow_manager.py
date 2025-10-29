@@ -3,20 +3,27 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 from comfydock_core.managers.workflow_manager import WorkflowManager
+from comfydock_core.utils.workflow_hash import normalize_workflow
 
 
 @pytest.fixture
-def workflow_manager():
+def workflow_manager(tmp_path):
     """Create a minimal WorkflowManager for testing normalization."""
     with patch('comfydock_core.managers.workflow_manager.GlobalNodeResolver'):
         with patch('comfydock_core.managers.workflow_manager.ModelResolver'):
+            # Create a mock workflow cache
+            from comfydock_core.caching.workflow_cache import WorkflowCacheRepository
+            cache_db = WorkflowCacheRepository(tmp_path / "workflows.db")
+
             manager = WorkflowManager(
                 comfyui_path=Path("/tmp/comfyui"),
                 cec_path=Path("/tmp/cec"),
                 pyproject=Mock(),
                 model_repository=Mock(),
                 node_mapping_repository=Mock(),
-                model_downloader=Mock()
+                model_downloader=Mock(),
+                workflow_cache=cache_db,
+                environment_name="test-env"
             )
             return manager
 
@@ -36,7 +43,7 @@ def test_normalize_workflow_removes_volatile_fields(workflow_manager):
         }
     }
 
-    normalized = workflow_manager._normalize_workflow_for_comparison(workflow)
+    normalized = normalize_workflow(workflow)
 
     # Check volatile fields removed
     assert "revision" not in normalized
@@ -62,7 +69,7 @@ def test_normalize_workflow_handles_randomize_seeds(workflow_manager):
         ]
     }
 
-    normalized = workflow_manager._normalize_workflow_for_comparison(workflow)
+    normalized = normalize_workflow(workflow)
 
     # Seed should be normalized to 0 when control is "randomize"
     assert normalized["nodes"][0]["widgets_values"][0] == 0
@@ -87,7 +94,7 @@ def test_normalize_workflow_preserves_fixed_seeds(workflow_manager):
         ]
     }
 
-    normalized = workflow_manager._normalize_workflow_for_comparison(workflow)
+    normalized = normalize_workflow(workflow)
 
     # Fixed seed should be preserved
     assert normalized["nodes"][0]["widgets_values"][0] == 12345
@@ -129,10 +136,14 @@ def test_apply_resolution_preserves_existing_sources(workflow_manager):
     workflow_manager.pyproject.workflows.set_workflow_models = Mock()
     workflow_manager.pyproject.workflows.set_node_packs = Mock()
     workflow_manager.pyproject.workflows.get_custom_node_map = Mock(return_value={})
-    workflow_manager.pyproject.workflows.get_all_with_resolutions = Mock(return_value={"test_workflow": {}})
-    workflow_manager.pyproject.workflows.remove_workflows = Mock(return_value=0)
+    workflow_manager.pyproject.workflows.get_workflow_models = Mock(return_value=[])
     workflow_manager.pyproject.workflows.remove_custom_node_mapping = Mock()
+    workflow_manager.pyproject.workflows.remove_workflows = Mock(return_value=0)
+    workflow_manager.pyproject.load = Mock(return_value={'tool': {'comfydock': {'workflows': {'test_workflow': {}}}}})
     workflow_manager.update_workflow_model_paths = Mock()
+    workflow_manager.model_repository.get_sources = Mock(return_value=[
+        {'url': 'https://civitai.com/model/123', 'type': 'civitai', 'metadata': {}, 'added_time': 0}
+    ])
 
     # Create resolution result with a resolved model
     model_with_location = ModelWithLocation(
@@ -189,10 +200,12 @@ def test_apply_resolution_empty_sources_for_new_models(workflow_manager):
     workflow_manager.pyproject.workflows.set_workflow_models = Mock()
     workflow_manager.pyproject.workflows.set_node_packs = Mock()
     workflow_manager.pyproject.workflows.get_custom_node_map = Mock(return_value={})
+    workflow_manager.pyproject.workflows.get_workflow_models = Mock(return_value=[])
     workflow_manager.pyproject.workflows.remove_custom_node_mapping = Mock()
-    workflow_manager.pyproject.workflows.get_all_with_resolutions = Mock(return_value={"test_workflow": {}})
     workflow_manager.pyproject.workflows.remove_workflows = Mock(return_value=0)
+    workflow_manager.pyproject.load = Mock(return_value={'tool': {'comfydock': {'workflows': {'test_workflow': {}}}}})
     workflow_manager.update_workflow_model_paths = Mock()
+    workflow_manager.model_repository.get_sources = Mock(return_value=[])
 
     # Create resolution result
     model_with_location = ModelWithLocation(
@@ -401,14 +414,16 @@ class TestOptionalUnresolvedModelPersistence:
 
         # Mock pyproject to capture what gets written
         written_models = []
-        def mock_set_workflow_models(workflow_name, models):
+        def mock_set_workflow_models(workflow_name, models, config=None):
             written_models.extend(models)
 
         workflow_manager.pyproject.workflows.set_workflow_models = mock_set_workflow_models
         workflow_manager.pyproject.workflows.set_node_packs = Mock()
         workflow_manager.pyproject.workflows.get_custom_node_map = Mock(return_value={})
-        workflow_manager.pyproject.workflows.get_all_with_resolutions = Mock(return_value={"test_workflow": {}})
+        workflow_manager.pyproject.workflows.get_workflow_models = Mock(return_value=[])
+        workflow_manager.pyproject.workflows.remove_custom_node_mapping = Mock()
         workflow_manager.pyproject.workflows.remove_workflows = Mock(return_value=0)
+        workflow_manager.pyproject.load = Mock(return_value={'tool': {'comfydock': {'workflows': {'test_workflow': {}}}}})
         workflow_manager.pyproject.models.add_model = Mock()
         workflow_manager.pyproject.models.cleanup_orphans = Mock()
 
@@ -493,13 +508,16 @@ class TestOptionalUnresolvedModelPersistence:
 
         # Setup mocks
         written_models = []
-        workflow_manager.pyproject.workflows.set_workflow_models = lambda w, m: written_models.extend(m)
+        workflow_manager.pyproject.workflows.set_workflow_models = lambda w, m, config=None: written_models.extend(m)
         workflow_manager.pyproject.workflows.set_node_packs = Mock()
         workflow_manager.pyproject.workflows.get_custom_node_map = Mock(return_value={})
-        workflow_manager.pyproject.workflows.get_all_with_resolutions = Mock(return_value={"test": {}})
+        workflow_manager.pyproject.workflows.get_workflow_models = Mock(return_value=[])
+        workflow_manager.pyproject.workflows.remove_custom_node_mapping = Mock()
         workflow_manager.pyproject.workflows.remove_workflows = Mock(return_value=0)
+        workflow_manager.pyproject.load = Mock(return_value={'tool': {'comfydock': {'workflows': {'test': {}}}}})
         workflow_manager.pyproject.models.add_model = Mock()
         workflow_manager.pyproject.models.cleanup_orphans = Mock()
+        workflow_manager.model_repository.get_sources = Mock(return_value=[])
 
         with patch.object(workflow_manager.model_resolver, 'model_config') as mock_config:
             mock_config.get_directories_for_node.return_value = []

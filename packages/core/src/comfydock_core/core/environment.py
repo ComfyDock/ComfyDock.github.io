@@ -17,13 +17,16 @@ from ..managers.pyproject_manager import PyprojectManager
 from ..managers.uv_project_manager import UVProjectManager
 from ..managers.workflow_manager import WorkflowManager
 from ..models.environment import EnvironmentStatus
-from ..models.shared import ModelSourceResult, ModelSourceStatus, NodeInfo
+from ..models.shared import ModelSourceResult, ModelSourceStatus, NodeInfo, NodeRemovalResult, UpdateResult
 from ..models.sync import SyncResult
+from ..models.workflow import DownloadResult
+from ..strategies.confirmation import ConfirmationStrategy
 from ..services.model_downloader import DownloadRequest
 from ..utils.common import run_command
 from ..validation.resolution_tester import ResolutionTester
 
 if TYPE_CHECKING:
+    from comfydock_core.core.workspace import Workspace
     from comfydock_core.models.protocols import (
         ExportCallbacks,
         ImportCallbacks,
@@ -32,17 +35,15 @@ if TYPE_CHECKING:
         RollbackStrategy,
     )
 
+    from ..caching.workflow_cache import WorkflowCacheRepository
     from ..models.workflow import (
         BatchDownloadCallbacks,
         DetailedWorkflowStatus,
+        NodeInstallCallbacks,
         ResolutionResult,
         WorkflowSyncStatus,
     )
-    from ..repositories.model_repository import ModelRepository
-    from ..repositories.node_mappings_repository import NodeMappingsRepository
-    from ..repositories.workspace_config_repository import WorkspaceConfigRepository
-    from ..services.model_downloader import ModelDownloader
-    from .workspace import WorkspacePaths
+    from ..services.node_lookup_service import NodeLookupService
 
 logger = get_logger(__name__)
 
@@ -54,22 +55,21 @@ class Environment:
         self,
         name: str,
         path: Path,
-        workspace_paths: WorkspacePaths,
-        model_repository: ModelRepository,
-        node_mapping_repository: NodeMappingsRepository,
-        workspace_config_manager: WorkspaceConfigRepository,
-        model_downloader: ModelDownloader,
+        workspace: Workspace,
     ):
         self.name = name
         self.path = path
-        self.workspace_paths = workspace_paths
-        self.model_repository = model_repository
-        self.node_mapping_repository = node_mapping_repository
-        self.workspace_config_manager = workspace_config_manager
-        self.model_downloader = model_downloader
+        self.workspace = workspace
 
         # Workspace-level paths
-        self.global_models_path = self.workspace_config_manager.get_models_directory()
+        self.workspace_paths = workspace.paths
+        self.global_models_path = workspace.workspace_config_manager.get_models_directory()
+
+        # Workspace-level services
+        self.model_repository = workspace.model_repository
+        self.node_mapping_repository = workspace.node_mapping_repository
+        self.workspace_config_manager = workspace.workspace_config_manager
+        self.model_downloader = workspace.model_downloader
 
         # Core paths
         self.cec_path = path / ".cec"
@@ -78,10 +78,6 @@ class Environment:
         self.custom_nodes_path = self.comfyui_path / "custom_nodes"
         self.venv_path = path / ".venv"
         self.models_path = self.comfyui_path / "models"
-
-        # Workflow paths
-        self.workflows_active_path = self.comfyui_path / "user" / "default" / "workflows"
-        self.workflows_cec_path = self.cec_path / "workflows"
 
     ## Cached properties ##
 
@@ -98,7 +94,7 @@ class Environment:
         return PyprojectManager(self.pyproject_path)
 
     @cached_property
-    def node_lookup(self):
+    def node_lookup(self) -> NodeLookupService:
         from ..services.node_lookup_service import NodeLookupService
         return NodeLookupService(
             workspace_path=self.workspace_paths.root,
@@ -130,6 +126,17 @@ class Environment:
         )
 
     @cached_property
+    def workflow_cache(self) -> WorkflowCacheRepository:
+        """Get workflow cache repository."""
+        from ..caching.workflow_cache import WorkflowCacheRepository
+        cache_db_path = self.workspace_paths.cache / "workflows.db"
+        return WorkflowCacheRepository(
+            cache_db_path,
+            pyproject_manager=self.pyproject,
+            model_repository=self.model_repository
+        )
+
+    @cached_property
     def workflow_manager(self) -> WorkflowManager:
         return WorkflowManager(
             self.comfyui_path,
@@ -137,7 +144,9 @@ class Environment:
             self.pyproject,
             self.model_repository,
             self.node_mapping_repository,
-            self.model_downloader
+            self.model_downloader,
+            self.workflow_cache,
+            self.name
         )
 
     @cached_property
@@ -165,21 +174,33 @@ class Environment:
 
         workflow_status = self.workflow_manager.get_workflow_status()
 
+        # Detect missing models
+        missing_models = self.detect_missing_models()
+
         # Assemble final status
         return EnvironmentStatus.create(
             comparison=comparison,
             git_status=git_status,
-            workflow_status=workflow_status
+            workflow_status=workflow_status,
+            missing_models=missing_models
         )
 
     def sync(
         self,
-        dry_run: bool = False
+        dry_run: bool = False,
+        model_strategy: str = "skip",
+        model_callbacks: BatchDownloadCallbacks | None = None,
+        node_callbacks: NodeInstallCallbacks | None = None,
+        remove_extra_nodes: bool = True
     ) -> SyncResult:
-        """Apply changes: sync packages, nodes, and workflows with environment.
+        """Apply changes: sync packages, nodes, workflows, and models with environment.
 
         Args:
             dry_run: If True, don't actually apply changes
+            model_strategy: Model download strategy - "all", "required", or "skip" (default: skip)
+            model_callbacks: Optional callbacks for model download progress
+            node_callbacks: Optional callbacks for node installation progress
+            remove_extra_nodes: If True, remove extra nodes. If False, only warn (default: True)
 
         Returns:
             SyncResult with details of what was synced
@@ -202,8 +223,11 @@ class Environment:
 
         # Sync custom nodes to filesystem
         try:
-            # TODO: Enhance node_manager to return what was changed
-            self.node_manager.sync_nodes_to_filesystem()
+            # Pass remove_extra flag (default True for aggressive repair behavior)
+            self.node_manager.sync_nodes_to_filesystem(
+                remove_extra=remove_extra_nodes and not dry_run,
+                callbacks=node_callbacks
+            )
             # For now, we just note it happened
         except Exception as e:
             logger.error(f"Node sync failed: {e}")
@@ -218,6 +242,49 @@ class Environment:
             except Exception as e:
                 logger.warning(f"Failed to restore workflows: {e}")
                 result.errors.append(f"Workflow restore failed: {e}")
+                # Non-fatal - continue
+
+        # Handle missing models
+        if not dry_run and model_strategy != "skip":
+            try:
+                # Reuse existing import machinery
+                workflows_with_intents = self.prepare_import_with_model_strategy(
+                    strategy=model_strategy
+                )
+
+                if workflows_with_intents:
+                    logger.info(f"Downloading models for {len(workflows_with_intents)} workflow(s)")
+
+                    # Resolve each workflow (triggers downloads)
+                    from ..strategies.auto import AutoModelStrategy, AutoNodeStrategy
+
+                    for workflow_name in workflows_with_intents:
+                        try:
+                            logger.debug(f"Resolving workflow: {workflow_name}")
+
+                            # Resolve workflow (analyzes and prepares downloads)
+                            resolution_result = self.resolve_workflow(
+                                name=workflow_name,
+                                model_strategy=AutoModelStrategy(),
+                                node_strategy=AutoNodeStrategy(),
+                                download_callbacks=model_callbacks
+                            )
+
+                            # Track downloads from actual download results (not stale ResolvedModel objects)
+                            # Note: Download results are populated by _execute_pending_downloads() during resolve_workflow()
+                            for dr in resolution_result.download_results:
+                                if dr.success:
+                                    result.models_downloaded.append(dr.filename)
+                                else:
+                                    result.models_failed.append((dr.filename, dr.error or "Download failed"))
+
+                        except Exception as e:
+                            logger.error(f"Failed to resolve {workflow_name}: {e}", exc_info=True)
+                            result.errors.append(f"Failed to resolve {workflow_name}: {e}")
+
+            except Exception as e:
+                logger.warning(f"Model download failed: {e}", exc_info=True)
+                result.errors.append(f"Model download failed: {e}")
                 # Non-fatal - continue
 
         # Ensure model symlink exists
@@ -235,6 +302,125 @@ class Environment:
             logger.warning(f"Sync completed with {len(result.errors)} errors")
 
         return result
+
+    def pull_and_repair(
+        self,
+        remote: str = "origin",
+        branch: str | None = None,
+        model_strategy: str = "all",
+        model_callbacks: "BatchDownloadCallbacks | None" = None,
+        node_callbacks: "NodeInstallCallbacks | None" = None,
+    ) -> dict:
+        """Pull from remote and auto-repair environment (atomic operation).
+
+        If sync fails, git changes are rolled back automatically.
+        This ensures the environment is never left in a half-pulled state.
+
+        Args:
+            remote: Remote name (default: origin)
+            branch: Branch to pull (default: current)
+            model_strategy: Model download strategy ("all", "required", "skip")
+            model_callbacks: Optional callbacks for model download progress
+            node_callbacks: Optional callbacks for node installation progress
+
+        Returns:
+            Dict with pull results and sync_result
+
+        Raises:
+            CDEnvironmentError: If uncommitted changes exist or sync fails
+            ValueError: If merge conflicts
+            OSError: If pull or repair fails
+        """
+        from ..models.exceptions import CDEnvironmentError
+        from ..utils.git import git_reset_hard, git_rev_parse
+
+        # Check for uncommitted changes
+        if self.git_manager.has_uncommitted_changes():
+            raise CDEnvironmentError(
+                "Cannot pull with uncommitted changes.\n"
+                "  • Commit: comfydock commit -m 'message'\n"
+                "  • Discard: comfydock rollback"
+            )
+
+        # Capture pre-pull state for atomic rollback
+        pre_pull_commit = git_rev_parse(self.cec_path, "HEAD")
+        if not pre_pull_commit:
+            raise CDEnvironmentError(
+                "Cannot determine current commit state.\n"
+                "The .cec repository may be corrupted. Try:\n"
+                "  • Check git status: cd .cec && git status\n"
+                "  • Repair repository: cd .cec && git fsck"
+            )
+
+        try:
+            # Pull (fetch + merge)
+            logger.info("Pulling from remote...")
+            pull_result = self.git_manager.pull(remote, branch)
+
+            # Auto-repair (restores workflows, installs nodes, downloads models)
+            logger.info("Syncing environment after pull...")
+            sync_result = self.sync(
+                model_strategy=model_strategy,
+                model_callbacks=model_callbacks,
+                node_callbacks=node_callbacks
+            )
+
+            # Check for sync failures
+            if not sync_result.success:
+                logger.error("Sync failed - rolling back git changes")
+                git_reset_hard(self.cec_path, pre_pull_commit)
+                raise CDEnvironmentError(
+                    "Sync failed after pull. Git changes rolled back.\n"
+                    f"Errors: {', '.join(sync_result.errors)}"
+                )
+
+            # Return both pull result and sync result for CLI to display
+            return {
+                **pull_result,
+                'sync_result': sync_result
+            }
+
+        except Exception as e:
+            # Any failure during sync - rollback git changes
+            # (merge conflicts raise before this point, so don't rollback those)
+            if "Merge conflict" not in str(e):
+                logger.error(f"Pull failed: {e} - rolling back git changes")
+                git_reset_hard(self.cec_path, pre_pull_commit)
+            raise
+
+    def push_commits(self, remote: str = "origin", branch: str | None = None, force: bool = False) -> str:
+        """Push commits to remote (requires clean working directory).
+
+        Args:
+            remote: Remote name (default: origin)
+            branch: Branch to push (default: current)
+            force: Use --force-with-lease for force push (default: False)
+
+        Returns:
+            Push output
+
+        Raises:
+            CDEnvironmentError: If uncommitted changes exist
+            ValueError: If no remote or detached HEAD
+            OSError: If push fails
+        """
+        from ..models.exceptions import CDEnvironmentError
+
+        # Check for uncommitted git changes (not workflow sync state)
+        # Push only cares about git state in .cec/, not whether workflows are synced to ComfyUI
+        if self.git_manager.has_uncommitted_changes():
+            raise CDEnvironmentError(
+                "Cannot push with uncommitted changes.\n"
+                "  Run: comfydock commit -m 'message' first"
+            )
+
+        # Note: Workflow issue validation happens during commit (execute_commit checks is_commit_safe).
+        # By the time we reach push, all committed changes have already been validated.
+        # No need to re-check workflow issues here.
+
+        # Push
+        logger.info("Pushing commits to remote...")
+        return self.git_manager.push(remote, branch, force=force)
 
     def rollback(
         self,
@@ -386,6 +572,15 @@ class Environment:
     # Node Management
     # =====================================================
 
+    def list_nodes(self) -> list[NodeInfo]:
+        """List all custom nodes in this environment.
+
+        Returns:
+            List of NodeInfo objects for all installed custom nodes
+        """
+        nodes_dict = self.pyproject.nodes.get_existing()
+        return list(nodes_dict.values())
+
     def add_node(self, identifier: str, is_development: bool = False, no_test: bool = False, force: bool = False) -> NodeInfo:
         """Add a custom node to the environment.
 
@@ -396,7 +591,50 @@ class Environment:
         """
         return self.node_manager.add_node(identifier, is_development, no_test, force)
 
-    def remove_node(self, identifier: str):
+    def install_nodes_with_progress(
+        self,
+        node_ids: list[str],
+        callbacks: NodeInstallCallbacks | None = None
+    ) -> tuple[int, list[tuple[str, str]]]:
+        """Install multiple nodes with callback support for progress tracking.
+
+        Args:
+            node_ids: List of node identifiers to install
+            callbacks: Optional callbacks for progress feedback
+
+        Returns:
+            Tuple of (success_count, failed_nodes)
+            where failed_nodes is a list of (node_id, error_message) tuples
+
+        Raises:
+            CDNodeNotFoundError: If a node is not found
+        """
+        if callbacks and callbacks.on_batch_start:
+            callbacks.on_batch_start(len(node_ids))
+
+        success_count = 0
+        failed = []
+
+        for idx, node_id in enumerate(node_ids):
+            if callbacks and callbacks.on_node_start:
+                callbacks.on_node_start(node_id, idx + 1, len(node_ids))
+
+            try:
+                self.add_node(node_id)
+                success_count += 1
+                if callbacks and callbacks.on_node_complete:
+                    callbacks.on_node_complete(node_id, True, None)
+            except Exception as e:
+                failed.append((node_id, str(e)))
+                if callbacks and callbacks.on_node_complete:
+                    callbacks.on_node_complete(node_id, False, str(e))
+
+        if callbacks and callbacks.on_batch_complete:
+            callbacks.on_batch_complete(success_count, len(node_ids))
+
+        return success_count, failed
+
+    def remove_node(self, identifier: str) -> NodeRemovalResult:
         """Remove a custom node.
 
         Returns:
@@ -407,7 +645,55 @@ class Environment:
         """
         return self.node_manager.remove_node(identifier)
 
-    def update_node(self, identifier: str, confirmation_strategy=None, no_test: bool = False):
+    def remove_nodes_with_progress(
+        self,
+        node_ids: list[str],
+        callbacks: NodeInstallCallbacks | None = None
+    ) -> tuple[int, list[tuple[str, str]]]:
+        """Remove multiple nodes with callback support for progress tracking.
+
+        Args:
+            node_ids: List of node identifiers to remove
+            callbacks: Optional callbacks for progress feedback
+
+        Returns:
+            Tuple of (success_count, failed_nodes)
+            where failed_nodes is a list of (node_id, error_message) tuples
+
+        Raises:
+            CDNodeNotFoundError: If a node is not found
+        """
+        if callbacks and callbacks.on_batch_start:
+            callbacks.on_batch_start(len(node_ids))
+
+        success_count = 0
+        failed = []
+
+        for idx, node_id in enumerate(node_ids):
+            if callbacks and callbacks.on_node_start:
+                callbacks.on_node_start(node_id, idx + 1, len(node_ids))
+
+            try:
+                self.remove_node(node_id)
+                success_count += 1
+                if callbacks and callbacks.on_node_complete:
+                    callbacks.on_node_complete(node_id, True, None)
+            except Exception as e:
+                failed.append((node_id, str(e)))
+                if callbacks and callbacks.on_node_complete:
+                    callbacks.on_node_complete(node_id, False, str(e))
+
+        if callbacks and callbacks.on_batch_complete:
+            callbacks.on_batch_complete(success_count, len(node_ids))
+
+        return success_count, failed
+
+    def update_node(
+        self,
+        identifier: str,
+        confirmation_strategy: ConfirmationStrategy | None = None,
+        no_test: bool = False
+    ) -> UpdateResult:
         """Update a node based on its source type.
 
         - Development nodes: Re-scan requirements.txt
@@ -468,11 +754,8 @@ class Environment:
         Raises:
             FileNotFoundError: If workflow not found
         """
-        # Analyze workflow
-        analysis = self.workflow_manager.analyze_workflow(name)
-
-        # Then do initial resolve
-        result = self.workflow_manager.resolve_workflow(analysis)
+        # Analyze and resolve workflow (both cached for performance)
+        _, result = self.workflow_manager.analyze_and_resolve_workflow(name)
 
         # Apply auto-resolutions (reconcile with pyproject.toml)
         self.workflow_manager.apply_resolution(result)
@@ -488,7 +771,7 @@ class Environment:
 
         # Execute pending downloads if any download intents exist
         if result.has_download_intents:
-            self._execute_pending_downloads(result, download_callbacks)
+            result.download_results = self._execute_pending_downloads(result, download_callbacks)
 
         return result
 
@@ -553,7 +836,7 @@ class Environment:
 
         return has_workflow_changes or has_git_changes
 
-    def commit(self, message: str | None = None):
+    def commit(self, message: str | None = None) -> None:
         """Commit changes to git repository.
 
         Args:
@@ -594,27 +877,34 @@ class Environment:
             return
 
         # Apply auto-resolutions to pyproject.toml for workflows with changes
+        # BATCHED MODE: Load config once, pass through all operations, save once
         logger.info("Committing all changes...")
+        config = self.pyproject.load()
+
         for wf_analysis in workflow_status.analyzed_workflows:
             if wf_analysis.sync_state in ("new", "modified"):
-                # Apply resolution results to pyproject (writes newly resolved models)
-                self.workflow_manager.apply_resolution(wf_analysis.resolution)
-
-        logger.info("Copying workflows from ComfyUI to .cec...")
-        copy_results = self.workflow_manager.copy_all_workflows()
-        copied_count = len([r for r in copy_results.values() if r and r != "deleted"])
-        logger.debug(f"Copied {copied_count} workflow(s)")
+                # Apply resolution results to pyproject (in-memory mutations)
+                self.workflow_manager.apply_resolution(wf_analysis.resolution, config=config)
 
         # Clean up deleted workflows from pyproject.toml
         if workflow_status.sync_status.deleted:
             logger.info("Cleaning up deleted workflows from pyproject.toml...")
             removed_count = self.pyproject.workflows.remove_workflows(
-                workflow_status.sync_status.deleted
+                workflow_status.sync_status.deleted,
+                config=config
             )
             logger.debug(f"Removed {removed_count} workflow section(s)")
 
             # Clean up orphaned models (must run AFTER workflow sections are removed)
-            self.pyproject.models.cleanup_orphans()
+            self.pyproject.models.cleanup_orphans(config=config)
+
+        # Save all changes at once
+        self.pyproject.save(config)
+
+        logger.info("Copying workflows from ComfyUI to .cec...")
+        copy_results = self.workflow_manager.copy_all_workflows()
+        copied_count = len([r for r in copy_results.values() if r and r != "deleted"])
+        logger.debug(f"Copied {copied_count} workflow(s)")
 
         self.commit(message)
 
@@ -742,7 +1032,7 @@ class Environment:
         self,
         result: ResolutionResult,
         callbacks: BatchDownloadCallbacks | None = None
-    ) -> list:
+    ) -> list[DownloadResult]:
         """Execute batch downloads for all download intents in result.
         All user-facing output is delivered via callbacks.
 
@@ -751,7 +1041,7 @@ class Environment:
             callbacks: Optional callbacks for progress/status (provided by CLI)
 
         Returns:
-            List of download results
+            List of DownloadResult objects
         """
         # Collect download intents
         intents = [r for r in result.models_resolved if r.match_type == "download_intent"]
@@ -784,7 +1074,12 @@ class Environment:
                     # Notify success (reused existing)
                     if callbacks and callbacks.on_file_complete:
                         callbacks.on_file_complete(filename, True, None)
-                    results.append({"success": True, "model": existing, "reused": True})
+                    results.append(DownloadResult(
+                        success=True,
+                        filename=filename,
+                        model=existing,
+                        reused=True
+                    ))
                     continue
 
             # Validate required fields
@@ -792,7 +1087,11 @@ class Environment:
                 error_msg = "Download intent missing target_path or model_source"
                 if callbacks and callbacks.on_file_complete:
                     callbacks.on_file_complete(filename, False, error_msg)
-                results.append({"success": False, "model": None, "error": error_msg, "reused": False})
+                results.append(DownloadResult(
+                    success=False,
+                    filename=filename,
+                    error=error_msg
+                ))
                 continue
 
             # Download new model
@@ -822,16 +1121,16 @@ class Environment:
                 if callbacks and callbacks.on_file_complete:
                     callbacks.on_file_complete(filename, False, download_result.error)
 
-            results.append({
-                "success": download_result.success,
-                "model": download_result.model if download_result.success else None,
-                "error": download_result.error if not download_result.success else None,
-                "reused": False
-            })
+            results.append(DownloadResult(
+                success=download_result.success,
+                filename=filename,
+                model=download_result.model if download_result.success else None,
+                error=download_result.error if not download_result.success else None
+            ))
 
         # Notify batch complete
         if callbacks and callbacks.on_batch_complete:
-            success_count = sum(1 for r in results if r["success"])
+            success_count = sum(1 for r in results if r.success)
             callbacks.on_batch_complete(success_count, len(results))
 
         return results
@@ -927,6 +1226,86 @@ class Environment:
         # Create export
         manager = ExportImportManager(self.cec_path, self.comfyui_path)
         return manager.create_export(output_path, self.pyproject)
+
+    def detect_missing_models(self) -> list:
+        """Detect models in pyproject that don't exist in local index.
+
+        Checks both resolved workflow models (with hash) and models in the global table
+        that aren't present in the local repository with valid file locations.
+
+        Returns:
+            List of MissingModelInfo for models that need downloading
+        """
+        from comfydock_core.models.environment import MissingModelInfo
+
+        missing_by_hash: dict[str, MissingModelInfo] = {}
+
+        # First pass: Check all workflow models for missing resolved models
+        all_workflows = self.pyproject.workflows.get_all_with_resolutions()
+        for workflow_name in all_workflows.keys():
+            workflow_models = self.pyproject.workflows.get_workflow_models(workflow_name)
+
+            for wf_model in workflow_models:
+                # Check both resolved models and models that reference a filename
+                model_hash = wf_model.hash
+
+                # If model has a hash, check if it exists WITH a valid location
+                # get_model() returns None if model has no locations (file deleted)
+                if model_hash and not self.model_repository.get_model(model_hash):
+                    # Model is missing!
+                    if model_hash not in missing_by_hash:
+                        # Get global model entry
+                        global_model = self.pyproject.models.get_by_hash(model_hash)
+                        if global_model:
+                            missing_by_hash[model_hash] = MissingModelInfo(
+                                model=global_model,
+                                workflow_names=[workflow_name],
+                                criticality=wf_model.criticality,
+                                can_download=bool(global_model.sources)
+                            )
+                    else:
+                        # Already tracking this model, add workflow and update criticality
+                        missing_info = missing_by_hash[model_hash]
+                        if workflow_name not in missing_info.workflow_names:
+                            missing_info.workflow_names.append(workflow_name)
+                        # Upgrade criticality (required > flexible > optional)
+                        if wf_model.criticality == "required":
+                            missing_info.criticality = "required"
+                        elif wf_model.criticality == "flexible" and missing_info.criticality == "optional":
+                            missing_info.criticality = "flexible"
+
+        # Second pass: Check global models table for any models not in repository
+        # This catches models that were resolved but file was deleted
+        global_models = self.pyproject.models.get_all()
+        for global_model in global_models:
+            if global_model.hash not in missing_by_hash:
+                # Check if this model exists in repository WITH a valid location
+                if not self.model_repository.get_model(global_model.hash):
+                    # Find which workflows use this model
+                    workflows_using_model = []
+                    criticality = "flexible"  # Default
+
+                    for workflow_name in all_workflows.keys():
+                        workflow_models = self.pyproject.workflows.get_workflow_models(workflow_name)
+                        for wf_model in workflow_models:
+                            if wf_model.hash == global_model.hash:
+                                workflows_using_model.append(workflow_name)
+                                # Track highest criticality
+                                if wf_model.criticality == "required":
+                                    criticality = "required"
+                                elif wf_model.criticality == "flexible" and criticality == "optional":
+                                    criticality = "flexible"
+
+                    # Only add if used by at least one workflow
+                    if workflows_using_model:
+                        missing_by_hash[global_model.hash] = MissingModelInfo(
+                            model=global_model,
+                            workflow_names=workflows_using_model,
+                            criticality=criticality,
+                            can_download=bool(global_model.sources)
+                        )
+
+        return list(missing_by_hash.values())
 
     def prepare_import_with_model_strategy(
         self,
@@ -1155,7 +1534,8 @@ class Environment:
             callbacks.on_phase("sync_nodes", "Syncing custom nodes...")
 
         try:
-            sync_result = self.sync()
+            # During import, don't remove ComfyUI builtins (fresh clone has example files)
+            sync_result = self.sync(remove_extra_nodes=False)
             if sync_result.success and sync_result.nodes_installed and callbacks:
                 for node_name in sync_result.nodes_installed:
                     callbacks.on_node_installed(node_name)

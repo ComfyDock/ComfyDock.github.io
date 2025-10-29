@@ -3,9 +3,12 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import List
+from typing import List, TYPE_CHECKING
 
 from .workflow import DetailedWorkflowStatus
+
+if TYPE_CHECKING:
+    from .manifest import ManifestModel
 
 
 @dataclass
@@ -22,7 +25,7 @@ class GitStatus:
     """Encapsulated git status information."""
 
     has_changes: bool
-    diff: str
+    # diff: str
     workflow_changes: dict[str, str] = field(default_factory=dict)
 
     # Git change details (populated by parser if needed)
@@ -86,8 +89,21 @@ class EnvironmentState:
     """Current state of an environment."""
 
     custom_nodes: dict[str, NodeState]  # name -> state
-    packages: dict[str, str]  # name -> version
-    python_version: str
+    packages: dict[str, str] | None  # name -> version
+    python_version: str | None
+
+
+@dataclass
+class MissingModelInfo:
+    """Information about a model that's in pyproject but not in local index."""
+    model: "ManifestModel"  # From global models table
+    workflow_names: list[str]  # Which workflows need it
+    criticality: str  # "required", "flexible", "optional" (worst case across workflows)
+    can_download: bool  # Has sources available
+
+    @property
+    def is_required(self) -> bool:
+        return self.criticality == "required"
 
 
 # === Semantic Value Objects ===
@@ -140,6 +156,7 @@ class EnvironmentStatus:
     comparison: EnvironmentComparison
     git: GitStatus
     workflow: DetailedWorkflowStatus
+    missing_models: list[MissingModelInfo] = field(default_factory=list)
 
     @classmethod
     def create(
@@ -147,14 +164,24 @@ class EnvironmentStatus:
         comparison: EnvironmentComparison,
         git_status: GitStatus,
         workflow_status: DetailedWorkflowStatus,
+        missing_models: list[MissingModelInfo] | None = None,
     ) -> "EnvironmentStatus":
         """Factory method to create EnvironmentStatus from components."""
-        return cls(comparison=comparison, git=git_status, workflow=workflow_status)
+        return cls(
+            comparison=comparison,
+            git=git_status,
+            workflow=workflow_status,
+            missing_models=missing_models or []
+        )
 
     @property
     def is_synced(self) -> bool:
-        """Check if environment is fully synced (nodes, packages, and workflows)."""
-        return self.comparison.is_synced and self.workflow.sync_status.is_synced
+        """Check if environment is fully synced (nodes, packages, workflows, and models)."""
+        return (
+            self.comparison.is_synced and
+            self.workflow.sync_status.is_synced and
+            not self.missing_models
+        )
 
     # === Semantic Methods ===
 
@@ -242,10 +269,23 @@ class EnvironmentStatus:
         return summary.get_commit_message()
 
     def get_sync_preview(self) -> dict:
-        """Get preview of what sync operation will do."""
+        """Get preview of what sync operation will do.
+
+        Note: WorkflowSyncStatus is from ComfyUI's perspective:
+        - new: in ComfyUI but not .cec → will be REMOVED
+        - deleted: in .cec but not ComfyUI → will be ADDED
+        - modified: differs between ComfyUI and .cec → will be UPDATED
+        """
         return {
             'nodes_to_install': self.comparison.missing_nodes,
             'nodes_to_remove': self.comparison.extra_nodes,
             'nodes_to_update': self.comparison.version_mismatches,
             'packages_to_sync': not self.comparison.packages_in_sync,
+            'workflows_to_add': self.workflow.sync_status.deleted,  # Deleted from ComfyUI, will restore
+            'workflows_to_update': self.workflow.sync_status.modified,  # Modified, will sync
+            'workflows_to_remove': self.workflow.sync_status.new,  # New in ComfyUI, will remove
+            'models_missing': self.missing_models,
+            'models_downloadable': [m for m in self.missing_models if m.can_download],
+            'models_unavailable': [m for m in self.missing_models if not m.can_download],
+            'models_required': [m for m in self.missing_models if m.is_required],
         }

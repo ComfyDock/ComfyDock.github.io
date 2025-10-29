@@ -80,6 +80,27 @@ class BatchDownloadCallbacks:
 
 
 @dataclass
+class NodeInstallCallbacks:
+    """Callbacks for node installation progress in core library.
+
+    All callbacks are optional - if None, core library performs operation silently.
+    CLI package provides implementations that render to terminal.
+    """
+
+    # Called once at start with total number of nodes
+    on_batch_start: Callable[[int], None] | None = None
+
+    # Called before each node installation (node_id, current_index, total_count)
+    on_node_start: Callable[[str, int, int], None] | None = None
+
+    # Called after each node completes (node_id, success, error_message)
+    on_node_complete: Callable[[str, bool, str | None], None] | None = None
+
+    # Called once at end (success_count, total_count)
+    on_batch_complete: Callable[[int, int], None] | None = None
+
+
+@dataclass
 class ModelResolutionContext:
     """Context for model resolution with search function and workflow info."""
     workflow_name: str
@@ -501,6 +522,15 @@ class ResolvedModel:
         return self.resolved_model is not None or self.model_source is not None
 
 @dataclass
+class DownloadResult:
+    """Result of a single model download attempt."""
+    success: bool
+    filename: str
+    model: Optional[ModelWithLocation] = None
+    error: Optional[str] = None
+    reused: bool = False
+
+@dataclass
 class ResolutionResult:
     """Result of resolution check or application."""
     workflow_name: str
@@ -510,6 +540,7 @@ class ResolutionResult:
     models_resolved: List[ResolvedModel] = field(default_factory=list)  # Models resolved (or candidates)
     models_unresolved: List[WorkflowNodeWidgetRef] = field(default_factory=list)  # Models not found
     models_ambiguous: List[List[ResolvedModel]] = field(default_factory=list)  # Models with multiple matches
+    download_results: List[DownloadResult] = field(default_factory=list)  # Results from model downloads
 
     @property
     def has_issues(self) -> bool:
@@ -709,36 +740,3 @@ class DetailedWorkflowStatus:
     def is_commit_safe(self) -> bool:
         """Check if safe to commit without issues."""
         return not any(w.has_issues for w in self.analyzed_workflows)
-
-    def get_suggested_actions(self) -> list[str]:
-        """Generate actionable suggestions for workflow-specific issues."""
-        actions = []
-
-        # Model resolution suggestions
-        if self.total_unresolved_models > 0:
-            workflows_with_model_issues = [
-                w.name for w in self.workflows_with_issues
-                if w.resolution.models_ambiguous or w.resolution.models_unresolved
-            ]
-            if len(workflows_with_model_issues) == 1:
-                actions.append(f"Resolve model issues: comfydock workflow resolve {workflows_with_model_issues[0]}")
-            else:
-                actions.append(f"Resolve model issues in {len(workflows_with_model_issues)} workflows")
-
-        # Node installation suggestions
-        missing_nodes = set()
-        for w in self.analyzed_workflows:
-            for node in w.resolution.nodes_unresolved:
-                missing_nodes.add(node.type)
-
-        if missing_nodes:
-            for node_type in list(missing_nodes)[:3]:  # Show max 3
-                actions.append(f"Install missing node: {node_type}")
-            if len(missing_nodes) > 3:
-                actions.append(f"... and {len(missing_nodes) - 3} more nodes")
-
-        # Commit warnings (workflow issues only, not commit suggestions)
-        if not self.is_commit_safe:
-            actions.append("Fix issues above before committing (or use --allow-issues flag)")
-
-        return actions

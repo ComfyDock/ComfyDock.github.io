@@ -31,8 +31,10 @@ from ..repositories.workflow_repository import WorkflowRepository
 from ..resolvers.model_resolver import ModelResolver
 from ..services.model_downloader import ModelDownloader
 from ..utils.git import is_git_url
+from ..utils.workflow_hash import normalize_workflow
 
 if TYPE_CHECKING:
+    from ..caching.workflow_cache import WorkflowCacheRepository
     from ..models.workflow import ResolvedNodePackage, WorkflowDependencies
     from ..repositories.model_repository import ModelRepository
     from .pyproject_manager import PyprojectManager
@@ -62,13 +64,17 @@ class WorkflowManager:
         pyproject: PyprojectManager,
         model_repository: ModelRepository,
         node_mapping_repository: NodeMappingsRepository,
-        model_downloader: ModelDownloader
+        model_downloader: ModelDownloader,
+        workflow_cache: WorkflowCacheRepository,
+        environment_name: str
     ):
         self.comfyui_path = comfyui_path
         self.cec_path = cec_path
         self.pyproject = pyproject
         self.model_repository = model_repository
         self.node_mapping_repository = node_mapping_repository
+        self.workflow_cache = workflow_cache
+        self.environment_name = environment_name
 
         self.comfyui_workflows = comfyui_path / "user" / "default" / "workflows"
         self.cec_workflows = cec_path / "workflows"
@@ -149,6 +155,13 @@ class WorkflowManager:
                 relative_path=str(resolved.target_path) if resolved.target_path else None  # Target path
             )
             self.pyproject.workflows.add_workflow_model(workflow_name, manifest_model)
+
+            # Invalidate cache so download intent is detected on next resolution
+            self.workflow_cache.invalidate(
+                env_name=self.environment_name,
+                workflow_name=workflow_name
+            )
+
             return
 
         # Build manifest model
@@ -164,7 +177,12 @@ class WorkflowManager:
                 sources=[]
             )
         else:
-            # Resolved model
+            # Resolved model - fetch sources from repository
+            sources = []
+            if model.hash:
+                sources_from_repo = self.model_repository.get_sources(model.hash)
+                sources = [s['url'] for s in sources_from_repo]
+
             manifest_model = ManifestWorkflowModel(
                 hash=model.hash,
                 filename=model.filename,
@@ -172,11 +190,18 @@ class WorkflowManager:
                 criticality=criticality,
                 status="resolved",
                 nodes=[model_ref],
-                sources=[]
+                sources=sources
             )
 
-            # Add to global table
-            global_model = ManifestModel.from_model_with_location(model)
+            # Add to global table with sources
+            global_model = ManifestModel(
+                hash=model.hash,
+                filename=model.filename,
+                size=model.file_size,
+                relative_path=model.relative_path,
+                category=category,
+                sources=sources
+            )
             self.pyproject.models.add_model(global_model)
 
         # Progressive write to workflow
@@ -214,6 +239,13 @@ class WorkflowManager:
                 )
                 node.widgets_values[model_ref.widget_index] = display_path
                 WorkflowRepository.save(workflow, workflow_path)
+
+                # Invalidate cache since workflow content changed
+                self.workflow_cache.invalidate(
+                    env_name=self.environment_name,
+                    workflow_name=workflow_name
+                )
+
                 logger.debug(f"Updated workflow JSON node {model_ref.node_id}")
 
     def _write_single_node_resolution(
@@ -316,6 +348,7 @@ class WorkflowManager:
         Returns:
             True if workflows differ or .cec copy doesn't exist
         """
+        # TODO: This will fail if workflow is in a subdirectory in ComfyUI
         comfyui_file = self.comfyui_workflows / f"{name}.json"
         cec_file = self.cec_workflows / f"{name}.json"
 
@@ -333,53 +366,13 @@ class WorkflowManager:
                 cec_content = json.load(f)
 
             # Normalize by removing volatile fields that change between saves
-            comfyui_normalized = self._normalize_workflow_for_comparison(comfyui_content)
-            cec_normalized = self._normalize_workflow_for_comparison(cec_content)
+            comfyui_normalized = normalize_workflow(comfyui_content)
+            cec_normalized = normalize_workflow(cec_content)
 
             return comfyui_normalized != cec_normalized
         except (OSError, json.JSONDecodeError) as e:
             logger.warning(f"Error comparing workflows '{name}': {e}")
             return True
-
-    def _normalize_workflow_for_comparison(self, workflow: dict) -> dict:
-        """Remove volatile fields that change between saves but don't affect functionality.
-
-        Args:
-            workflow: Workflow JSON dict
-
-        Returns:
-            Normalized workflow dict with volatile fields removed
-        """
-        import copy
-        normalized = copy.deepcopy(workflow)
-
-        # Remove UI state fields that change with pan/zoom
-        if 'extra' in normalized:
-            # Remove volatile UI state
-            normalized['extra'].pop('ds', None)  # Pan/zoom state
-            normalized['extra'].pop('frontendVersion', None)  # Frontend version
-
-        # Increment counters don't affect workflow logic if structure is same
-        normalized.pop('revision', None)
-
-        # Normalize nodes - remove auto-generated seed values when "randomize" is set
-        if 'nodes' in normalized:
-            for node in normalized['nodes']:
-                if isinstance(node, dict):
-                    node_type = node.get('type', '')
-                    # For sampler nodes with "randomize" mode, normalize seed to a fixed value
-                    if node_type in ('KSampler', 'KSamplerAdvanced', 'SamplerCustom'):
-                        widgets_values = node.get('widgets_values', [])
-                        # widgets_values format: [seed, control_after_generate, steps, cfg, sampler_name, scheduler, denoise]
-                        # If control_after_generate is "randomize" or "increment", seed is auto-generated
-                        if len(widgets_values) >= 2 and widgets_values[1] in ('randomize', 'increment'):
-                            widgets_values[0] = 0  # Normalize to fixed value
-
-                        api_widget_values = node.get('api_widget_values', [])
-                        if len(api_widget_values) >= 2 and api_widget_values[1] in ('randomize', 'increment'):
-                            api_widget_values[0] = 0  # Normalize to fixed value
-
-        return normalized
 
     def copy_all_workflows(self) -> dict[str, Path | None]:
         """Copy ALL workflows from ComfyUI to .cec for commit.
@@ -399,10 +392,22 @@ class WorkflowManager:
             source = self.comfyui_workflows / f"{name}.json"
             dest = self.cec_workflows / f"{name}.json"
 
+            # Check if workflow was actually modified (not just UI changes)
+            was_modified = self._workflows_differ(name)
+
             try:
                 shutil.copy2(source, dest)
                 results[name] = dest
                 logger.debug(f"Copied workflow '{name}' to .cec")
+
+                # Invalidate cache for truly modified workflows
+                if was_modified:
+                    self.workflow_cache.invalidate(
+                        env_name=self.environment_name,
+                        workflow_name=name
+                    )
+                    logger.debug(f"Invalidated cache for modified workflow '{name}'")
+
             except Exception as e:
                 results[name] = None
                 logger.error(f"Failed to copy workflow '{name}': {e}")
@@ -416,6 +421,12 @@ class WorkflowManager:
                     try:
                         cec_file.unlink()
                         results[name] = "deleted"
+
+                        # Invalidate cache for deleted workflows
+                        self.workflow_cache.invalidate(
+                            env_name=self.environment_name,
+                            workflow_name=name
+                        )
                         logger.debug(
                             f"Deleted workflow '{name}' from .cec (no longer in ComfyUI)"
                         )
@@ -487,7 +498,9 @@ class WorkflowManager:
     def analyze_single_workflow_status(
         self,
         name: str,
-        sync_state: str
+        sync_state: str,
+        workflows_config: dict | None = None,
+        installed_nodes: set[str] | None = None
     ) -> WorkflowAnalysisStatus:
         """Analyze a single workflow for dependencies and resolution status.
 
@@ -496,27 +509,37 @@ class WorkflowManager:
         Args:
             name: Workflow name
             sync_state: Sync state ("new", "modified", "deleted", "synced")
+            workflows_config: Pre-loaded workflows config (avoids re-reading pyproject)
+            installed_nodes: Pre-loaded set of installed node IDs (avoids re-reading pyproject)
 
         Returns:
             WorkflowAnalysisStatus with complete dependency and resolution info
         """
-        # Phase 1: Analyze dependencies (parse workflow JSON)
-        dependencies = self.analyze_workflow(name)
-
-        # Phase 2: Attempt resolution (check index, pyproject cache)
-        resolution = self.resolve_workflow(dependencies)
+        # Phase 1 & 2: Analyze and resolve (both cached!)
+        dependencies, resolution = self.analyze_and_resolve_workflow(name)
 
         # Phase 3: Calculate uninstalled nodes (for CLI display)
-        # Get workflow's declared node requirements from pyproject.toml
-        workflows_config = self.pyproject.workflows.get_all_with_resolutions()
-        workflow_config = workflows_config.get(name, {})
-        workflow_needs = set(workflow_config.get('nodes', []))
+        # Load pyproject data if not provided
+        if workflows_config is None:
+            workflows_config = self.pyproject.workflows.get_all_with_resolutions()
+        if installed_nodes is None:
+            installed_nodes = set(self.pyproject.nodes.get_existing().keys())
 
-        # Get actually installed nodes
-        installed = set(self.pyproject.nodes.get_existing().keys())
+        # Check if workflow has an entry in pyproject.toml
+        workflow_config = workflows_config.get(name, {})
+        pyproject_nodes = set(workflow_config.get('nodes', []))
+
+        # For NEW workflows not yet in pyproject, use resolution result
+        # For workflows already in pyproject (modified, synced, or new from git), use pyproject
+        if sync_state == "new" and not pyproject_nodes:
+            # Use resolved nodes from current analysis (not yet committed)
+            workflow_needs = set(r.package_id for r in resolution.nodes_resolved if r.package_id)
+        else:
+            # Use pyproject for all other cases
+            workflow_needs = pyproject_nodes
 
         # Calculate uninstalled = needed - installed
-        uninstalled_nodes = list(workflow_needs - installed)
+        uninstalled_nodes = list(workflow_needs - installed_nodes)
 
         return WorkflowAnalysisStatus(
             name=name,
@@ -538,7 +561,11 @@ class WorkflowManager:
         # Step 1: Get file sync status (fast)
         sync_status = self.get_workflow_sync_status()
 
-        # Step 2: Analyze all workflows (including synced ones)
+        # Step 2: Pre-load pyproject data once for all workflows
+        workflows_config = self.pyproject.workflows.get_all_with_resolutions()
+        installed_nodes = set(self.pyproject.nodes.get_existing().keys())
+
+        # Step 3: Analyze all workflows (reusing pyproject data)
         all_workflow_names = (
             sync_status.new +
             sync_status.modified +
@@ -557,7 +584,12 @@ class WorkflowManager:
                 state = "synced"
 
             try:
-                analysis = self.analyze_single_workflow_status(name, state)
+                analysis = self.analyze_single_workflow_status(
+                    name,
+                    state,
+                    workflows_config=workflows_config,
+                    installed_nodes=installed_nodes
+                )
                 analyzed.append(analysis)
             except Exception as e:
                 logger.error(f"Failed to analyze workflow {name}: {e}")
@@ -569,26 +601,105 @@ class WorkflowManager:
         )
 
     def analyze_workflow(self, name: str) -> WorkflowDependencies:
-        """Analyze a single workflow for dependencies - pure analysis, no side effects.
-        
+        """Analyze a single workflow for dependencies - with caching.
+
+        NOTE: For best performance, use analyze_and_resolve_workflow() which
+        caches BOTH analysis and resolution.
+
         Args:
             name: Workflow name
 
         Returns:
             WorkflowDependencies
-            
+
         Raises:
             FileNotFoundError if workflow not found
         """
-
         workflow_path = self.get_workflow_path(name)
 
-        parser = WorkflowDependencyParser(workflow_path)
+        # Check cache first
+        cached = self.workflow_cache.get(
+            env_name=self.environment_name,
+            workflow_name=name,
+            workflow_path=workflow_path,
+            pyproject_path=self.pyproject.path
+        )
 
-        # Get dependencies (nodes + models)
+        if cached is not None:
+            logger.debug(f"Cache HIT for workflow '{name}'")
+            return cached.dependencies
+
+        logger.debug(f"Cache MISS for workflow '{name}' - running full analysis")
+
+        # Cache miss - run full analysis
+        parser = WorkflowDependencyParser(workflow_path)
         deps = parser.analyze_dependencies()
 
+        # Store in cache (no resolution yet)
+        self.workflow_cache.set(
+            env_name=self.environment_name,
+            workflow_name=name,
+            workflow_path=workflow_path,
+            dependencies=deps,
+            resolution=None,
+            pyproject_path=self.pyproject.path
+        )
+
         return deps
+
+    def analyze_and_resolve_workflow(self, name: str) -> tuple[WorkflowDependencies, ResolutionResult]:
+        """Analyze and resolve workflow with full caching.
+
+        This is the preferred method for performance - caches BOTH analysis and resolution.
+
+        Args:
+            name: Workflow name
+
+        Returns:
+            Tuple of (dependencies, resolution)
+
+        Raises:
+            FileNotFoundError if workflow not found
+        """
+        workflow_path = self.get_workflow_path(name)
+
+        # Check cache
+        cached = self.workflow_cache.get(
+            env_name=self.environment_name,
+            workflow_name=name,
+            workflow_path=workflow_path,
+            pyproject_path=self.pyproject.path
+        )
+
+        if cached and not cached.needs_reresolution and cached.resolution:
+            # Full cache hit - both analysis and resolution valid
+            logger.debug(f"Cache HIT (full) for workflow '{name}'")
+            return (cached.dependencies, cached.resolution)
+
+        if cached and cached.needs_reresolution:
+            # Partial hit - workflow content valid but resolution stale
+            logger.debug(f"Cache PARTIAL HIT for workflow '{name}' - re-resolving")
+            dependencies = cached.dependencies
+        else:
+            # Full miss - analyze workflow
+            logger.debug(f"Cache MISS for workflow '{name}' - full analysis + resolution")
+            parser = WorkflowDependencyParser(workflow_path)
+            dependencies = parser.analyze_dependencies()
+
+        # Resolve (either from cache miss or stale resolution)
+        resolution = self.resolve_workflow(dependencies)
+
+        # Cache both analysis and resolution
+        self.workflow_cache.set(
+            env_name=self.environment_name,
+            workflow_name=name,
+            workflow_path=workflow_path,
+            dependencies=dependencies,
+            resolution=resolution,
+            pyproject_path=self.pyproject.path
+        )
+
+        return (dependencies, resolution)
 
     def resolve_workflow(self, analysis: WorkflowDependencies) -> ResolutionResult:
         """Attempt automatic resolution of workflow dependencies.
@@ -909,7 +1020,8 @@ class WorkflowManager:
 
     def apply_resolution(
         self,
-        resolution: ResolutionResult
+        resolution: ResolutionResult,
+        config: dict | None = None
     ) -> None:
         """Apply resolutions with smart defaults and reconciliation.
 
@@ -917,8 +1029,13 @@ class WorkflowManager:
 
         Args:
             resolution: Result with auto-resolved dependencies from resolve_workflow()
+            config: Optional in-memory config for batched writes. If None, loads and saves immediately.
         """
         from comfydock_core.models.manifest import ManifestModel, ManifestWorkflowModel
+
+        is_batch = config is not None
+        if not is_batch:
+            config = self.pyproject.load()
 
         workflow_name = resolution.workflow_name
 
@@ -941,15 +1058,15 @@ class WorkflowManager:
                 target_node_types.add(packages[0].node_type)
 
         if target_node_pack_ids:
-            self.pyproject.workflows.set_node_packs(workflow_name, target_node_pack_ids)
+            self.pyproject.workflows.set_node_packs(workflow_name, target_node_pack_ids, config=config)
         else:
-            self.pyproject.workflows.set_node_packs(workflow_name, None)
+            self.pyproject.workflows.set_node_packs(workflow_name, None, config=config)
 
         # Reconcile custom_node_map
-        existing_custom_map = self.pyproject.workflows.get_custom_node_map(workflow_name)
+        existing_custom_map = self.pyproject.workflows.get_custom_node_map(workflow_name, config=config)
         for node_type in list(existing_custom_map.keys()):
             if node_type not in target_node_types:
-                self.pyproject.workflows.remove_custom_node_mapping(workflow_name, node_type)
+                self.pyproject.workflows.remove_custom_node_mapping(workflow_name, node_type, config=config)
 
         # Phase 2: Build ManifestWorkflowModel entries with smart defaults
         manifest_models: list[ManifestWorkflowModel] = []
@@ -1001,6 +1118,11 @@ class WorkflowManager:
             # Determine criticality with smart defaults
             criticality = self._get_default_criticality(model.category)
 
+            # Fetch sources from repository to enrich global table
+            sources_from_repo = self.model_repository.get_sources(model.hash)
+            sources = [s['url'] for s in sources_from_repo]
+
+            # Workflow model: lightweight reference (no sources - hash is the key)
             manifest_model = ManifestWorkflowModel(
                 hash=model.hash,
                 filename=model.filename,
@@ -1008,28 +1130,39 @@ class WorkflowManager:
                 criticality=criticality,
                 status="resolved",
                 nodes=refs,
-                sources=[]  # TODO: Get from CivitAI/HF lookup during export
+                sources=[]  # Empty - sources stored in global table only
             )
             manifest_models.append(manifest_model)
 
-            # Add to global models table, preserving existing sources if present
-            existing_model = self.pyproject.models.get_by_hash(model.hash)
-            existing_sources = existing_model.sources if existing_model else []
-
+            # Global table: enrich with sources from SQLite
             global_model = ManifestModel(
                 hash=model.hash,
                 filename=model.filename,
                 size=model.file_size,
                 relative_path=model.relative_path,
                 category=model.category,
-                sources=existing_sources
+                sources=sources  # From SQLite - authoritative source
             )
-            self.pyproject.models.add_model(global_model)
+            self.pyproject.models.add_model(global_model, config=config)
+
+        # Load existing workflow models to preserve download intents from previous sessions
+        existing_workflow_models = self.pyproject.workflows.get_workflow_models(workflow_name, config=config)
+        existing_by_filename = {m.filename: m for m in existing_workflow_models}
 
         # Add unresolved models
         for ref in resolution.models_unresolved:
             category = self._get_category_for_node_ref(ref)
             criticality = self._get_default_criticality(category)
+
+            # Check if this model already has a download intent from a previous session
+            existing = existing_by_filename.get(ref.widget_value)
+            sources = []
+            relative_path = None
+            if existing and existing.status == "unresolved" and existing.sources:
+                # Preserve download intent from previous session
+                sources = existing.sources
+                relative_path = existing.relative_path
+                logger.debug(f"Preserving download intent for '{ref.widget_value}': sources={sources}, path={relative_path}")
 
             manifest_model = ManifestWorkflowModel(
                 filename=ref.widget_value,
@@ -1037,18 +1170,20 @@ class WorkflowManager:
                 criticality=criticality,
                 status="unresolved",
                 nodes=[ref],
-                sources=[]
+                sources=sources,
+                relative_path=relative_path
             )
             manifest_models.append(manifest_model)
 
         # Write all models to workflow
-        self.pyproject.workflows.set_workflow_models(workflow_name, manifest_models)
+        self.pyproject.workflows.set_workflow_models(workflow_name, manifest_models, config=config)
 
         # Clean up deleted workflows from pyproject.toml
         # This handles both:
         # 1. Committed workflows that were deleted (in .cec, in pyproject, not in ComfyUI)
         # 2. Resolved-but-not-committed workflows (in pyproject, not in .cec, not in ComfyUI)
-        workflows_in_pyproject = set(self.pyproject.workflows.get_all_with_resolutions().keys())
+        # Read from in-memory config instead of loading from disk
+        workflows_in_pyproject = set(config.get('tool', {}).get('comfydock', {}).get('workflows', {}).keys())
         workflows_in_comfyui = set()
         if self.comfyui_workflows.exists():
             for workflow_file in self.comfyui_workflows.glob("*.json"):
@@ -1056,12 +1191,16 @@ class WorkflowManager:
 
         workflows_to_remove = workflows_in_pyproject - workflows_in_comfyui
         if workflows_to_remove:
-            removed_count = self.pyproject.workflows.remove_workflows(list(workflows_to_remove))
+            removed_count = self.pyproject.workflows.remove_workflows(list(workflows_to_remove), config=config)
             if removed_count > 0:
                 logger.info(f"Cleaned up {removed_count} deleted workflow(s) from pyproject.toml")
 
         # Clean up orphaned models (must run AFTER workflow sections are removed)
-        self.pyproject.models.cleanup_orphans()
+        self.pyproject.models.cleanup_orphans(config=config)
+
+        # Save if not in batch mode
+        if not is_batch:
+            self.pyproject.save(config)
 
         # Phase 3: Update workflow JSON with resolved paths
         self.update_workflow_model_paths(resolution)
@@ -1133,6 +1272,13 @@ class WorkflowManager:
         # Only save if we actually updated something
         if updated_count > 0:
             WorkflowRepository.save(workflow, workflow_path)
+
+            # Invalidate cache since workflow content changed
+            self.workflow_cache.invalidate(
+                env_name=self.environment_name,
+                workflow_name=workflow_name
+            )
+
             logger.info(
                 f"Updated workflow JSON: {workflow_path} "
                 f"({updated_count} builtin nodes updated, {skipped_count} custom nodes preserved)"
