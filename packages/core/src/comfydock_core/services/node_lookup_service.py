@@ -33,21 +33,18 @@ class NodeLookupService:
 
     def __init__(
         self,
-        workspace_path: Path | None = None,
-        cache_path: Path | None = None,
+        cache_path: Path,
         node_mappings_repository: NodeMappingsRepository | None = None,
         workspace_config_repository: WorkspaceConfigRepository | None = None,
     ):
         """Initialize the node lookup service.
 
         Args:
-            workspace_path: Path to workspace root
-            cache_path: Path to cache directory
+            cache_path: Required path to workspace cache directory
             node_mappings_repository: Repository for cached node mappings
             workspace_config_repository: Repository for workspace config (cache preference)
         """
         self.scanner = CustomNodeScanner()
-        cache_path = cache_path or (workspace_path / "cache" if workspace_path else None)
         self.api_cache = APICacheManager(cache_base_path=cache_path)
         self.custom_node_cache = CustomNodeCacheManager(cache_base_path=cache_path)
         self.registry_client = ComfyRegistryClient(cache_manager=self.api_cache)

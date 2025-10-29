@@ -1,29 +1,26 @@
 """Base classes for caching infrastructure.
 
-Provides platform-aware cache path resolution and content caching infrastructure
+Provides workspace-relative cache path management and content caching infrastructure
 that can be extended for specific cache types (ComfyUI, custom nodes, models, etc).
 """
 
 import hashlib
 import json
-import os
-import platform
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
 from ..logging.logging_config import get_logger
+from ..models.exceptions import ComfyDockError
 
 logger = get_logger(__name__)
 
 
 class CacheBase:
-    """Minimal base providing platform-aware cache path resolution.
+    """Minimal base providing workspace-relative cache management.
 
-    Provides common cache directory resolution with support for:
-    - Platform-specific defaults (Linux, macOS, Windows)
-    - Environment variable override (COMFYDOCK_CACHE)
-    - Explicit path override
+    All caches must be workspace-relative. No platform-specific defaults
+    or environment variable overrides.
     """
 
     def __init__(self, cache_name: str = "comfydock",
@@ -32,50 +29,35 @@ class CacheBase:
 
         Args:
             cache_name: Name of the cache subdirectory
-            cache_base_path: Override cache base path (for testing)
+            cache_base_path: Required cache base path (workspace cache directory)
+
+        Raises:
+            ValueError: If cache_base_path is None
         """
+        if cache_base_path is None:
+            raise ValueError(
+                "cache_base_path is required. All caches must be workspace-relative."
+            )
         self.cache_name = cache_name
-        self.cache_base = cache_base_path or self._get_default_cache_path()
-
-    def _get_default_cache_path(self) -> Path:
-        """Get platform-aware cache path with env var override.
-
-        Priority:
-        1. COMFYDOCK_CACHE environment variable
-        2. Platform-specific default:
-           - Linux: ~/.cache/comfydock or $XDG_CACHE_HOME/comfydock
-           - macOS: ~/Library/Caches/comfydock
-           - Windows: %LOCALAPPDATA%/comfydock
-
-        Returns:
-            Path to cache directory
-        """
-        # Priority 1: Environment variable
-        env_cache = os.environ.get('COMFYDOCK_CACHE')
-        if env_cache:
-            return Path(env_cache)
-
-        # Priority 2: Platform-specific default
-        system = platform.system()
-
-        if system == "Windows":
-            base = os.environ.get('LOCALAPPDATA', Path.home() / 'AppData' / 'Local')
-            return Path(base) / self.cache_name
-        elif system == "Darwin":
-            return Path.home() / 'Library' / 'Caches' / self.cache_name
-        else:
-            # Linux and others
-            xdg_cache = os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache')
-            return Path(xdg_cache) / self.cache_name
+        self.cache_base = cache_base_path
 
     def _ensure_cache_dirs(self, *subdirs: str):
         """Ensure cache subdirectories exist.
 
         Args:
             *subdirs: Subdirectory paths to create under cache_base
+
+        Raises:
+            ComfyDockError: If cache directory creation fails
         """
-        for subdir in subdirs:
-            (self.cache_base / subdir).mkdir(parents=True, exist_ok=True)
+        try:
+            for subdir in subdirs:
+                (self.cache_base / subdir).mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            raise ComfyDockError(
+                f"Failed to create cache directory under {self.cache_base}. "
+                f"Workspace cache should exist before cache initialization: {e}"
+            )
 
 
 class ContentCacheBase(CacheBase):

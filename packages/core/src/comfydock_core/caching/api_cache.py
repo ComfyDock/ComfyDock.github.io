@@ -2,13 +2,12 @@
 
 import hashlib
 import json
-import os
-import platform
 import time
 from pathlib import Path
 from typing import Any
 
 from ..logging.logging_config import get_logger
+from ..models.exceptions import ComfyDockError
 
 logger = get_logger(__name__)
 
@@ -16,64 +15,44 @@ logger = get_logger(__name__)
 class APICacheManager:
     """Manages persistent caching of API responses with expiration."""
 
-    def __init__(self, cache_name: str = "comfyui-detector",
+    def __init__(self, cache_name: str = "api",
                  default_ttl_hours: int = 24,
                  cache_base_path: Path | None = None):
         """Initialize cache manager.
-        
+
         Args:
             cache_name: Name of the cache subdirectory
             default_ttl_hours: Default time-to-live in hours for cache entries
-            cache_base_path: Base path for cache storage (overrides default and env var)
+            cache_base_path: Required cache base path (workspace cache directory)
+
+        Raises:
+            ValueError: If cache_base_path is None
         """
+        if cache_base_path is None:
+            raise ValueError(
+                "cache_base_path is required. All caches must be workspace-relative."
+            )
         self.cache_name = cache_name
         self.default_ttl_seconds = default_ttl_hours * 3600
-        self.cache_base_path = cache_base_path
-        self.cache_dir = self._get_cache_directory()
+        self.cache_dir = cache_base_path / cache_name
         self._ensure_cache_directory()
 
-        logger.debug(f"Done initializing cache manager. Cache directory: {self.cache_dir}")
-
-    def _get_cache_directory(self) -> Path:
-        """Get cache directory with precedence: custom path > env var > platform default."""
-
-        # Priority 1: Environment variable
-        env_cache = os.environ.get('COMFYDOCK_CACHE')
-        if env_cache:
-            return Path(env_cache)
-
-        # Priority 2: Custom cache path provided to constructor
-        if self.cache_base_path:
-            return Path(self.cache_base_path)
-
-        # Priority 3: Platform-specific default
-        system = platform.system()
-
-        if system == "Windows":
-            # Windows: %LOCALAPPDATA%\comfyui-detector\cache
-            base = os.environ.get('LOCALAPPDATA', Path.home() / 'AppData' / 'Local')
-            cache_path = Path(base) / self.cache_name / 'cache'
-        elif system == "Darwin":
-            # macOS: ~/Library/Caches/comfyui-detector
-            cache_path = Path.home() / 'Library' / 'Caches' / self.cache_name
-        else:
-            # Linux and others: ~/.cache/comfyui-detector
-            xdg_cache = os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache')
-            cache_path = Path(xdg_cache) / self.cache_name
-
-        return cache_path
+        logger.debug(f"Initialized API cache at: {self.cache_dir}")
 
     def _ensure_cache_directory(self):
-        """Ensure cache directory exists."""
+        """Ensure cache directory exists.
+
+        Raises:
+            ComfyDockError: If cache directory creation fails
+        """
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             logger.debug(f"Cache directory: {self.cache_dir}")
         except Exception as e:
-            logger.warning(f"Failed to create cache directory: {e}")
-            # Fall back to temporary directory
-            import tempfile
-            self.cache_dir = Path(tempfile.gettempdir()) / self.cache_name
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            raise ComfyDockError(
+                f"Failed to create cache directory {self.cache_dir}. "
+                f"Workspace cache should exist before cache initialization: {e}"
+            )
 
     def _get_cache_file_path(self, cache_type: str) -> Path:
         """Get path for a specific cache file."""

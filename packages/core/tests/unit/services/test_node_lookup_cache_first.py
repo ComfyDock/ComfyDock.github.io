@@ -74,6 +74,12 @@ class TestNodeLookupCacheFirst:
         }
 
     @pytest.fixture
+    def cache_dir(self):
+        """Create a temporary cache directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir)
+
+    @pytest.fixture
     def mappings_repo(self, mock_mappings_data):
         """Create a NodeMappingsRepository with test data."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -87,7 +93,7 @@ class TestNodeLookupCacheFirst:
             repo = NodeMappingsRepository(data_manager=mock_data_manager)
             yield repo
 
-    def test_find_node_checks_cache_before_api_when_enabled(self, mappings_repo):
+    def test_find_node_checks_cache_before_api_when_enabled(self, mappings_repo, cache_dir):
         """SHOULD check local cache before hitting registry API when prefer_registry_cache=True."""
         # ARRANGE
         mock_registry_client = MagicMock()
@@ -96,8 +102,7 @@ class TestNodeLookupCacheFirst:
 
         # Create service with cache enabled
         service = NodeLookupService(
-            workspace_path=None,
-            cache_path=None,
+            cache_path=cache_dir,
             node_mappings_repository=mappings_repo,
             workspace_config_repository=mock_workspace_config_repo
         )
@@ -118,7 +123,7 @@ class TestNodeLookupCacheFirst:
         # Should NOT have called the registry API
         mock_registry_client.get_node.assert_not_called()
 
-    def test_find_node_falls_back_to_api_when_not_in_cache(self, mappings_repo):
+    def test_find_node_falls_back_to_api_when_not_in_cache(self, mappings_repo, cache_dir):
         """SHOULD fall back to API when package not in local cache."""
         # ARRANGE
         mock_registry_client = MagicMock()
@@ -132,8 +137,8 @@ class TestNodeLookupCacheFirst:
         mock_workspace_config_repo.get_prefer_registry_cache.return_value = True
 
         service = NodeLookupService(
-            workspace_path=None,
-            cache_path=None,
+            
+            cache_path=cache_dir,
             node_mappings_repository=mappings_repo,
             workspace_config_repository=mock_workspace_config_repo
         )
@@ -148,7 +153,7 @@ class TestNodeLookupCacheFirst:
         assert result is not None
         assert result.registry_id == "new-package-id"
 
-    def test_find_node_uses_api_when_cache_disabled(self, mappings_repo):
+    def test_find_node_uses_api_when_cache_disabled(self, mappings_repo, cache_dir):
         """SHOULD use API directly when prefer_registry_cache=False."""
         # ARRANGE
         mock_registry_client = MagicMock()
@@ -162,8 +167,8 @@ class TestNodeLookupCacheFirst:
         mock_workspace_config_repo.get_prefer_registry_cache.return_value = False
 
         service = NodeLookupService(
-            workspace_path=None,
-            cache_path=None,
+            
+            cache_path=cache_dir,
             node_mappings_repository=mappings_repo,
             workspace_config_repository=mock_workspace_config_repo
         )
@@ -176,15 +181,15 @@ class TestNodeLookupCacheFirst:
         # Should have called API even though package is in cache
         mock_registry_client.get_node.assert_called_once_with("test-package-id")
 
-    def test_find_node_handles_version_request_from_cache(self, mappings_repo):
+    def test_find_node_handles_version_request_from_cache(self, mappings_repo, cache_dir):
         """SHOULD handle version-specific requests from cache (e.g., 'package@1.0.0')."""
         # ARRANGE
         mock_workspace_config_repo = Mock()
         mock_workspace_config_repo.get_prefer_registry_cache.return_value = True
 
         service = NodeLookupService(
-            workspace_path=None,
-            cache_path=None,
+            
+            cache_path=cache_dir,
             node_mappings_repository=mappings_repo,
             workspace_config_repository=mock_workspace_config_repo
         )

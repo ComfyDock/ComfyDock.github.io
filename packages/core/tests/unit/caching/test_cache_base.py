@@ -1,16 +1,12 @@
 """Unit tests for cache base classes (CacheBase and ContentCacheBase).
 
 TDD tests to verify:
-1. CacheBase provides platform-aware cache path resolution
+1. CacheBase requires workspace-relative cache paths
 2. ContentCacheBase provides content caching infrastructure
-3. Both support custom cache paths and env var overrides
 """
 
-import os
-import platform
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -18,40 +14,12 @@ from comfydock_core.caching.base import CacheBase, ContentCacheBase
 
 
 class TestCacheBase:
-    """Test CacheBase platform-aware path resolution."""
+    """Test CacheBase workspace-relative path management."""
 
-    def test_default_cache_path_linux(self):
-        """SHOULD use ~/.cache/comfydock on Linux."""
-        with patch('platform.system', return_value='Linux'):
-            cache = CacheBase(cache_name="comfydock")
-
-            expected = Path.home() / '.cache' / 'comfydock'
-            assert cache.cache_base == expected
-
-    def test_default_cache_path_macos(self):
-        """SHOULD use ~/Library/Caches/comfydock on macOS."""
-        with patch('platform.system', return_value='Darwin'):
-            cache = CacheBase(cache_name="comfydock")
-
-            expected = Path.home() / 'Library' / 'Caches' / 'comfydock'
-            assert cache.cache_base == expected
-
-    def test_default_cache_path_windows(self):
-        """SHOULD use %LOCALAPPDATA%/comfydock on Windows."""
-        with patch('platform.system', return_value='Windows'), \
-             patch.dict(os.environ, {'LOCALAPPDATA': 'C:\\Users\\Test\\AppData\\Local'}):
-            cache = CacheBase(cache_name="comfydock")
-
-            expected = Path('C:\\Users\\Test\\AppData\\Local') / 'comfydock'
-            assert cache.cache_base == expected
-
-    def test_env_var_override(self):
-        """SHOULD use COMFYDOCK_CACHE env var when set."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.dict(os.environ, {'COMFYDOCK_CACHE': tmpdir}):
-                cache = CacheBase(cache_name="comfydock")
-
-                assert cache.cache_base == Path(tmpdir)
+    def test_requires_explicit_cache_path(self):
+        """SHOULD raise ValueError when cache_base_path is not provided."""
+        with pytest.raises(ValueError, match="cache_base_path is required"):
+            CacheBase(cache_name="comfydock")
 
     def test_explicit_cache_path(self):
         """SHOULD use explicit cache_base_path when provided."""

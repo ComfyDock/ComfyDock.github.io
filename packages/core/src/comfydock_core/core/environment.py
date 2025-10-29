@@ -97,7 +97,6 @@ class Environment:
     def node_lookup(self) -> NodeLookupService:
         from ..services.node_lookup_service import NodeLookupService
         return NodeLookupService(
-            workspace_path=self.workspace_paths.root,
             cache_path=self.workspace_paths.cache,
             node_mappings_repository=self.node_mapping_repository,
             workspace_config_repository=self.workspace_config_manager,
