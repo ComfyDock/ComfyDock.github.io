@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 import pytest
 
-from comfydock_core.managers.model_symlink_manager import ModelSymlinkManager
+from comfydock_core.managers.model_symlink_manager import ModelSymlinkManager, is_link
 from comfydock_core.models.exceptions import CDEnvironmentError
 
 
@@ -22,8 +22,8 @@ class TestModelSymlinkManager:
         manager.create_symlink()
 
         models_link = comfyui_path / "models"
-        assert models_link.exists(), "Symlink should be created"
-        assert models_link.is_symlink(), "Should be a symlink, not a directory"
+        assert models_link.exists(), "Link should be created"
+        assert is_link(models_link), "Should be a link (symlink or junction)"
         assert models_link.resolve() == global_models.resolve(), "Should point to global models"
 
     def test_create_symlink_already_exists_correct_target(self, tmp_path):
@@ -40,7 +40,7 @@ class TestModelSymlinkManager:
         manager = ModelSymlinkManager(comfyui_path, global_models)
         manager.create_symlink()  # Should not error
 
-        assert models_link.is_symlink()
+        assert is_link(models_link)
         assert models_link.resolve() == global_models.resolve()
 
     def test_create_symlink_wrong_target(self, tmp_path):
@@ -60,7 +60,7 @@ class TestModelSymlinkManager:
         manager.create_symlink()
 
         # Should recreate to point to correct target
-        assert models_link.is_symlink()
+        assert is_link(models_link)
         assert models_link.resolve() == global_models.resolve()
 
     def test_create_symlink_with_empty_comfyui_default_dirs(self, tmp_path):
@@ -80,8 +80,8 @@ class TestModelSymlinkManager:
         manager = ModelSymlinkManager(comfyui_path, global_models)
         manager.create_symlink()
 
-        # Should delete empty structure and create symlink
-        assert models_dir.is_symlink(), "Should be symlink after replacing empty dirs"
+        # Should delete empty structure and create link
+        assert is_link(models_dir), "Should be link after replacing empty dirs"
         assert models_dir.resolve() == global_models.resolve()
 
     def test_create_symlink_with_placeholder_files(self, tmp_path):
@@ -101,8 +101,8 @@ class TestModelSymlinkManager:
         manager = ModelSymlinkManager(comfyui_path, global_models)
         manager.create_symlink()
 
-        # Should be safe to delete and replace with symlink
-        assert models_dir.is_symlink()
+        # Should be safe to delete and replace with link
+        assert is_link(models_dir)
         assert models_dir.resolve() == global_models.resolve()
 
     def test_create_symlink_with_actual_model_files_errors(self, tmp_path):
@@ -124,7 +124,7 @@ class TestModelSymlinkManager:
             manager.create_symlink()
 
         assert "models/ directory exists with content" in str(exc_info.value)
-        assert models_dir.exists() and not models_dir.is_symlink(), "Should not delete user data"
+        assert models_dir.exists() and not is_link(models_dir), "Should not delete user data"
 
     def test_create_symlink_global_models_missing_errors(self, tmp_path):
         """Test error when global models directory doesn't exist."""
@@ -224,7 +224,7 @@ class TestModelSymlinkManager:
         with pytest.raises(CDEnvironmentError) as exc_info:
             manager.remove_symlink()
 
-        assert "not a symlink" in str(exc_info.value)
+        assert "not a link" in str(exc_info.value)
         assert models_dir.exists(), "Should not delete real directory"
 
     def test_get_status_shows_correct_info(self, tmp_path):
