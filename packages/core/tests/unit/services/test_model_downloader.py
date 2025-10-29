@@ -126,7 +126,7 @@ class TestModelDownloader:
 
         # Should extract "model.safetensors" from URL
         assert path.name == "model.safetensors"
-        assert str(path).startswith("checkpoints/")
+        assert path.parts[0] == "checkpoints"
 
     def test_download_checks_existing_url(self, tmp_path):
         """Test that download checks for existing models by URL before downloading."""

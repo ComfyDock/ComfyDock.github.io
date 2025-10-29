@@ -323,8 +323,8 @@ class ModelDownloader:
             short_hash = self.repository.calculate_short_hash(temp_path)
             blake3_hash = hasher.hexdigest()
 
-            # Step 6: Atomic move to final location
-            temp_path.rename(request.target_path)
+            # Step 6: Atomic move to final location (replace handles existing files)
+            temp_path.replace(request.target_path)
             temp_path = None  # Clear temp_path since file has been moved
 
             # Step 7: Register in repository
