@@ -138,11 +138,11 @@ def _add_global_commands(subparsers):
     list_parser.set_defaults(func=global_cmds.list_envs)
 
     # migrate - Import existing ComfyUI
-    migrate_parser = subparsers.add_parser("migrate", help="Scan and import existing ComfyUI instance")
-    migrate_parser.add_argument("source_path", type=Path, help="Path to existing ComfyUI")
-    migrate_parser.add_argument("env_name", help="New environment name")
-    migrate_parser.add_argument("--scan-only", action="store_true", help="Only scan, don't import")
-    migrate_parser.set_defaults(func=global_cmds.migrate)
+    # migrate_parser = subparsers.add_parser("migrate", help="Scan and import existing ComfyUI instance")
+    # migrate_parser.add_argument("source_path", type=Path, help="Path to existing ComfyUI")
+    # migrate_parser.add_argument("env_name", help="New environment name")
+    # migrate_parser.add_argument("--scan-only", action="store_true", help="Only scan, don't import")
+    # migrate_parser.set_defaults(func=global_cmds.migrate)
 
     # import - Import ComfyDock environment
     import_parser = subparsers.add_parser("import", help="Import ComfyDock environment from tarball or git repository")
