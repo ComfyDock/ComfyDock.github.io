@@ -15,7 +15,21 @@ pip install comfydock-core  # Also works (normalized)
 
 ## Before First Publish
 
-### 1. Configure PyPI Trusted Publishing
+### 1. Create GitHub Environment (Optional but Recommended)
+
+Add a `pypi` environment to your repository for approval gates:
+
+1. Go to https://github.com/ComfyDock/ComfyDock/settings/environments
+2. Click **New environment**
+3. Name: `pypi`
+4. Configure protection rules (optional):
+   - **Required reviewers**: Add yourself for manual approval before publishing
+   - **Wait timer**: Add a delay (e.g., 5 minutes) for sanity checks
+   - **Deployment branches**: Restrict to `main` branch only
+
+This adds an approval step before packages are published to PyPI, preventing accidental releases.
+
+### 2. Configure PyPI Trusted Publishing
 
 For **comfydock_core**:
 1. Go to https://pypi.org/manage/project/comfydock_core/settings/publishing/
@@ -23,7 +37,7 @@ For **comfydock_core**:
    - **Owner**: ComfyDock
    - **Repository name**: ComfyDock
    - **Workflow name**: publish-core.yml
-   - **Environment name**: (leave blank)
+   - **Environment name**: pypi
 
 For **comfydock_cli** (new project):
 1. Go to https://pypi.org/manage/account/publishing/
@@ -33,9 +47,9 @@ For **comfydock_cli** (new project):
    - **Owner**: ComfyDock
    - **Repository name**: ComfyDock
    - **Workflow name**: publish-cli.yml
-   - **Environment name**: (leave blank)
+   - **Environment name**: pypi
 
-### 2. Test Locally
+### 3. Test Locally
 
 ```bash
 # Test building both packages

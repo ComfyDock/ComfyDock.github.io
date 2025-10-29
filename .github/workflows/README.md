@@ -4,9 +4,19 @@ This directory contains GitHub Actions workflows for publishing ComfyDock packag
 
 ## Prerequisites
 
+### GitHub Environment Setup
+
+Create a `pypi` environment in your repository:
+
+1. Go to Settings → Environments → New environment
+2. Name: `pypi`
+3. (Optional) Add protection rules:
+   - Required reviewers for manual approval
+   - Deployment branch restrictions
+
 ### PyPI Trusted Publishing Setup
 
-Before using these workflows, configure Trusted Publishing on PyPI:
+Configure Trusted Publishing on PyPI:
 
 1. Go to https://pypi.org/manage/account/publishing/
 2. Add a new publisher for each package:
@@ -14,7 +24,7 @@ Before using these workflows, configure Trusted Publishing on PyPI:
    - **Owner**: `ComfyDock`
    - **Repository name**: `ComfyDock`
    - **Workflow name**: `publish-core.yml` (or `publish-cli.yml`)
-   - **Environment name**: (leave blank)
+   - **Environment name**: `pypi`
 
 ## Workflows
 
