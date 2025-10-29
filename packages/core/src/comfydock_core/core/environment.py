@@ -1670,4 +1670,8 @@ class Environment:
         if download_failures and callbacks:
             callbacks.on_download_failures(download_failures)
 
+        # Mark environment as fully initialized
+        from ..utils.environment_cleanup import mark_environment_complete
+        mark_environment_complete(self.cec_path)
+
         logger.info("Import finalization completed successfully")

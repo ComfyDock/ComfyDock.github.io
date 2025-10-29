@@ -13,6 +13,7 @@ from ..models.exceptions import (
     CDEnvironmentExistsError,
 )
 from ..utils.comfyui_ops import clone_comfyui
+from ..utils.environment_cleanup import mark_environment_complete
 
 if TYPE_CHECKING:
     from comfydock_core.core.workspace import Workspace
@@ -202,6 +203,9 @@ class EnvironmentFactory:
         except Exception as e:
             logger.error(f"Failed to create model symlink: {e}")
             raise  # FATAL - environment won't work without models
+
+        # Mark environment as fully initialized
+        mark_environment_complete(cec_path)
 
         logger.info(f"Environment '{name}' created successfully")
         return env

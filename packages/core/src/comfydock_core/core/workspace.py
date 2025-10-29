@@ -26,6 +26,11 @@ from ..models.shared import ModelDetails, ModelWithLocation
 from ..repositories.model_repository import ModelRepository
 from ..services.model_downloader import ModelDownloader
 from ..services.registry_data_manager import RegistryDataManager
+from ..utils.environment_cleanup import (
+    cleanup_partial_environment,
+    is_environment_complete,
+    remove_environment_directory,
+)
 from .environment import Environment
 
 if TYPE_CHECKING:
@@ -197,14 +202,19 @@ class Workspace:
         return self.registry_data_manager.get_cache_info()
 
     def list_environments(self) -> list[Environment]:
-        """List all environments in the workspace."""
+        """List all environments in the workspace.
+
+        Only returns fully initialized environments (those with completion marker).
+        Partial environments from interrupted creation are excluded.
+        """
         environments = []
 
         if not self.paths.environments.exists():
             return environments
 
         for env_dir in self.paths.environments.iterdir():
-            if env_dir.is_dir() and (env_dir / ".cec").exists():
+            cec_path = env_dir / ".cec"
+            if env_dir.is_dir() and cec_path.exists() and is_environment_complete(cec_path):
                 try:
                     env = Environment(
                         name=env_dir.name,
@@ -304,14 +314,22 @@ class Workspace:
 
         except Exception as e:
             logger.error(f"Failed to create environment: {e}")
-            if env_path.exists():
-                logger.debug(f"Cleaning up partial environment at {env_path}")
-                shutil.rmtree(env_path, ignore_errors=True)
 
             if isinstance(e, ComfyDockError):
                 raise
             else:
                 raise RuntimeError(f"Failed to create environment '{name}': {e}") from e
+
+        finally:
+            # Cleanup runs on ANY exit (Exception, KeyboardInterrupt, etc.)
+            # Only cleanup if environment wasn't successfully completed
+            cec_path = env_path / ".cec"
+            if not is_environment_complete(cec_path) and env_path.exists():
+                if not cleanup_partial_environment(env_path):
+                    logger.warning(
+                        f"Could not fully remove partial environment at {env_path}. "
+                        f"You may need to delete it manually or reboot to release file locks."
+                    )
 
     def preview_import(self, tarball_path: Path):
         """Preview import requirements without creating environment.
@@ -429,14 +447,22 @@ class Workspace:
 
         except Exception as e:
             logger.error(f"Failed to import environment: {e}")
-            if env_path.exists():
-                logger.debug(f"Cleaning up partial environment at {env_path}")
-                shutil.rmtree(env_path, ignore_errors=True)
 
             if isinstance(e, ComfyDockError):
                 raise
             else:
                 raise RuntimeError(f"Failed to import environment '{name}': {e}") from e
+
+        finally:
+            # Cleanup runs on ANY exit (Exception, KeyboardInterrupt, etc.)
+            # Only cleanup if environment wasn't successfully completed
+            cec_path = env_path / ".cec"
+            if not is_environment_complete(cec_path) and env_path.exists():
+                if not cleanup_partial_environment(env_path):
+                    logger.warning(
+                        f"Could not fully remove partial environment at {env_path}. "
+                        f"You may need to delete it manually or reboot to release file locks."
+                    )
 
     def import_from_git(
         self,
@@ -497,14 +523,22 @@ class Workspace:
 
         except Exception as e:
             logger.error(f"Failed to import from git: {e}")
-            if env_path.exists():
-                logger.debug(f"Cleaning up partial environment at {env_path}")
-                shutil.rmtree(env_path, ignore_errors=True)
 
             if isinstance(e, ComfyDockError):
                 raise
             else:
                 raise RuntimeError(f"Failed to import environment '{name}': {e}") from e
+
+        finally:
+            # Cleanup runs on ANY exit (Exception, KeyboardInterrupt, etc.)
+            # Only cleanup if environment wasn't successfully completed
+            cec_path = env_path / ".cec"
+            if not is_environment_complete(cec_path) and env_path.exists():
+                if not cleanup_partial_environment(env_path):
+                    logger.warning(
+                        f"Could not fully remove partial environment at {env_path}. "
+                        f"You may need to delete it manually or reboot to release file locks."
+                    )
 
     def delete_environment(self, name: str):
         """Delete an environment permanently.
@@ -526,29 +560,9 @@ class Workspace:
         if active and active.name == name:
             self.set_active_environment(None)
 
-        # Delete the directory with Windows file lock handling
-        def _handle_remove_readonly(func, path, exc_info):
-            """Handle Windows readonly/locked files during deletion."""
-            try:
-                os.chmod(path, stat.S_IWRITE)
-                time.sleep(0.05)  # Brief delay for handle release
-                func(path)
-            except Exception:
-                pass  # Let rmtree handle final error
-
-        try:
-            if platform.system() == "Windows":
-                shutil.rmtree(env_path, onexc=_handle_remove_readonly)
-            else:
-                shutil.rmtree(env_path)
-            logger.info(f"Deleted environment '{name}'")
-        except PermissionError as e:
-            raise PermissionError(
-                f"Cannot delete '{name}': files may be in use. "
-                f"Try closing applications using this environment."
-            ) from e
-        except OSError as e:
-            raise OSError(f"Failed to delete environment '{name}': {e}") from e
+        # Delete using shared utility with platform-specific handling
+        remove_environment_directory(env_path)
+        logger.info(f"Deleted environment '{name}'")
 
     def get_active_environment(self, progress=None) -> Environment | None:
         """Get the currently active environment.
