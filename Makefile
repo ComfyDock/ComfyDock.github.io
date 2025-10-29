@@ -1,6 +1,7 @@
 # Makefile - Development automation
 .PHONY: help install dev test lint format clean docker-build docker-up docker-down show-versions bump-major bump-package check-versions
 .PHONY: cec-setup cec-build cec-shell cec-test cec-scan cec-recreate cec-clean
+.PHONY: build-core build-cli build-all
 
 # Default target
 help:
@@ -33,6 +34,11 @@ help:
 	@echo "  make check-versions - Check version compatibility"
 	@echo "  make bump-major VERSION=X - Bump major version for all packages"
 	@echo "  make bump-package PACKAGE=core VERSION=X.Y.Z - Bump individual package"
+	@echo ""
+	@echo "Build & Publishing:"
+	@echo "  make build-core   - Build comfydock_core package"
+	@echo "  make build-cli    - Build comfydock_cli package"
+	@echo "  make build-all    - Build all packages"
 
 # Install all packages in development mode
 install:
@@ -154,3 +160,25 @@ bump-package:
 	fi
 	@sed -i 's/version = "[^"]*"/version = "$(VERSION)"/' packages/$(PACKAGE)/pyproject.toml
 	@echo "Updated comfydock-$(PACKAGE) to version $(VERSION)"
+
+# Build individual packages
+build-core:
+	@echo "Building comfydock_core..."
+	@rm -rf dist/
+	uv build --package comfydock_core --no-sources
+	@echo "✓ Built comfydock_core (see dist/)"
+
+build-cli:
+	@echo "Building comfydock_cli..."
+	@rm -rf dist/
+	uv build --package comfydock_cli --no-sources
+	@echo "✓ Built comfydock_cli (see dist/)"
+
+build-all:
+	@echo "Building all packages..."
+	@rm -rf dist/
+	uv build --package comfydock_core --no-sources
+	@echo "✓ Built comfydock_core"
+	uv build --package comfydock_cli --no-sources
+	@echo "✓ Built comfydock_cli"
+	@echo "✓ All packages built (see dist/)"
