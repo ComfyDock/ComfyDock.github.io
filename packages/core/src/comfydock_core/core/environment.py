@@ -1035,13 +1035,19 @@ class Environment:
 
     # ===== Python Dependency Management =====
 
-    def add_dependencies(self, packages: list[str], upgrade: bool = False) -> str:
+    def add_dependencies(
+        self,
+        packages: list[str] | None = None,
+        requirements_file: Path | None = None,
+        upgrade: bool = False
+    ) -> str:
         """Add Python dependencies to the environment.
 
         Uses uv add to add packages to [project.dependencies] and install them.
 
         Args:
             packages: List of package specifications (e.g., ['requests>=2.0.0', 'pillow'])
+            requirements_file: Path to requirements.txt file to add packages from
             upgrade: Whether to upgrade existing packages
 
         Returns:
@@ -1049,22 +1055,31 @@ class Environment:
 
         Raises:
             UVCommandError: If uv add fails
+            ValueError: If neither packages nor requirements_file is provided
         """
-        return self.uv_manager.add_dependency(packages=packages, upgrade=upgrade)
+        if not packages and not requirements_file:
+            raise ValueError("Either packages or requirements_file must be provided")
 
-    def remove_dependencies(self, packages: list[str]) -> str:
+        return self.uv_manager.add_dependency(
+            packages=packages,
+            requirements_file=requirements_file,
+            upgrade=upgrade
+        )
+
+    def remove_dependencies(self, packages: list[str]) -> dict:
         """Remove Python dependencies from the environment.
 
         Uses uv remove to remove packages from [project.dependencies] and uninstall them.
+        Safely handles packages that don't exist in dependencies.
 
         Args:
             packages: List of package names to remove
 
         Returns:
-            UV command output
+            Dict with 'removed' (list of packages removed) and 'skipped' (list of packages not in deps)
 
         Raises:
-            UVCommandError: If uv remove fails
+            UVCommandError: If uv remove fails for existing packages
         """
         return self.uv_manager.remove_dependency(packages=packages)
 

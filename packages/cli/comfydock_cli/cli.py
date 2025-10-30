@@ -482,7 +482,8 @@ def _add_env_commands(subparsers):
 
     # py add
     py_add_parser = py_subparsers.add_parser("add", help="Add Python dependencies")
-    py_add_parser.add_argument("packages", nargs="+", help="Package specifications (e.g., requests>=2.0.0)")
+    py_add_parser.add_argument("packages", nargs="*", help="Package specifications (e.g., requests>=2.0.0)")
+    py_add_parser.add_argument("-r", "--requirements", type=Path, help="Add packages from requirements.txt file")
     py_add_parser.add_argument("--upgrade", action="store_true", help="Upgrade existing packages")
     py_add_parser.set_defaults(func=env_cmds.py_add)
 

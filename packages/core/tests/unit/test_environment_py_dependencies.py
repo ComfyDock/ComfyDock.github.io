@@ -50,6 +50,7 @@ class TestAddDependencies:
             packages=packages,
             upgrade=False
         )
+        assert result == "Added: 3 packages"
 
     def test_add_dependencies_with_upgrade_flag(self, mock_env):
         """Should pass upgrade=True when upgrade flag is set."""
@@ -61,6 +62,7 @@ class TestAddDependencies:
             packages=["requests"],
             upgrade=True
         )
+        assert result == "Upgraded: requests"
 
     def test_add_dependencies_handles_uv_error(self, mock_env):
         """Should propagate UVCommandError from uv_manager."""
@@ -80,25 +82,32 @@ class TestRemoveDependencies:
 
     def test_remove_single_dependency(self, mock_env):
         """Should call uv_manager.remove_dependency with single package."""
-        mock_env.uv_manager.remove_dependency.return_value = "Removed: requests"
+        mock_env.uv_manager.remove_dependency.return_value = {
+            'removed': ['requests'],
+            'skipped': []
+        }
 
         result = mock_env.remove_dependencies(["requests"])
 
         mock_env.uv_manager.remove_dependency.assert_called_once_with(
             packages=["requests"]
         )
-        assert result == "Removed: requests"
+        assert result == {'removed': ['requests'], 'skipped': []}
 
     def test_remove_multiple_dependencies(self, mock_env):
         """Should call uv_manager.remove_dependency with multiple packages."""
         packages = ["requests", "pillow", "tqdm"]
-        mock_env.uv_manager.remove_dependency.return_value = "Removed: 3 packages"
+        mock_env.uv_manager.remove_dependency.return_value = {
+            'removed': packages,
+            'skipped': []
+        }
 
         result = mock_env.remove_dependencies(packages)
 
         mock_env.uv_manager.remove_dependency.assert_called_once_with(
             packages=packages
         )
+        assert result == {'removed': packages, 'skipped': []}
 
     def test_remove_dependencies_handles_uv_error(self, mock_env):
         """Should propagate UVCommandError from uv_manager."""
@@ -131,22 +140,24 @@ class TestListDependencies:
 
         deps = mock_env.list_dependencies()
 
-        assert deps == ['requests>=2.0.0', 'pillow', 'tqdm>=4.0.0']
+        assert deps == {
+            'dependencies': ['requests>=2.0.0', 'pillow', 'tqdm>=4.0.0']
+        }
 
     def test_list_dependencies_returns_empty_when_no_deps(self, mock_env):
-        """Should return empty list when no dependencies exist."""
+        """Should return empty dict when no dependencies exist."""
         mock_config = {'project': {}}
         mock_env.pyproject.load.return_value = mock_config
 
         deps = mock_env.list_dependencies()
 
-        assert deps == []
+        assert deps == {'dependencies': []}
 
     def test_list_dependencies_returns_empty_when_no_project_section(self, mock_env):
-        """Should return empty list when project section doesn't exist."""
+        """Should return empty dict when project section doesn't exist."""
         mock_config = {}
         mock_env.pyproject.load.return_value = mock_config
 
         deps = mock_env.list_dependencies()
 
-        assert deps == []
+        assert deps == {'dependencies': []}

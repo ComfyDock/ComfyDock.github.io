@@ -862,19 +862,55 @@ class EnvironmentCommands:
         """Add Python dependencies to the environment."""
         env = self._get_env(args)
 
+        # Validate arguments: must provide either packages or requirements file
+        if not args.packages and not args.requirements:
+            print("✗ Error: Must specify packages or use -r/--requirements", file=sys.stderr)
+            print("Examples:", file=sys.stderr)
+            print("  cfd py add requests pillow", file=sys.stderr)
+            print("  cfd py add -r requirements.txt", file=sys.stderr)
+            sys.exit(1)
+
+        if args.packages and args.requirements:
+            print("✗ Error: Cannot specify both packages and -r/--requirements", file=sys.stderr)
+            sys.exit(1)
+
+        # Resolve requirements file path to absolute path (UV runs in .cec directory)
+        requirements_file = None
+        if args.requirements:
+            requirements_file = args.requirements.resolve()
+            if not requirements_file.exists():
+                print(f"✗ Error: Requirements file not found: {args.requirements}", file=sys.stderr)
+                sys.exit(1)
+
+        # Display what we're doing
         upgrade_text = " (with upgrade)" if args.upgrade else ""
-        print(f"📦 Adding {len(args.packages)} package(s){upgrade_text}...")
+        if requirements_file:
+            print(f"📦 Adding packages from {args.requirements}{upgrade_text}...")
+        else:
+            print(f"📦 Adding {len(args.packages)} package(s){upgrade_text}...")
 
         try:
-            env.add_dependencies(args.packages, upgrade=args.upgrade)
+            env.add_dependencies(
+                packages=args.packages or None,
+                requirements_file=requirements_file,
+                upgrade=args.upgrade
+            )
         except UVCommandError as e:
             if logger:
                 logger.error(f"Failed to add dependencies: {e}", exc_info=True)
+                if e.stderr:
+                    logger.error(f"UV stderr:\n{e.stderr}")
             print(f"✗ Failed to add packages", file=sys.stderr)
-            print(f"   {e}", file=sys.stderr)
+            if e.stderr:
+                print(f"\n{e.stderr}", file=sys.stderr)
+            else:
+                print(f"   {e}", file=sys.stderr)
             sys.exit(1)
 
-        print(f"\n✓ Added {len(args.packages)} package(s) to dependencies")
+        if requirements_file:
+            print(f"\n✓ Added packages from {args.requirements}")
+        else:
+            print(f"\n✓ Added {len(args.packages)} package(s) to dependencies")
         print(f"\nRun 'cfd -e {env.name} status' to review changes")
 
     @with_env_logging("env py remove")
@@ -885,15 +921,38 @@ class EnvironmentCommands:
         print(f"🗑 Removing {len(args.packages)} package(s)...")
 
         try:
-            env.remove_dependencies(args.packages)
+            result = env.remove_dependencies(args.packages)
         except UVCommandError as e:
             if logger:
                 logger.error(f"Failed to remove dependencies: {e}", exc_info=True)
+                if e.stderr:
+                    logger.error(f"UV stderr:\n{e.stderr}")
             print(f"✗ Failed to remove packages", file=sys.stderr)
-            print(f"   {e}", file=sys.stderr)
+            if e.stderr:
+                print(f"\n{e.stderr}", file=sys.stderr)
+            else:
+                print(f"   {e}", file=sys.stderr)
             sys.exit(1)
 
-        print(f"\n✓ Removed {len(args.packages)} package(s) from dependencies")
+        # If nothing was removed, show appropriate message
+        if not result['removed']:
+            if len(result['skipped']) == 1:
+                print(f"\nℹ️  Package '{result['skipped'][0]}' is not in dependencies (already removed or never added)")
+            else:
+                print(f"\nℹ️  None of the specified packages are in dependencies:")
+                for pkg in result['skipped']:
+                    print(f"  • {pkg}")
+            return
+
+        # Show successful removals
+        print(f"\n✓ Removed {len(result['removed'])} package(s) from dependencies")
+
+        # Show skipped packages if any
+        if result['skipped']:
+            print(f"\nℹ️  Skipped {len(result['skipped'])} package(s) not in dependencies:")
+            for pkg in result['skipped']:
+                print(f"  • {pkg}")
+
         print(f"\nRun 'cfd -e {env.name} status' to review changes")
 
     @with_env_logging("env py list")
