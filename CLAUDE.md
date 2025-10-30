@@ -88,4 +88,3 @@ We are still pre-customer - any unnecessary fallbacks, unnecessary versioning, t
 2-3 tests per file with only the main happy path tested is fine.
 Simple, elegant, maintainable code is the goal.
 We DONT want any legacy or backwards compatible code. If you make changes that will break older code that's good, make the new changes and then fix the older code to use the new code.
-IF I see ANY backwards compatibility or legacy support code added I'm canceling my Claude subscription.

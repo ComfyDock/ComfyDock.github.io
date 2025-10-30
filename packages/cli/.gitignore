@@ -19,3 +19,8 @@ config.json
 environments.json
 user.settings.json
 comfydock.log
+
+# Docs
+docs/archive
+docs/context
+docs/contexts
