@@ -31,8 +31,9 @@ class RegistryDataManager:
         self.mappings_file = self.custom_nodes_dir / "node_mappings.json"
         self.metadata_file = self.registry_dir / "metadata.json"
 
-        # Ensure directory exists
+        # Ensure directories exist
         self.registry_dir.mkdir(parents=True, exist_ok=True)
+        self.custom_nodes_dir.mkdir(parents=True, exist_ok=True)
 
     def get_mappings_path(self) -> Path:
         """Get path to node mappings file, fetching if needed.
