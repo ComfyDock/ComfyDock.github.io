@@ -312,17 +312,27 @@ def _add_env_commands(subparsers):
     )
     repair_parser.set_defaults(func=env_cmds.repair)
 
-    # commit - Commit unsaved changes
-    commit_parser = subparsers.add_parser("commit", help="Commit unsaved changes to pyproject.toml (or uv.lock)")
+    # commit - Commit management with subcommands
+    commit_parser = subparsers.add_parser("commit", help="Commit changes and view history")
+    commit_subparsers = commit_parser.add_subparsers(dest="commit_command", help="Commit commands")
+
+    # commit log - Show commit history
+    commit_log_parser = commit_subparsers.add_parser("log", help="Show commit history")
+    commit_log_parser.add_argument("-v", "--verbose", action="store_true", help="Show full details")
+    commit_log_parser.set_defaults(func=env_cmds.commit_log)
+
+    # commit (no subcommand) - defaults to save
     commit_parser.add_argument("-m", "--message", help="Commit message (auto-generated if not provided)")
     commit_parser.add_argument("--auto", action="store_true", help="Auto-resolve issues without interaction")
     commit_parser.add_argument("--allow-issues", action="store_true", help="Allow committing workflows with unresolved issues")
     commit_parser.set_defaults(func=env_cmds.commit)
 
-    # log - Show commit history
-    log_parser = subparsers.add_parser("log", help="Show commit history")
-    log_parser.add_argument("-v", "--verbose", action="store_true", help="Show full details")
-    log_parser.set_defaults(func=env_cmds.log)
+    # logs - Show application logs
+    logs_parser = subparsers.add_parser("logs", help="Show application logs for debugging")
+    logs_parser.add_argument("-n", "--lines", type=int, default=200, help="Number of lines to show (default: 200)")
+    logs_parser.add_argument("--level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Filter by log level")
+    logs_parser.add_argument("--full", action="store_true", help="Show all logs (no line limit)")
+    logs_parser.set_defaults(func=env_cmds.logs)
 
     # rollback - Revert changes
     rollback_parser = subparsers.add_parser("rollback", help="Rollback to a previous version or discard uncommitted changes")

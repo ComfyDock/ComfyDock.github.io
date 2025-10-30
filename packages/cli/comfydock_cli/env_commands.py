@@ -541,8 +541,8 @@ class EnvironmentCommands:
                 elif git_status == "deleted":
                     print(f"    - {workflow_name}.json")
 
-    @with_env_logging("env log")
-    def log(self, args, logger=None):
+    @with_env_logging("commit log")
+    def commit_log(self, args, logger=None):
         """Show environment version history with simple identifiers."""
         env = self._get_env(args)
 
@@ -551,7 +551,7 @@ class EnvironmentCommands:
 
             if not versions:
                 print("No version history yet")
-                print("\nTip: Run 'comfydock sync' to create your first version")
+                print("\nTip: Run 'cfd commit' to create your first version")
                 return
 
             print(f"Version history for environment '{env.name}':\n")
@@ -570,13 +570,97 @@ class EnvironmentCommands:
                     print(f"Commit:  {version['hash'][:8]}")
                     print('\n')
 
-            print("Use 'comfydock rollback <version>' to restore to a specific version")
+            print("Use 'cfd rollback <version>' to restore to a specific version")
 
         except Exception as e:
             if logger:
                 logger.error(f"Failed to read version history for environment '{env.name}': {e}", exc_info=True)
             print(f"✗ Could not read version history: {e}", file=sys.stderr)
             sys.exit(1)
+
+    @with_env_logging("logs")
+    def logs(self, args, logger=None):
+        """Show application logs for the environment."""
+        import re
+
+        env = self._get_env(args)
+
+        # Determine log file location
+        log_dir = self.workspace.path / "logs" / env.name
+        log_file = log_dir / "full.log"
+
+        if not log_file.exists():
+            print(f"✗ No logs found for environment '{env.name}'")
+            print(f"   Expected at: {log_file}")
+            return
+
+        # Read log lines
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+        except Exception as e:
+            print(f"✗ Failed to read log file: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        # Group lines into complete log records (header + continuation lines)
+        # A log record starts with: YYYY-MM-DD HH:MM:SS,mmm - ...
+        log_pattern = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - ')
+
+        records = []
+        current_record = []
+
+        for line in lines:
+            if log_pattern.match(line):
+                # Start of new record - save previous if exists
+                if current_record:
+                    records.append(current_record)
+                current_record = [line]
+            else:
+                # Continuation line - add to current record
+                if current_record:
+                    current_record.append(line)
+                # If no current record, it's a stray line - start new record
+                else:
+                    current_record = [line]
+
+        # Don't forget the last record
+        if current_record:
+            records.append(current_record)
+
+        # Filter by level if specified (check only the header line)
+        if args.level:
+            filtered_records = []
+            for record in records:
+                # Check if header line contains the level
+                if record and f" - {args.level} - " in record[0]:
+                    filtered_records.append(record)
+            records = filtered_records
+
+        # Apply line limit to records (not individual lines)
+        if not args.full:
+            records = records[-args.lines:]
+
+        # Display
+        if not records:
+            print("No logs found matching criteria")
+            return
+
+        # Count total lines for display
+        total_lines = sum(len(record) for record in records)
+
+        print(f"=== Logs for environment '{env.name}' ===")
+        print(f"Log file: {log_file}")
+        if args.level:
+            print(f"Level filter: {args.level}")
+        print(f"Showing: {len(records)} log records ({total_lines} lines)\n")
+
+        for record in records:
+            for line in record:
+                print(line.rstrip())
+
+        print(f"\n=== End of logs ===")
+        if not args.full and len(records) == args.lines:
+            print(f"Tip: Use --full to see all logs, or increase --lines to see more")
 
     # === Node management ===
 
