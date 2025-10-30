@@ -53,3 +53,19 @@ def extract_backend_from_version(version: str) -> str | None:
     if '+' in version:
         return version.split('+')[1]
     return None
+
+
+def extract_pip_show_package_version(pip_show_output: str) -> str | None:
+    """Extract version from pip show output.
+
+    Args:
+        pip_show_output: Output from 'uv pip show package'
+
+    Returns:
+        Version string (e.g., '2.6.0+cu128') or None if not found
+    """
+    import re
+    match = re.search(r'^Version:\s*(.+)$', pip_show_output, re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+    return None

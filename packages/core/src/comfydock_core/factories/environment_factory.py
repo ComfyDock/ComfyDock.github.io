@@ -12,6 +12,7 @@ from ..managers.git_manager import GitManager
 from ..models.exceptions import (
     CDEnvironmentExistsError,
 )
+from ..utils.pytorch import extract_pip_show_package_version
 from ..utils.comfyui_ops import clone_comfyui
 from ..utils.environment_cleanup import mark_environment_complete
 
@@ -149,7 +150,7 @@ class EnvironmentFactory:
         from ..utils.pytorch import extract_backend_from_version, get_pytorch_index_url
 
         # Get first package version to extract backend
-        first_version = EnvironmentFactory._extract_package_version(
+        first_version = extract_pip_show_package_version(
             env.uv_manager.show_package("torch", env.uv_manager.python_executable)
         )
 
@@ -175,7 +176,7 @@ class EnvironmentFactory:
 
         # Add constraints for all PyTorch packages
         for pkg in PYTORCH_CORE_PACKAGES:
-            version = EnvironmentFactory._extract_package_version(
+            version = extract_pip_show_package_version(
                 env.uv_manager.show_package(pkg, env.uv_manager.python_executable)
             )
             if version:
@@ -368,23 +369,6 @@ class EnvironmentFactory:
             workspace=workspace,
             torch_backend=torch_backend,
         )
-
-    @staticmethod
-    def _extract_package_version(pip_show_output: str) -> str | None:
-        """Extract version from pip show output.
-
-        Args:
-            pip_show_output: Output from 'uv pip show package'
-
-        Returns:
-            Version string (e.g., '2.6.0+cu128') or None if not found
-        """
-        import re
-        match = re.search(r'^Version:\s*(.+)$', pip_show_output, re.MULTILINE)
-        if match:
-            return match.group(1).strip()
-        return None
-
 
     @staticmethod
     def _create_initial_pyproject(

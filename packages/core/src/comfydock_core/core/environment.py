@@ -23,6 +23,7 @@ from ..models.workflow import DownloadResult
 from ..strategies.confirmation import ConfirmationStrategy
 from ..services.model_downloader import DownloadRequest
 from ..utils.common import run_command
+from ..utils.pytorch import extract_pip_show_package_version
 from ..validation.resolution_tester import ResolutionTester
 
 if TYPE_CHECKING:
@@ -1509,28 +1510,34 @@ class Environment:
         if models_dir.exists() and not models_dir.is_symlink():
             shutil.rmtree(models_dir)
 
-        # Phase 1.5: Reinstall PyTorch with target system's backend
+        # Phase 1.5: Create venv and optionally install PyTorch with specific backend
+        # Read Python version from .python-version file
+        python_version_file = self.cec_path / ".python-version"
+        python_version = python_version_file.read_text().strip() if python_version_file.exists() else None
+
         if self.torch_backend:
             if callbacks:
                 callbacks.on_phase("configure_pytorch", f"Configuring PyTorch backend: {self.torch_backend}")
 
-            logger.info(f"Reinstalling PyTorch with backend: {self.torch_backend}")
+            logger.info(f"Creating venv with Python {python_version}")
+            # Create empty venv (doesn't install project dependencies)
+            self.uv_manager.create_venv(self.venv_path, python_version=python_version, seed=True)
 
+            logger.info(f"Installing PyTorch with backend: {self.torch_backend}")
             # Install PyTorch with specified backend
             self.uv_manager.install_packages(
                 packages=["torch", "torchvision", "torchaudio"],
                 python=self.uv_manager.python_executable,
                 torch_backend=self.torch_backend,
-                verbose=True  # Show progress to user
+                verbose=True
             )
 
             # Update constraints and index configuration with new versions
             from ..constants import PYTORCH_CORE_PACKAGES
-            from ..factories.environment_factory import EnvironmentFactory
             from ..utils.pytorch import extract_backend_from_version, get_pytorch_index_url
 
             # Get first package version to extract backend
-            first_version = EnvironmentFactory._extract_package_version(
+            first_version = extract_pip_show_package_version(
                 self.uv_manager.show_package("torch", self.uv_manager.python_executable)
             )
 
@@ -1574,7 +1581,7 @@ class Environment:
 
             # Update constraints
             for pkg in PYTORCH_CORE_PACKAGES:
-                version = EnvironmentFactory._extract_package_version(
+                version = extract_pip_show_package_version(
                     self.uv_manager.show_package(pkg, self.uv_manager.python_executable)
                 )
                 if version:
@@ -1584,7 +1591,7 @@ class Environment:
                     self.pyproject.uv_config.add_constraint(f"{pkg}=={version}")
                     logger.info(f"Updated constraint: {pkg}=={version}")
 
-        # Phase 2: Install dependencies
+        # Phase 2: Install dependencies (will skip torch if already installed)
         if callbacks:
             callbacks.on_phase("install_deps", "Installing dependencies...")
         self.uv_manager.sync_project(verbose=False)
