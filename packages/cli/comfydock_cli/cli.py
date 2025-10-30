@@ -332,6 +332,7 @@ def _add_env_commands(subparsers):
     logs_parser.add_argument("-n", "--lines", type=int, default=200, help="Number of lines to show (default: 200)")
     logs_parser.add_argument("--level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Filter by log level")
     logs_parser.add_argument("--full", action="store_true", help="Show all logs (no line limit)")
+    logs_parser.add_argument("--workspace", action="store_true", help="Show workspace logs instead of environment logs")
     logs_parser.set_defaults(func=env_cmds.logs)
 
     # rollback - Revert changes

@@ -580,17 +580,22 @@ class EnvironmentCommands:
 
     @with_env_logging("logs")
     def logs(self, args, logger=None):
-        """Show application logs for the environment."""
+        """Show application logs for the environment or workspace."""
         import re
 
-        env = self._get_env(args)
-
-        # Determine log file location
-        log_dir = self.workspace.path / "logs" / env.name
-        log_file = log_dir / "full.log"
+        # Determine log source and file location
+        if args.workspace:
+            log_dir = self.workspace.paths.logs / "workspace"
+            log_file = log_dir / "full.log"
+            log_source = "workspace"
+        else:
+            env = self._get_env(args)
+            log_dir = self.workspace.paths.logs / env.name
+            log_file = log_dir / "full.log"
+            log_source = env.name
 
         if not log_file.exists():
-            print(f"✗ No logs found for environment '{env.name}'")
+            print(f"✗ No logs found for {log_source}")
             print(f"   Expected at: {log_file}")
             return
 
@@ -648,7 +653,7 @@ class EnvironmentCommands:
         # Count total lines for display
         total_lines = sum(len(record) for record in records)
 
-        print(f"=== Logs for environment '{env.name}' ===")
+        print(f"=== Logs for {log_source} ===")
         print(f"Log file: {log_file}")
         if args.level:
             print(f"Level filter: {args.level}")
