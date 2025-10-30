@@ -9,7 +9,7 @@ import pytest
 class TestImportAutoRemote:
     """Test that import properly validates and configures git remotes."""
 
-    def test_import_from_git_verifies_origin_remote(self, test_workspace, tmp_path):
+    def test_import_from_git_verifies_origin_remote(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Import from git should verify origin remote is configured."""
         # Create remote repo
         remote_repo = tmp_path / "remote-repo"
@@ -40,16 +40,12 @@ nodes = {}
         subprocess.run(["git", "add", "."], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import from git URL
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-            env = test_workspace.import_from_git(
-                git_url=str(remote_repo),
-                name="test-auto-remote",
-                model_strategy="skip"
-            )
+        # Import from git URL (fixture handles mocking)
+        env = test_workspace.import_from_git(
+            git_url=str(remote_repo),
+            name="test-auto-remote",
+            model_strategy="skip"
+        )
 
         # Verify origin remote is configured (git clone does this automatically)
         result = subprocess.run(
@@ -65,7 +61,7 @@ nodes = {}
         # Also verify via GitManager
         assert env.git_manager.has_remote("origin")
 
-    def test_import_from_git_preserves_clone_url(self, test_workspace, tmp_path):
+    def test_import_from_git_preserves_clone_url(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Import should preserve original clone URL as origin."""
         # Create remote repo
         remote_repo = tmp_path / "remote-repo"
@@ -90,17 +86,13 @@ nodes = {}
         subprocess.run(["git", "add", "."], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import with specific URL
+        # Import with specific URL (fixture handles mocking)
         original_url = str(remote_repo)
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-            env = test_workspace.import_from_git(
-                git_url=original_url,
-                name="test-preserve-url",
-                model_strategy="skip"
-            )
+        env = test_workspace.import_from_git(
+            git_url=original_url,
+            name="test-preserve-url",
+            model_strategy="skip"
+        )
 
         # Verify origin URL matches exactly what we imported
         from comfydock_core.utils.git import git_remote_get_url
@@ -108,7 +100,7 @@ nodes = {}
 
         assert remote_url == original_url
 
-    def test_import_subdirectory_warns_no_remote(self, test_workspace, tmp_path, caplog):
+    def test_import_subdirectory_warns_no_remote(self, test_workspace, tmp_path, caplog, mock_comfyui_clone, mock_github_api):
         """Import from subdirectory should warn about missing remote."""
         # Create repo with subdirectory structure
         remote_repo = tmp_path / "remote-repo"
@@ -142,21 +134,16 @@ nodes = {}
         subprocess.run(["git", "add", "."], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import from subdirectory using # syntax
+        # Import from subdirectory using # syntax (fixture handles mocking)
         git_url_with_subdir = f"{str(remote_repo)}#environments/prod"
 
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-
-            import logging
-            with caplog.at_level(logging.WARNING):
-                env = test_workspace.import_from_git(
-                    git_url=git_url_with_subdir,
-                    name="test-subdir-no-remote",
-                    model_strategy="skip"
-                )
+        import logging
+        with caplog.at_level(logging.WARNING):
+            env = test_workspace.import_from_git(
+                git_url=git_url_with_subdir,
+                name="test-subdir-no-remote",
+                model_strategy="skip"
+            )
 
         # Subdirectory imports lose git history, so no remote should be configured
         # and a warning should be logged
@@ -170,7 +157,7 @@ nodes = {}
         )
         assert warning_found, "Expected warning about missing remote for subdirectory import"
 
-    def test_import_regular_clone_can_push(self, test_workspace, tmp_path):
+    def test_import_regular_clone_can_push(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """After regular (non-subdirectory) import, should be able to push."""
         # Create bare remote for pushing
         bare_repo = tmp_path / "bare-repo"
@@ -202,16 +189,12 @@ nodes = {}
         subprocess.run(["git", "remote", "add", "origin", str(bare_repo)], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "push", "-u", "origin", "main"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import from bare repo (simulates cloning from GitHub)
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-            env = test_workspace.import_from_git(
-                git_url=str(bare_repo),
-                name="test-can-push",
-                model_strategy="skip"
-            )
+        # Import from bare repo (simulates cloning from GitHub, fixture handles mocking)
+        env = test_workspace.import_from_git(
+            git_url=str(bare_repo),
+            name="test-can-push",
+            model_strategy="skip"
+        )
 
         # Make and commit a change
         workflows_dir = env.cec_path / "workflows"

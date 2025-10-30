@@ -102,7 +102,7 @@ nodes = {}
                 model_strategy="skip"
             )
 
-    def test_import_from_git_with_branch(self, test_workspace, tmp_path):
+    def test_import_from_git_with_branch(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Test importing from a specific git branch."""
         # Create a mock git repo
         git_repo = tmp_path / "branch-repo"
@@ -142,24 +142,13 @@ nodes = {}
         )
         subprocess.run(["git", "branch", "feature"], cwd=git_repo, check=True, capture_output=True)
 
-        # Mock clone_comfyui
-        def mock_clone_comfyui(target_path, version):
-            target_path.mkdir(parents=True, exist_ok=True)
-            (target_path / "main.py").write_text("# ComfyUI")
-            (target_path / "folder_paths.py").write_text("# paths")
-            (target_path / "comfy").mkdir()
-            (target_path / "models").mkdir()
-            return version
-
-        # Import with branch specification
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui', side_effect=mock_clone_comfyui), \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="def456abc"):
-            env = test_workspace.import_from_git(
-                git_url=str(git_repo),
-                name="test-branch-import",
-                branch="feature",
-                model_strategy="skip"
-            )
+        # Import with branch specification (fixture handles mocking)
+        env = test_workspace.import_from_git(
+            git_url=str(git_repo),
+            name="test-branch-import",
+            branch="feature",
+            model_strategy="skip"
+        )
 
         assert env.name == "test-branch-import"
         assert env.cec_path.exists()

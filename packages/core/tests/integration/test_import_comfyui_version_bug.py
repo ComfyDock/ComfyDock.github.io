@@ -21,7 +21,7 @@ from comfydock_core.factories.environment_factory import EnvironmentFactory
 class TestImportComfyUIVersionBug:
     """Test that import reproduces exact ComfyUI version."""
 
-    def test_import_uses_comfyui_version_from_pyproject(self, test_workspace):
+    def test_import_uses_comfyui_version_from_pyproject(self, test_workspace, mock_comfyui_clone, mock_github_api):
         """Test that import clones specific comfyui_version from pyproject.toml."""
         # ARRANGE - Create a fake export with v0.3.15 in pyproject.toml
         export_tarball = test_workspace.paths.root / "test_export.tar.gz"
@@ -50,25 +50,16 @@ nodes = {}
             for item in export_content.iterdir():
                 tar.add(item, arcname=item.name)
 
-        # Mock clone_comfyui to track what version is requested
+        # Track what version is requested (override fixture's mock)
         cloned_version = None
 
-        def mock_clone_comfyui(target_path, version):
+        def track_clone_version(target_path, version):
             nonlocal cloned_version
             cloned_version = version
-            # Create minimal ComfyUI structure
-            target_path.mkdir(parents=True, exist_ok=True)
-            (target_path / "main.py").write_text("# ComfyUI")
-            (target_path / "nodes.py").write_text("# nodes")
-            (target_path / "folder_paths.py").write_text("# paths")
-            (target_path / "comfy").mkdir()
-            (target_path / "models").mkdir()
-            # Return version
-            return version
+            return mock_comfyui_clone(target_path, version)
 
-        # ACT - Import the environment
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui', side_effect=mock_clone_comfyui), \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123def456"):
+        # ACT - Import the environment (fixture handles subprocess mocking)
+        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui', side_effect=track_clone_version):
             env = test_workspace.import_environment(
                 tarball_path=export_tarball,
                 name="imported-env"
@@ -80,7 +71,7 @@ nodes = {}
         assert cloned_version == "v0.3.15", \
             f"Expected version 'v0.3.15' but got '{cloned_version}'"
 
-    def test_import_uses_version_not_commit_sha(self, test_workspace):
+    def test_import_uses_version_not_commit_sha(self, test_workspace, mock_comfyui_clone, mock_github_api):
         """SHOULD use comfyui_version (tag/branch), NOT commit_sha (can't shallow clone)."""
         # ARRANGE
         export_tarball = test_workspace.paths.root / "test_export.tar.gz"
@@ -108,23 +99,16 @@ nodes = {}
             for item in export_content.iterdir():
                 tar.add(item, arcname=item.name)
 
-        # Mock clone
+        # Track what version is requested (override fixture's mock)
         cloned_version = None
 
-        def mock_clone_comfyui(target_path, version):
+        def track_clone_version(target_path, version):
             nonlocal cloned_version
             cloned_version = version
-            target_path.mkdir(parents=True, exist_ok=True)
-            (target_path / "main.py").write_text("# ComfyUI")
-            (target_path / "nodes.py").write_text("# nodes")
-            (target_path / "folder_paths.py").write_text("# paths")
-            (target_path / "comfy").mkdir()
-            (target_path / "models").mkdir()
-            return version
+            return mock_comfyui_clone(target_path, version)
 
-        # ACT
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui', side_effect=mock_clone_comfyui), \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123def456"):
+        # ACT (fixture handles subprocess mocking)
+        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui', side_effect=track_clone_version):
             env = test_workspace.import_environment(
                 tarball_path=export_tarball,
                 name="imported-env2"
