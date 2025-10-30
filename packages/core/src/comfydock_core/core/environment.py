@@ -301,6 +301,13 @@ class Environment:
             result.errors.append(f"Model symlink configuration failed: {e}")
             # Continue anyway - symlink might already exist from environment creation
 
+        # Mark environment as complete after successful sync (repair operation)
+        # This ensures environments that lost .complete (e.g., from manual git pull) are visible
+        if result.success and not dry_run:
+            from ..utils.environment_cleanup import mark_environment_complete
+            mark_environment_complete(self.cec_path)
+            logger.debug("Marked environment as complete")
+
         if result.success:
             logger.info("Successfully synced environment")
         else:
