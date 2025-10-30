@@ -257,6 +257,9 @@ def mock_comfyui_clone(monkeypatch):
     import subprocess
     import sys
 
+    # Save original subprocess.run
+    original_subprocess_run = subprocess.run
+
     def fake_clone_comfyui(target_path: Path, version: str | None = None) -> str:
         """Fake clone that creates ComfyUI structure without network."""
         _create_fake_comfyui_structure(target_path)
@@ -331,24 +334,18 @@ def mock_comfyui_clone(monkeypatch):
 
                 return result
 
-            # Handle git commands
+            # Handle git commands - only mock specific ones, let others run real
             elif command == "git":
-                result = subprocess.CompletedProcess(
-                    args=cmd,
-                    returncode=0,
-                    stdout="",
-                    stderr=""
-                )
-
-                if "init" in cmd:
-                    cwd = kwargs.get('cwd', Path.cwd())
-                    if isinstance(cwd, (str, Path)):
-                        (Path(cwd) / ".git").mkdir(exist_ok=True)
-
-                elif "rev-parse" in cmd:
-                    result.stdout = "abc123def456789012345678901234567890abcd"
-
-                return result
+                # Only mock git rev-parse, let all other git commands run normally
+                if "rev-parse" in cmd:
+                    return subprocess.CompletedProcess(
+                        args=cmd,
+                        returncode=0,
+                        stdout="abc123def456789012345678901234567890abcd",
+                        stderr=""
+                    )
+                # For all other git commands, use original (real git)
+                return original_subprocess_run(cmd, *args, **kwargs)
 
             # Handle Windows mklink (for model symlinks)
             elif command == "mklink":
@@ -365,8 +362,9 @@ def mock_comfyui_clone(monkeypatch):
                     stderr=""
                 )
 
-        # All other commands should fail - we want tests to be isolated
-        raise RuntimeError(f"Unmocked command in test: {cmd}")
+        # For unmocked commands, use original subprocess.run
+        # This allows tests to run real git commands for test setup
+        return original_subprocess_run(cmd, *args, **kwargs)
 
     monkeypatch.setattr("subprocess.run", fake_subprocess_run)
 
