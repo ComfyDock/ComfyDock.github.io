@@ -36,12 +36,25 @@ class GlobalCommands:
         - uv_cache/ for package management
         - environments/ for ComfyUI environments
         """
+        from pathlib import Path
+
+        # Validate models directory if provided (before creating workspace)
+        explicit_models_dir = getattr(args, 'models_dir', None)
+        if explicit_models_dir:
+            models_path = explicit_models_dir.resolve()
+            if not models_path.exists() or not models_path.is_dir():
+                print(f"✗ Models directory not found: {models_path}", file=sys.stderr)
+                print("   Falling back to default models directory\n")
+                # Clear the flag and enable --yes to avoid interactive prompt
+                args.models_dir = None
+                args.yes = True
+
         # Determine workspace path
         path = args.path if (hasattr(args, "path") and args.path) else None
 
         workspace_paths = WorkspaceFactory.get_paths(path)
 
-        print(f"🎯 Initializing ComfyDock workspace at: {workspace_paths.root}")
+        print(f"\n🎯 Initializing ComfyDock workspace at: {workspace_paths.root}")
 
         try:
             # Create workspace
@@ -66,14 +79,8 @@ class GlobalCommands:
 
             print(f"✓ Workspace initialized at {workspace.path}")
 
-            # Show default models directory
-            try:
-                models_dir = workspace.get_models_directory()
-                print(f"✓ Default models directory: {models_dir}")
-                print("   (Change with: comfydock model index dir <path>)")
-            except Exception:
-                # Should not happen with new auto-creation, but handle gracefully
-                pass
+            # Handle models directory setup
+            self._setup_models_directory(workspace, args)
 
             print("\nNext steps:")
             print("  1. Create an environment: cfd create <name>")
@@ -82,6 +89,132 @@ class GlobalCommands:
         except Exception as e:
             print(f"✗ Failed to initialize workspace: {e}", file=sys.stderr)
             sys.exit(1)
+
+    def _setup_models_directory(self, workspace: Workspace, args):
+        """Handle interactive or automatic models directory setup during init.
+
+        Args:
+            workspace: The newly created workspace
+            args: CLI arguments containing models_dir and yes flags
+        """
+        from pathlib import Path
+        from comfydock_cli.utils.progress import create_model_sync_progress
+        from comfydock_core.utils.common import format_size
+
+        # Check for explicit flags
+        use_interactive = not getattr(args, 'yes', False)
+        explicit_models_dir = getattr(args, 'models_dir', None)
+
+        # If explicit models dir provided via flag (already validated in init)
+        if explicit_models_dir:
+            models_path = explicit_models_dir.resolve()
+            print(f"\n📁 Setting models directory: {models_path}")
+            self._scan_and_set_models_dir(workspace, models_path)
+            return
+
+        # If --yes flag, use default silently
+        if not use_interactive:
+            self._show_default_models_dir(workspace)
+            return
+
+        # Interactive mode
+        print("\n📦 Model Directory Setup")
+        print("\nComfyDock needs a directory to index your models.")
+        print("\nOptions:")
+        print("  1. Point to an existing ComfyUI models directory (recommended)")
+        print("     → Access all your existing models immediately")
+        print(f"     → Example: ~/ComfyUI/models")
+        print("\n  2. Use the default empty directory")
+        print(f"     → ComfyDock created: {workspace.paths.models}")
+        print("     → Download models as needed later")
+
+        has_existing = input("\nDo you have an existing ComfyUI models directory? (y/N): ").strip().lower()
+
+        if has_existing == 'y':
+            while True:
+                models_input = input("Enter path to models directory: ").strip()
+
+                if not models_input:
+                    print("Using default directory instead")
+                    self._show_default_models_dir(workspace)
+                    return
+
+                models_path = Path(models_input).expanduser().resolve()
+
+                # Validate directory exists
+                if not models_path.exists():
+                    print(f"✗ Directory not found: {models_path}")
+                    retry = input("Try another path? (y/N): ").strip().lower()
+                    if retry != 'y':
+                        print("Using default directory instead")
+                        self._show_default_models_dir(workspace)
+                        return
+                    continue
+
+                if not models_path.is_dir():
+                    print(f"✗ Not a directory: {models_path}")
+                    retry = input("Try another path? (y/N): ").strip().lower()
+                    if retry != 'y':
+                        print("Using default directory instead")
+                        self._show_default_models_dir(workspace)
+                        return
+                    continue
+
+                # Auto-detect if they entered ComfyUI root instead of models subdir
+                if (models_path / "models").exists() and models_path.name != "models":
+                    print(f"\n⚠️  Detected ComfyUI installation at: {models_path}")
+                    use_subdir = input(f"Use models/ subdirectory instead? (Y/n): ").strip().lower()
+                    if use_subdir != 'n':
+                        models_path = models_path / "models"
+                        print(f"Using: {models_path}")
+
+                # Scan and confirm
+                print(f"\nScanning {models_path}...")
+                self._scan_and_set_models_dir(workspace, models_path)
+                return
+        else:
+            # User chose default
+            self._show_default_models_dir(workspace)
+
+    def _show_default_models_dir(self, workspace: Workspace):
+        """Show the default models directory message."""
+        models_dir = workspace.get_models_directory()
+        print(f"\n✓ Using default models directory: {models_dir}")
+        print("   (Change later with: cfd model index dir <path>)")
+
+    def _scan_and_set_models_dir(self, workspace: Workspace, models_path: Path):
+        """Scan a models directory and set it as the workspace models directory.
+
+        Args:
+            workspace: The workspace instance
+            models_path: Path to the models directory to scan
+        """
+        from comfydock_cli.utils.progress import create_model_sync_progress
+        from comfydock_core.utils.common import format_size
+
+        try:
+            progress = create_model_sync_progress()
+            workspace.set_models_directory(models_path, progress=progress)
+
+            # Get stats to show summary
+            stats = workspace.get_model_stats()
+            total_models = stats.get('total_models', 0)
+
+            if total_models > 0:
+                # Calculate total size
+                models = workspace.list_models()
+                total_size = sum(m.file_size for m in models)
+
+                print(f"\n✓ Models directory set: {models_path}")
+                print(f"  Found {total_models} models ({format_size(total_size)})")
+            else:
+                print(f"\n✓ Models directory set: {models_path}")
+                print("  (No models found - directory is empty)")
+        except Exception as e:
+            logger.error(f"Failed to set models directory: {e}")
+            print(f"✗ Failed to scan models directory: {e}", file=sys.stderr)
+            print("   Using default models directory instead")
+            self._show_default_models_dir(workspace)
 
     @with_workspace_logging("list")
     def list_envs(self, args):

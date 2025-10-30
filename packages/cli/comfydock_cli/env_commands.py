@@ -1800,7 +1800,8 @@ class EnvironmentCommands:
                     for node_id, error in failed_nodes:
                         print(f"  • {node_id}")
                     print("\n💡 For detailed error information:")
-                    print(f"   {self.workspace.path}/logs/{env.name}.log")
+                    log_file = self.workspace.paths.logs / env.name / "full.log"
+                    print(f"   {log_file}")
                     print("\nYou can try installing them manually:")
                     print("  cfd node add <node-id>")
             else:
