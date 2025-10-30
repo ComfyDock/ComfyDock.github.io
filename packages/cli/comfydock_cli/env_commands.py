@@ -855,6 +855,84 @@ class EnvironmentCommands:
 
         print(f"\nRun 'comfydock -e {env.name} constraint list' to view remaining constraints")
 
+    # === Python dependency management ===
+
+    @with_env_logging("env py add")
+    def py_add(self, args, logger=None):
+        """Add Python dependencies to the environment."""
+        env = self._get_env(args)
+
+        upgrade_text = " (with upgrade)" if args.upgrade else ""
+        print(f"📦 Adding {len(args.packages)} package(s){upgrade_text}...")
+
+        try:
+            env.add_dependencies(args.packages, upgrade=args.upgrade)
+        except UVCommandError as e:
+            if logger:
+                logger.error(f"Failed to add dependencies: {e}", exc_info=True)
+            print(f"✗ Failed to add packages", file=sys.stderr)
+            print(f"   {e}", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"\n✓ Added {len(args.packages)} package(s) to dependencies")
+        print(f"\nRun 'cfd -e {env.name} status' to review changes")
+
+    @with_env_logging("env py remove")
+    def py_remove(self, args, logger=None):
+        """Remove Python dependencies from the environment."""
+        env = self._get_env(args)
+
+        print(f"🗑 Removing {len(args.packages)} package(s)...")
+
+        try:
+            env.remove_dependencies(args.packages)
+        except UVCommandError as e:
+            if logger:
+                logger.error(f"Failed to remove dependencies: {e}", exc_info=True)
+            print(f"✗ Failed to remove packages", file=sys.stderr)
+            print(f"   {e}", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"\n✓ Removed {len(args.packages)} package(s) from dependencies")
+        print(f"\nRun 'cfd -e {env.name} status' to review changes")
+
+    @with_env_logging("env py list")
+    def py_list(self, args):
+        """List Python dependencies."""
+        env = self._get_env(args)
+
+        all_deps = env.list_dependencies(all=args.all)
+
+        # Check if there are any dependencies at all
+        total_count = sum(len(deps) for deps in all_deps.values())
+        if total_count == 0:
+            print("No project dependencies or dependency groups")
+            return
+
+        # Display dependencies grouped by section
+        first_group = True
+        for group_name, group_deps in all_deps.items():
+            if not group_deps:
+                continue
+
+            if not first_group:
+                print()  # Blank line between groups
+            first_group = False
+
+            # Format the header
+            if group_name == "dependencies":
+                print(f"Dependencies ({len(group_deps)}):")
+                for dep in group_deps:
+                    print(f"  • {dep}")
+            else:
+                print(f"{group_name} ({len(group_deps)}):")
+                for dep in group_deps:
+                    print(f"  • {dep}")
+
+        # Show tip if not showing all groups
+        if not args.all and len(all_deps) == 1:
+            print("\nTip: Use --all to see dependency groups")
+
     # === Git-based operations ===
 
     @with_env_logging("env repair")

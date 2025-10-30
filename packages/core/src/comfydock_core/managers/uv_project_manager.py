@@ -61,16 +61,53 @@ class UVProjectManager:
         result = self.uv.init(name=name, python=python_version, **flags)
         return result.stdout
 
-    def add_dependency(self, package: str | None = None, requirements_file: Path | None = None, **flags) -> str:
+    def add_dependency(self, package: str | None = None, packages: list[str] | None = None, requirements_file: Path | None = None, upgrade: bool = False, **flags) -> str:
+        """Add one or more dependencies to the project.
+
+        Args:
+            package: Single package to add (legacy parameter)
+            packages: List of packages to add
+            requirements_file: Path to requirements file
+            upgrade: Whether to upgrade existing packages
+            **flags: Additional UV flags
+
+        Returns:
+            UV command stdout
+        """
+        if packages:
+            pkg_list = packages
+        elif package:
+            pkg_list = [package]
+        else:
+            pkg_list = None
+
         result = self.uv.add(
-            packages=[package] if package else None,
+            packages=pkg_list,
             requirements_file=requirements_file,
+            upgrade=upgrade,
             **flags
         )
         return result.stdout
 
-    def remove_dependency(self, package: str, **flags) -> str:
-        result = self.uv.remove([package], **flags)
+    def remove_dependency(self, package: str | None = None, packages: list[str] | None = None, **flags) -> str:
+        """Remove one or more dependencies from the project.
+
+        Args:
+            package: Single package to remove (legacy parameter)
+            packages: List of packages to remove
+            **flags: Additional UV flags
+
+        Returns:
+            UV command stdout
+        """
+        if packages:
+            pkg_list = packages
+        elif package:
+            pkg_list = [package]
+        else:
+            raise ValueError("Either 'package' or 'packages' must be provided")
+
+        result = self.uv.remove(pkg_list, **flags)
         return result.stdout
 
     def sync_project(self, verbose: bool = False, **flags) -> str:

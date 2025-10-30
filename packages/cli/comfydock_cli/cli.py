@@ -476,5 +476,25 @@ def _add_env_commands(subparsers):
     constraint_remove_parser.add_argument("packages", nargs="+", help="Package names to remove")
     constraint_remove_parser.set_defaults(func=env_cmds.constraint_remove)
 
+    # Python dependency management subcommands
+    py_parser = subparsers.add_parser("py", help="Manage Python dependencies")
+    py_subparsers = py_parser.add_subparsers(dest="py_command", help="Python dependency commands")
+
+    # py add
+    py_add_parser = py_subparsers.add_parser("add", help="Add Python dependencies")
+    py_add_parser.add_argument("packages", nargs="+", help="Package specifications (e.g., requests>=2.0.0)")
+    py_add_parser.add_argument("--upgrade", action="store_true", help="Upgrade existing packages")
+    py_add_parser.set_defaults(func=env_cmds.py_add)
+
+    # py remove
+    py_remove_parser = py_subparsers.add_parser("remove", help="Remove Python dependencies")
+    py_remove_parser.add_argument("packages", nargs="+", help="Package names to remove")
+    py_remove_parser.set_defaults(func=env_cmds.py_remove)
+
+    # py list
+    py_list_parser = py_subparsers.add_parser("list", help="List project dependencies")
+    py_list_parser.add_argument("--all", action="store_true", help="Show all dependencies including dependency groups")
+    py_list_parser.set_defaults(func=env_cmds.py_list)
+
 if __name__ == "__main__":
     main()

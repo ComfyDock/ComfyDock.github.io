@@ -1033,6 +1033,62 @@ class Environment:
         """List constraint dependencies."""
         return self.pyproject.uv_config.get_constraints()
 
+    # ===== Python Dependency Management =====
+
+    def add_dependencies(self, packages: list[str], upgrade: bool = False) -> str:
+        """Add Python dependencies to the environment.
+
+        Uses uv add to add packages to [project.dependencies] and install them.
+
+        Args:
+            packages: List of package specifications (e.g., ['requests>=2.0.0', 'pillow'])
+            upgrade: Whether to upgrade existing packages
+
+        Returns:
+            UV command output
+
+        Raises:
+            UVCommandError: If uv add fails
+        """
+        return self.uv_manager.add_dependency(packages=packages, upgrade=upgrade)
+
+    def remove_dependencies(self, packages: list[str]) -> str:
+        """Remove Python dependencies from the environment.
+
+        Uses uv remove to remove packages from [project.dependencies] and uninstall them.
+
+        Args:
+            packages: List of package names to remove
+
+        Returns:
+            UV command output
+
+        Raises:
+            UVCommandError: If uv remove fails
+        """
+        return self.uv_manager.remove_dependency(packages=packages)
+
+    def list_dependencies(self, all: bool = False) -> dict[str, list[str]]:
+        """List project dependencies.
+
+        Args:
+            all: If True, include all dependency groups. If False, only base dependencies.
+
+        Returns:
+            Dictionary mapping group name to list of dependencies.
+            Base dependencies are always under "dependencies" key and appear first.
+        """
+        config = self.pyproject.load()
+        base_deps = config.get('project', {}).get('dependencies', [])
+
+        result = {"dependencies": base_deps}
+
+        if all:
+            dep_groups = self.pyproject.dependencies.get_groups()
+            result.update(dep_groups)
+
+        return result
+
     def _execute_pending_downloads(
         self,
         result: ResolutionResult,
