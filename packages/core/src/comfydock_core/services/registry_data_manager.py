@@ -115,7 +115,7 @@ class RegistryDataManager:
     def _write_metadata(self, metadata: dict) -> None:
         """Write metadata about the cached data."""
         try:
-            with open(self.metadata_file, 'w') as f:
+            with open(self.metadata_file, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, indent=2)
         except Exception as e:
             logger.debug(f"Failed to write metadata: {e}")
@@ -151,7 +151,7 @@ class RegistryDataManager:
 
         if self.metadata_file.exists():
             try:
-                with open(self.metadata_file) as f:
+                with open(self.metadata_file, encoding='utf-8') as f:
                     metadata = json.load(f)
                     info['version'] = metadata.get('version')
             except:

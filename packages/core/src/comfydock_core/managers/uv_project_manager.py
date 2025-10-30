@@ -61,17 +61,91 @@ class UVProjectManager:
         result = self.uv.init(name=name, python=python_version, **flags)
         return result.stdout
 
-    def add_dependency(self, package: str | None = None, requirements_file: Path | None = None, **flags) -> str:
+    def add_dependency(
+        self,
+        package: str | None = None,
+        packages: list[str] | None = None,
+        requirements_file: Path | None = None,
+        upgrade: bool = False,
+        **flags
+    ) -> str:
+        """Add one or more dependencies to the project.
+
+        Args:
+            package: Single package to add (legacy parameter)
+            packages: List of packages to add
+            requirements_file: Path to requirements file
+            upgrade: Whether to upgrade existing packages
+            **flags: Additional UV flags
+
+        Returns:
+            UV command stdout
+
+        Raises:
+            ValueError: If none of package, packages, or requirements_file is provided
+        """
+        if packages:
+            pkg_list = packages
+        elif package:
+            pkg_list = [package]
+        elif requirements_file:
+            pkg_list = None
+        else:
+            raise ValueError("Either 'package', 'packages', or 'requirements_file' must be provided")
+
         result = self.uv.add(
-            packages=[package] if package else None,
+            packages=pkg_list,
             requirements_file=requirements_file,
+            upgrade=upgrade,
             **flags
         )
         return result.stdout
 
-    def remove_dependency(self, package: str, **flags) -> str:
-        result = self.uv.remove([package], **flags)
-        return result.stdout
+    def remove_dependency(self, package: str | None = None, packages: list[str] | None = None, **flags) -> dict:
+        """Remove one or more dependencies from the project.
+
+        Filters out packages that don't exist in dependencies before calling uv remove.
+        This makes the operation idempotent and safe to call with non-existent packages.
+
+        Args:
+            package: Single package to remove (legacy parameter)
+            packages: List of packages to remove
+            **flags: Additional UV flags
+
+        Returns:
+            Dict with 'removed' (list of packages removed) and 'skipped' (list of packages not in deps)
+        """
+        if packages:
+            pkg_list = packages
+        elif package:
+            pkg_list = [package]
+        else:
+            raise ValueError("Either 'package' or 'packages' must be provided")
+
+        # Get current dependencies to filter what actually exists
+        from ..utils.dependency_parser import parse_dependency_string
+        config = self.pyproject.load()
+        current_deps = config.get('project', {}).get('dependencies', [])
+        current_pkg_names = {parse_dependency_string(dep)[0].lower() for dep in current_deps}
+
+        # Filter to only packages that exist
+        existing_packages = [pkg for pkg in pkg_list if pkg.lower() in current_pkg_names]
+        missing_packages = [pkg for pkg in pkg_list if pkg.lower() not in current_pkg_names]
+
+        # If nothing to remove, return early
+        if not existing_packages:
+            return {
+                'removed': [],
+                'skipped': missing_packages
+            }
+
+        # Remove only existing packages
+        result = self.uv.remove(existing_packages, **flags)
+
+        return {
+            'removed': existing_packages,
+            'skipped': missing_packages
+        }
 
     def sync_project(self, verbose: bool = False, **flags) -> str:
         result = self.uv.sync(verbose=verbose, **flags)
@@ -144,7 +218,7 @@ class UVProjectManager:
 
         # Handle both Path and list[str] input
         if isinstance(requirements, Path):
-            with open(requirements) as f:
+            with open(requirements, encoding='utf-8') as f:
                 lines = f.readlines()
         else:
             lines = requirements
@@ -289,14 +363,22 @@ class UVProjectManager:
     # ===== Package Operations =====
 
     def install_packages(self, packages: list[str] | None = None, requirements_file: Path | None = None,
-                        python: Path | None = None, **flags) -> str:
+                        python: Path | None = None, torch_backend: str | None = None,
+                        verbose: bool = False, **flags) -> str:
         """Install packages using uv pip install."""
         result = self.uv.pip_install(
             packages=packages,
             requirements_file=requirements_file,
             python=python,
+            torch_backend=torch_backend,
+            verbose=verbose,
             **flags
         )
+        return result.stdout
+
+    def show_package(self, package: str, python: Path) -> str:
+        """Show package information."""
+        result = self.uv.pip_show(package, python)
         return result.stdout
 
     def list_packages(self, python: Path) -> str:

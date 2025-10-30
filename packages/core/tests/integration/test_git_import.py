@@ -9,7 +9,7 @@ import pytest
 class TestGitImport:
     """Test importing environments from git repositories."""
 
-    def test_import_from_local_git_repo(self, test_workspace, tmp_path):
+    def test_import_from_local_git_repo(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Test importing from a local git repository."""
         # Create a mock git repo with .cec structure
         git_repo = tmp_path / "mock-repo"
@@ -51,24 +51,12 @@ nodes = {}
                  "GIT_COMMITTER_NAME": "Test", "GIT_COMMITTER_EMAIL": "test@test.com"}
         )
 
-        # Mock clone_comfyui to avoid actually cloning ComfyUI
-        def mock_clone_comfyui(target_path, version):
-            target_path.mkdir(parents=True, exist_ok=True)
-            (target_path / "main.py").write_text("# ComfyUI")
-            (target_path / "nodes.py").write_text("# nodes")
-            (target_path / "folder_paths.py").write_text("# paths")
-            (target_path / "comfy").mkdir()
-            (target_path / "models").mkdir()
-            return version
-
-        # Import from local git path
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui', side_effect=mock_clone_comfyui), \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123def456"):
-            env = test_workspace.import_from_git(
-                git_url=str(git_repo),
-                name="test-git-import",
-                model_strategy="skip"
-            )
+        # Import from local git path (fixture mocks UV and ComfyUI operations)
+        env = test_workspace.import_from_git(
+            git_url=str(git_repo),
+            name="test-git-import",
+            model_strategy="skip"
+        )
 
         # Verify environment was created
         assert env.name == "test-git-import"
@@ -87,7 +75,7 @@ nodes = {}
         )
         assert "Imported environment" in result.stdout
 
-    def test_import_from_git_without_pyproject(self, test_workspace, tmp_path):
+    def test_import_from_git_without_pyproject(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Test that import fails gracefully if repo doesn't have pyproject.toml."""
         # Create a mock git repo WITHOUT pyproject.toml
         git_repo = tmp_path / "invalid-repo"
@@ -114,7 +102,7 @@ nodes = {}
                 model_strategy="skip"
             )
 
-    def test_import_from_git_with_branch(self, test_workspace, tmp_path):
+    def test_import_from_git_with_branch(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Test importing from a specific git branch."""
         # Create a mock git repo
         git_repo = tmp_path / "branch-repo"
@@ -154,24 +142,13 @@ nodes = {}
         )
         subprocess.run(["git", "branch", "feature"], cwd=git_repo, check=True, capture_output=True)
 
-        # Mock clone_comfyui
-        def mock_clone_comfyui(target_path, version):
-            target_path.mkdir(parents=True, exist_ok=True)
-            (target_path / "main.py").write_text("# ComfyUI")
-            (target_path / "folder_paths.py").write_text("# paths")
-            (target_path / "comfy").mkdir()
-            (target_path / "models").mkdir()
-            return version
-
-        # Import with branch specification
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui', side_effect=mock_clone_comfyui), \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="def456abc"):
-            env = test_workspace.import_from_git(
-                git_url=str(git_repo),
-                name="test-branch-import",
-                branch="feature",
-                model_strategy="skip"
-            )
+        # Import with branch specification (fixture handles mocking)
+        env = test_workspace.import_from_git(
+            git_url=str(git_repo),
+            name="test-branch-import",
+            branch="feature",
+            model_strategy="skip"
+        )
 
         assert env.name == "test-branch-import"
         assert env.cec_path.exists()

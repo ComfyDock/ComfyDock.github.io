@@ -125,3 +125,71 @@ def test_update_and_remove_models(tmp_path):
     # Verify no locations remain (model still in database but no locations)
     removed_results = index_mgr.find_model_by_hash("update_test_hash")
     assert len(removed_results) == 0  # No locations means no results from find
+
+
+def test_path_separator_normalization(tmp_path):
+    """Test that Windows backslashes are normalized to forward slashes."""
+    db_path = tmp_path / "test_separators.db"
+    base_path = tmp_path / "models"
+    base_path.mkdir()
+    index_mgr = ModelRepository(db_path, current_directory=base_path)
+
+    # Add model with Windows-style backslash path
+    windows_path = r"checkpoints\v1-5-pruned.safetensors"
+    index_mgr.ensure_model("win_hash", 2000000, blake3_hash="win_hash")
+    index_mgr.add_location("win_hash", base_path, windows_path, "v1-5-pruned.safetensors", time.time())
+
+    # Query should work with forward slashes (get_by_category uses forward slashes)
+    checkpoints = index_mgr.get_by_category("checkpoints")
+    assert len(checkpoints) == 1
+    assert checkpoints[0].filename == "v1-5-pruned.safetensors"
+    # Path stored in DB should be normalized to forward slashes
+    assert "/" in checkpoints[0].relative_path
+    assert "\\" not in checkpoints[0].relative_path
+
+    # find_by_exact_path should work with either separator
+    result_forward = index_mgr.find_by_exact_path("checkpoints/v1-5-pruned.safetensors")
+    assert result_forward is not None
+    assert result_forward.hash == "win_hash"
+
+    result_backward = index_mgr.find_by_exact_path(r"checkpoints\v1-5-pruned.safetensors")
+    assert result_backward is not None
+    assert result_backward.hash == "win_hash"
+
+
+def test_workflow_search_with_path_separators(tmp_path):
+    """Test model search as used in workflow resolution with mixed separators."""
+    db_path = tmp_path / "test_search.db"
+    base_path = tmp_path / "models"
+    base_path.mkdir()
+    index_mgr = ModelRepository(db_path, current_directory=base_path)
+
+    # Add several models with Windows paths (as they would be added on Windows)
+    models = [
+        ("hash1", r"checkpoints\v1-5-pruned-emaonly-fp16.safetensors", "v1-5-pruned-emaonly-fp16.safetensors"),
+        ("hash2", r"checkpoints\sd15-inpainting.safetensors", "sd15-inpainting.safetensors"),
+        ("hash3", r"loras\detail-tweaker.safetensors", "detail-tweaker.safetensors"),
+    ]
+
+    for hash_val, rel_path, filename in models:
+        index_mgr.ensure_model(hash_val, 2000000, blake3_hash=hash_val)
+        index_mgr.add_location(hash_val, base_path, rel_path, filename, time.time())
+
+    # Simulate workflow_manager.search_models() behavior:
+    # Get all checkpoints (this was failing before the fix)
+    checkpoints = index_mgr.get_by_category("checkpoints")
+    assert len(checkpoints) == 2, "Should find both checkpoint models"
+
+    checkpoint_names = {m.filename for m in checkpoints}
+    assert "v1-5-pruned-emaonly-fp16.safetensors" in checkpoint_names
+    assert "sd15-inpainting.safetensors" in checkpoint_names
+
+    # Get loras
+    loras = index_mgr.get_by_category("loras")
+    assert len(loras) == 1
+    assert loras[0].filename == "detail-tweaker.safetensors"
+
+    # Test search functionality
+    search_results = index_mgr.search("v1-5")
+    assert len(search_results) >= 1
+    assert any("v1-5" in m.filename for m in search_results)

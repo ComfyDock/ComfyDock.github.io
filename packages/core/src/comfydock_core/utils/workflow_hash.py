@@ -29,7 +29,7 @@ def compute_workflow_hash(workflow_path: Path) -> str:
     # Note: Using direct json.load() rather than WorkflowRepository for performance
     # and separation of concerns (hashing != parsing). This is intentional.
     # Load workflow JSON
-    with open(workflow_path, 'r') as f:
+    with open(workflow_path, 'r', encoding='utf-8') as f:
         workflow = json.load(f)
 
     # Normalize to remove volatile fields

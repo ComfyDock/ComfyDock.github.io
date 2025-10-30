@@ -12,6 +12,27 @@ from ..models.exceptions import CDEnvironmentError
 logger = get_logger(__name__)
 
 
+def is_link(path: Path) -> bool:
+    """Detect both symlinks and junctions (Windows).
+
+    Args:
+        path: Path to check
+
+    Returns:
+        True if path is a symlink or junction, False otherwise
+    """
+    if path.is_symlink():
+        return True
+    # Python 3.12+: Direct junction check
+    if hasattr(os.path, 'isjunction') and os.path.isjunction(path):
+        return True
+    # Fallback: Check if path resolution differs (works for junctions and symlinks)
+    try:
+        return path.exists() and path.absolute() != path.resolve()
+    except (OSError, RuntimeError):
+        return False
+
+
 class ModelSymlinkManager:
     """Manages symlink/junction from ComfyUI/models to global models directory."""
 
@@ -42,15 +63,15 @@ class ModelSymlinkManager:
 
         # Handle existing models/ path
         if self.models_link_path.exists():
-            if self.models_link_path.is_symlink():
-                # Already a symlink - check target
+            if is_link(self.models_link_path):
+                # Already a link - check target
                 if self._resolve_link() == self.global_models_path.resolve():
-                    logger.debug("Symlink already points to correct target")
+                    logger.debug("Link already points to correct target")
                     return
                 else:
                     # Wrong target - recreate
                     logger.info(
-                        f"Updating symlink target: {self._resolve_link()} → {self.global_models_path}"
+                        f"Updating link target: {self._resolve_link()} → {self.global_models_path}"
                     )
                     self.models_link_path.unlink()
             else:
@@ -86,22 +107,22 @@ class ModelSymlinkManager:
             raise CDEnvironmentError(f"Failed to create model symlink: {e}") from e
 
     def validate_symlink(self) -> bool:
-        """Check if symlink exists and points to correct target.
+        """Check if link exists and points to correct target.
 
         Returns:
-            True if symlink is valid, False otherwise
+            True if link is valid, False otherwise
         """
         if not self.models_link_path.exists():
             return False
 
-        if not self.models_link_path.is_symlink():
-            logger.warning(f"models/ is not a symlink: {self.models_link_path}")
+        if not is_link(self.models_link_path):
+            logger.warning(f"models/ is not a link: {self.models_link_path}")
             return False
 
         target = self._resolve_link()
         if target != self.global_models_path.resolve():
             logger.warning(
-                f"Symlink points to wrong target:\n"
+                f"Link points to wrong target:\n"
                 f"  Expected: {self.global_models_path}\n"
                 f"  Actual: {target}"
             )
@@ -113,25 +134,25 @@ class ModelSymlinkManager:
         """Remove symlink/junction safely.
 
         Raises:
-            CDEnvironmentError: If models/ is not a symlink (prevents accidental data loss)
+            CDEnvironmentError: If models/ is not a link (prevents accidental data loss)
         """
         if not self.models_link_path.exists():
             return  # Nothing to remove
 
-        if not self.models_link_path.is_symlink():
+        if not is_link(self.models_link_path):
             raise CDEnvironmentError(
-                f"Cannot remove models/: not a symlink\n"
+                f"Cannot remove models/: not a link\n"
                 f"Manual deletion required: {self.models_link_path}"
             )
 
         try:
             self.models_link_path.unlink()
-            logger.info(f"Removed model symlink: {self.models_link_path}")
+            logger.info(f"Removed model link: {self.models_link_path}")
         except Exception as e:
-            raise CDEnvironmentError(f"Failed to remove symlink: {e}") from e
+            raise CDEnvironmentError(f"Failed to remove link: {e}") from e
 
     def get_status(self) -> dict:
-        """Get current symlink status for debugging.
+        """Get current link status for debugging.
 
         Returns:
             Dictionary with status information
@@ -144,17 +165,17 @@ class ModelSymlinkManager:
                 "target": None,
             }
 
-        is_symlink = self.models_link_path.is_symlink()
-        target = self._resolve_link() if is_symlink else None
+        is_symlink_or_junction = is_link(self.models_link_path)
+        target = self._resolve_link() if is_symlink_or_junction else None
         is_valid = (
-            is_symlink and target == self.global_models_path.resolve()
+            is_symlink_or_junction and target == self.global_models_path.resolve()
             if target
             else False
         )
 
         return {
             "exists": True,
-            "is_symlink": is_symlink,
+            "is_symlink": is_symlink_or_junction,
             "is_valid": is_valid,
             "target": str(target) if target else None,
         }

@@ -11,7 +11,7 @@ from comfydock_core.models.exceptions import CDEnvironmentError
 class TestGitPull:
     """Test pull operations (fetch + merge)."""
 
-    def test_pull_fetches_and_merges(self, test_workspace, tmp_path):
+    def test_pull_fetches_and_merges(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Pull should fetch and merge from current branch."""
         # Create a remote repo with .cec structure
         remote_repo = tmp_path / "remote-repo"
@@ -44,16 +44,12 @@ nodes = {}
         subprocess.run(["git", "add", "."], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import from remote (creates local environment with origin remote)
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-            env = test_workspace.import_from_git(
-                git_url=str(remote_repo),
-                name="test-pull",
-                model_strategy="skip"
-            )
+        # Import from remote (fixture mocks UV and ComfyUI operations)
+        env = test_workspace.import_from_git(
+            git_url=str(remote_repo),
+            name="test-pull",
+            model_strategy="skip"
+        )
 
         # Make change in remote
         (remote_repo / "workflows" / "new_workflow.json").write_text('{"new": true}')
@@ -73,7 +69,7 @@ nodes = {}
         # Verify new workflow was pulled
         assert (env.cec_path / "workflows" / "new_workflow.json").exists()
 
-    def test_pull_rejects_with_uncommitted_changes(self, test_workspace, tmp_path):
+    def test_pull_rejects_with_uncommitted_changes(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Pull should reject if uncommitted changes exist."""
         # Create remote repo
         remote_repo = tmp_path / "remote-repo"
@@ -98,16 +94,12 @@ nodes = {}
         subprocess.run(["git", "add", "."], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import environment
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-            env = test_workspace.import_from_git(
-                git_url=str(remote_repo),
-                name="test-pull-dirty",
-                model_strategy="skip"
-            )
+        # Import environment (fixture mocks UV and ComfyUI operations)
+        env = test_workspace.import_from_git(
+            git_url=str(remote_repo),
+            name="test-pull-dirty",
+            model_strategy="skip"
+        )
 
         # Make local uncommitted change
         (env.cec_path / "workflows" / "local_change.json").write_text('{"local": true}')
@@ -116,7 +108,7 @@ nodes = {}
         with pytest.raises(CDEnvironmentError, match="uncommitted changes"):
             env.pull_and_repair(remote="origin")
 
-    def test_pull_detects_current_branch(self, test_workspace, tmp_path):
+    def test_pull_detects_current_branch(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Pull should auto-detect and use current branch."""
         # Create remote repo with feature branch
         remote_repo = tmp_path / "remote-repo"
@@ -148,17 +140,13 @@ nodes = {}
         subprocess.run(["git", "add", "."], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Feature branch"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import from feature branch
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-            env = test_workspace.import_from_git(
-                git_url=str(remote_repo),
-                name="test-pull-branch",
-                branch="feature",
-                model_strategy="skip"
-            )
+        # Import from feature branch (fixture mocks UV and ComfyUI operations)
+        env = test_workspace.import_from_git(
+            git_url=str(remote_repo),
+            name="test-pull-branch",
+            branch="feature",
+            model_strategy="skip"
+        )
 
         # Verify we're on feature branch
         result = subprocess.run(
@@ -181,7 +169,7 @@ nodes = {}
         assert result["branch"] == "feature"
         assert (env.cec_path / "workflows" / "feature2.json").exists()
 
-    def test_pull_rollback_on_sync_failure(self, test_workspace, tmp_path):
+    def test_pull_rollback_on_sync_failure(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Pull should rollback git changes if sync fails (atomic operation)."""
         # Create remote repo
         remote_repo = tmp_path / "remote-repo"
@@ -206,16 +194,12 @@ nodes = {}
         subprocess.run(["git", "add", "."], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import environment
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-            env = test_workspace.import_from_git(
-                git_url=str(remote_repo),
-                name="test-pull-rollback",
-                model_strategy="skip"
-            )
+        # Import environment (fixture mocks UV and ComfyUI operations)
+        env = test_workspace.import_from_git(
+            git_url=str(remote_repo),
+            name="test-pull-rollback",
+            model_strategy="skip"
+        )
 
         # Get initial commit hash
         initial_commit = subprocess.run(
@@ -258,7 +242,7 @@ nodes = {}
 class TestGitPush:
     """Test push operations."""
 
-    def test_push_pushes_commits(self, test_workspace, tmp_path):
+    def test_push_pushes_commits(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Push should push committed changes to current branch."""
         # Create bare remote repo
         bare_repo = tmp_path / "bare-repo"
@@ -290,16 +274,12 @@ nodes = {}
         subprocess.run(["git", "remote", "add", "origin", str(bare_repo)], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "push", "-u", "origin", "main"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import from bare repo
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-            env = test_workspace.import_from_git(
-                git_url=str(bare_repo),
-                name="test-push",
-                model_strategy="skip"
-            )
+        # Import from bare repo (fixture mocks UV and ComfyUI operations)
+        env = test_workspace.import_from_git(
+            git_url=str(bare_repo),
+            name="test-push",
+            model_strategy="skip"
+        )
 
         # Make and commit local change
         workflows_dir = env.cec_path / "workflows"
@@ -317,7 +297,7 @@ nodes = {}
         subprocess.run(["git", "clone", str(bare_repo), str(verify_repo)], check=True, capture_output=True)
         assert (verify_repo / "workflows" / "new.json").exists()
 
-    def test_push_fails_with_uncommitted_changes(self, test_workspace, tmp_path):
+    def test_push_fails_with_uncommitted_changes(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Push should fail if uncommitted changes exist."""
         # Create bare remote
         bare_repo = tmp_path / "bare-repo"
@@ -349,16 +329,12 @@ nodes = {}
         subprocess.run(["git", "remote", "add", "origin", str(bare_repo)], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "push", "-u", "origin", "main"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import environment
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-            env = test_workspace.import_from_git(
-                git_url=str(bare_repo),
-                name="test-push-dirty",
-                model_strategy="skip"
-            )
+        # Import environment (fixture mocks UV and ComfyUI operations)
+        env = test_workspace.import_from_git(
+            git_url=str(bare_repo),
+            name="test-push-dirty",
+            model_strategy="skip"
+        )
 
         # Make uncommitted change
         workflows_dir = env.cec_path / "workflows"
@@ -369,7 +345,7 @@ nodes = {}
         with pytest.raises(CDEnvironmentError, match="uncommitted changes"):
             env.push_commits(remote="origin")
 
-    def test_push_auto_detects_branch(self, test_workspace, tmp_path):
+    def test_push_auto_detects_branch(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Push should auto-detect current branch instead of assuming main."""
         # Create bare remote
         bare_repo = tmp_path / "bare-repo"
@@ -404,17 +380,13 @@ nodes = {}
         subprocess.run(["git", "remote", "add", "origin", str(bare_repo)], cwd=remote_repo, check=True, capture_output=True)
         subprocess.run(["git", "push", "-u", "origin", "feature"], cwd=remote_repo, check=True, capture_output=True)
 
-        # Import from feature branch
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui') as mock_clone, \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123"), \
-             patch('comfydock_core.caching.comfyui_cache.ComfyUICacheManager.cache_comfyui'):
-            mock_clone.return_value = "main"
-            env = test_workspace.import_from_git(
-                git_url=str(bare_repo),
-                name="test-push-branch",
-                branch="feature",
-                model_strategy="skip"
-            )
+        # Import from feature branch (fixture mocks UV and ComfyUI operations)
+        env = test_workspace.import_from_git(
+            git_url=str(bare_repo),
+            name="test-push-branch",
+            branch="feature",
+            model_strategy="skip"
+        )
 
         # Make and commit change
         workflows_dir = env.cec_path / "workflows"

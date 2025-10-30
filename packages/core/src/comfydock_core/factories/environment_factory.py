@@ -12,7 +12,9 @@ from ..managers.git_manager import GitManager
 from ..models.exceptions import (
     CDEnvironmentExistsError,
 )
+from ..utils.pytorch import extract_pip_show_package_version
 from ..utils.comfyui_ops import clone_comfyui
+from ..utils.environment_cleanup import mark_environment_complete
 
 if TYPE_CHECKING:
     from comfydock_core.core.workspace import Workspace
@@ -28,6 +30,7 @@ class EnvironmentFactory:
         workspace: Workspace,
         python_version: str = "3.12",
         comfyui_version: str | None = None,
+        torch_backend: str = "auto",
     ) -> Environment:
         """Create a new environment."""
         if env_path.exists():
@@ -43,11 +46,18 @@ class EnvironmentFactory:
         python_version_file.write_text(python_version + "\n")
         logger.debug(f"Created .python-version: {python_version}")
 
+        # Log torch backend selection
+        if torch_backend == "auto":
+            logger.info("PyTorch backend: auto (will detect GPU)")
+        else:
+            logger.info(f"PyTorch backend: {torch_backend}")
+
         # Initialize environment
         env = Environment(
             name=name,
             path=env_path,
-            workspace=workspace
+            workspace=workspace,
+            torch_backend=torch_backend,
         )
 
         # Resolve ComfyUI version
@@ -111,24 +121,76 @@ class EnvironmentFactory:
             shutil.rmtree(models_dir)
             logger.debug("Removed ComfyUI's default models directory")
 
-        # Create initial pyproject.toml with full version metadata
+        # Create initial pyproject.toml
         config = EnvironmentFactory._create_initial_pyproject(
             name,
             python_version,
             version_to_clone,
             version_type,
-            commit_sha
+            commit_sha,
+            torch_backend
         )
         env.pyproject.save(config)
 
-        # Get requirements from ComfyUI and add them
+        # Phase 1: Create empty venv
+        logger.info("Creating virtual environment...")
+        env.uv_manager.sync_project(verbose=False)
+
+        # Phase 2: Install PyTorch with uv pip install --torch-backend
+        logger.info(f"Installing PyTorch with backend: {torch_backend}")
+        env.uv_manager.install_packages(
+            packages=["torch", "torchvision", "torchaudio"],
+            python=env.uv_manager.python_executable,
+            torch_backend=torch_backend,
+            verbose=True  # Show progress to user
+        )
+
+        # Phase 3: Query installed PyTorch versions, extract backend, and configure index
+        from ..constants import PYTORCH_CORE_PACKAGES
+        from ..utils.pytorch import extract_backend_from_version, get_pytorch_index_url
+
+        # Get first package version to extract backend
+        first_version = extract_pip_show_package_version(
+            env.uv_manager.show_package("torch", env.uv_manager.python_executable)
+        )
+
+        if first_version:
+            # Extract backend from version (e.g., "2.9.0+cu128" -> "cu128")
+            backend = extract_backend_from_version(first_version)
+            logger.info(f"Detected PyTorch backend from installed version: {backend}")
+
+            # Configure PyTorch index for uv sync (works for any backend)
+            if backend:
+                index_name = f"pytorch-{backend}"
+                env.pyproject.uv_config.add_index(
+                    name=index_name,
+                    url=get_pytorch_index_url(backend),
+                    explicit=True
+                )
+
+                # Add sources for PyTorch packages
+                for pkg in PYTORCH_CORE_PACKAGES:
+                    env.pyproject.uv_config.add_source(pkg, {"index": index_name})
+
+                logger.info(f"Configured PyTorch index: {index_name}")
+
+        # Add constraints for all PyTorch packages
+        for pkg in PYTORCH_CORE_PACKAGES:
+            version = extract_pip_show_package_version(
+                env.uv_manager.show_package(pkg, env.uv_manager.python_executable)
+            )
+            if version:
+                env.pyproject.uv_config.add_constraint(f"{pkg}=={version}")
+                logger.info(f"Pinned {pkg}=={version}")
+
+        # Phase 4: Add ComfyUI requirements
         comfyui_reqs = env.comfyui_path / "requirements.txt"
         if comfyui_reqs.exists():
             logger.info("Adding ComfyUI requirements...")
             env.uv_manager.add_requirements_with_sources(comfyui_reqs, frozen=True)
 
-        # Initial UV sync to create venv (verbose to show progress)
-        logger.info("Creating virtual environment...")
+        # Phase 5: Final UV sync to install all dependencies
+        logger.info("Installing dependencies...")
         env.uv_manager.sync_project(verbose=True)
 
         # Use GitManager for repository initialization
@@ -143,6 +205,9 @@ class EnvironmentFactory:
             logger.error(f"Failed to create model symlink: {e}")
             raise  # FATAL - environment won't work without models
 
+        # Mark environment as fully initialized
+        mark_environment_complete(cec_path)
+
         logger.info(f"Environment '{name}' created successfully")
         return env
 
@@ -151,7 +216,8 @@ class EnvironmentFactory:
         tarball_path: Path,
         name: str,
         env_path: Path,
-        workspace: Workspace
+        workspace: Workspace,
+        torch_backend: str = "auto",
     ) -> Environment:
         """Create environment structure from tarball (extraction only).
 
@@ -164,6 +230,7 @@ class EnvironmentFactory:
             name: Environment name
             env_path: Target environment directory
             workspace: Workspace instance
+            torch_backend: PyTorch backend (auto, cpu, cu118, cu121, etc.)
 
         Returns:
             Environment instance with .cec extracted but not fully initialized
@@ -175,6 +242,12 @@ class EnvironmentFactory:
             raise CDEnvironmentExistsError(f"Environment path already exists: {env_path}")
 
         logger.info(f"Creating environment structure from bundle: {tarball_path}")
+
+        # Log torch backend selection
+        if torch_backend == "auto":
+            logger.info("PyTorch backend: auto (will detect GPU)")
+        else:
+            logger.info(f"PyTorch backend: {torch_backend}")
 
         # Create environment directory structure
         env_path.mkdir(parents=True, exist_ok=True)
@@ -190,7 +263,8 @@ class EnvironmentFactory:
         return Environment(
             name=name,
             path=env_path,
-            workspace=workspace
+            workspace=workspace,
+            torch_backend=torch_backend,
         )
 
     @staticmethod
@@ -199,7 +273,8 @@ class EnvironmentFactory:
         name: str,
         env_path: Path,
         workspace: Workspace,
-        branch: str | None = None
+        branch: str | None = None,
+        torch_backend: str = "auto",
     ) -> Environment:
         """Create environment structure from git repository (clone only).
 
@@ -213,6 +288,7 @@ class EnvironmentFactory:
             env_path: Target environment directory
             workspace: Workspace instance
             branch: Optional branch/tag/commit to checkout
+            torch_backend: PyTorch backend (auto, cpu, cu118, cu121, etc.)
 
         Returns:
             Environment instance with .cec cloned but not fully initialized
@@ -225,6 +301,12 @@ class EnvironmentFactory:
             raise CDEnvironmentExistsError(f"Environment path already exists: {env_path}")
 
         logger.info(f"Creating environment structure from git: {git_url}")
+
+        # Log torch backend selection
+        if torch_backend == "auto":
+            logger.info("PyTorch backend: auto (will detect GPU)")
+        else:
+            logger.info(f"PyTorch backend: {torch_backend}")
 
         # Create environment directory structure
         env_path.mkdir(parents=True, exist_ok=True)
@@ -284,7 +366,8 @@ class EnvironmentFactory:
         return Environment(
             name=name,
             path=env_path,
-            workspace=workspace
+            workspace=workspace,
+            torch_backend=torch_backend,
         )
 
     @staticmethod
@@ -293,7 +376,8 @@ class EnvironmentFactory:
         python_version: str,
         comfyui_version: str,
         comfyui_version_type: str = "branch",
-        comfyui_commit_sha: str | None = None
+        comfyui_commit_sha: str | None = None,
+        torch_backend: str = "auto"
     ) -> dict:
         """Create the initial pyproject.toml."""
         config = {
@@ -309,6 +393,7 @@ class EnvironmentFactory:
                     "comfyui_version_type": comfyui_version_type,
                     "comfyui_commit_sha": comfyui_commit_sha,
                     "python_version": python_version,
+                    "torch_backend": torch_backend,
                     "nodes": {}
                 }
             }

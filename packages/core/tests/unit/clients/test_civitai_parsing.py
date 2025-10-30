@@ -1,9 +1,14 @@
 """Comprehensive tests for CivitAI API response parsing."""
 
 import json
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from comfydock_core.clients.civitai_client import CivitAIClient
+from comfydock_core.caching.api_cache import APICacheManager
 from comfydock_core.models.civitai import (
     CivitAIFile,
     CivitAIModel,
@@ -16,11 +21,18 @@ from comfydock_core.models.civitai import (
 )
 
 
+@pytest.fixture
+def cache_manager():
+    """Create a temporary cache manager for tests."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield APICacheManager(cache_base_path=Path(tmpdir))
+
+
 class TestCivitAIResponseParsing:
     """Test parsing of real CivitAI API responses."""
 
     @patch("urllib.request.urlopen")
-    def test_parse_model_search_response(self, mock_urlopen):
+    def test_parse_model_search_response(self, mock_urlopen, cache_manager):
         """Test parsing complex model search response with TextualInversion."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -120,7 +132,7 @@ class TestCivitAIResponseParsing:
         }).encode()
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
-        client = CivitAIClient()
+        client = CivitAIClient(cache_manager=cache_manager)
         response = client.search_models(limit=3, types=[ModelType.TEXTUAL_INVERSION])
 
         # Test response metadata
@@ -177,7 +189,7 @@ class TestCivitAIResponseParsing:
         assert file.hashes.blake3 == "E7163C1A3F6B135A3E473CDD749BC1E6F4ED2D1AB43FEB1ACC4BEB1E5C205260"
 
     @patch("urllib.request.urlopen")
-    def test_parse_single_model_with_tags_as_objects(self, mock_urlopen):
+    def test_parse_single_model_with_tags_as_objects(self, mock_urlopen, cache_manager):
         """Test parsing single model response with tags as objects."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -302,7 +314,7 @@ class TestCivitAIResponseParsing:
         }).encode()
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
-        client = CivitAIClient()
+        client = CivitAIClient(cache_manager=cache_manager)
         model = client.get_model(1102)
 
         assert model is not None
@@ -339,7 +351,7 @@ class TestCivitAIResponseParsing:
         assert image.meta.get("seed") == 107073939
 
     @patch("urllib.request.urlopen")
-    def test_parse_model_version_response(self, mock_urlopen):
+    def test_parse_model_version_response(self, mock_urlopen, cache_manager):
         """Test parsing model version endpoint response with parent model info."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -404,7 +416,7 @@ class TestCivitAIResponseParsing:
         }).encode()
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
-        client = CivitAIClient()
+        client = CivitAIClient(cache_manager=cache_manager)
         version = client.get_model_version(1318)
 
         assert version is not None
@@ -441,7 +453,7 @@ class TestCivitAIResponseParsing:
         assert image.height == 832
 
     @patch("urllib.request.urlopen")
-    def test_parse_tags_response(self, mock_urlopen):
+    def test_parse_tags_response(self, mock_urlopen, cache_manager):
         """Test parsing tags endpoint response."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -473,7 +485,7 @@ class TestCivitAIResponseParsing:
         }).encode()
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
-        client = CivitAIClient()
+        client = CivitAIClient(cache_manager=cache_manager)
         tags = client.get_tags(limit=3)
 
         assert len(tags) == 3
@@ -485,7 +497,7 @@ class TestCivitAIResponseParsing:
         assert tags[2].model_count == 91
 
     @patch("urllib.request.urlopen")
-    def test_edge_cases_empty_arrays_and_nulls(self, mock_urlopen):
+    def test_edge_cases_empty_arrays_and_nulls(self, mock_urlopen, cache_manager):
         """Test handling of edge cases like empty arrays and null values."""
         mock_response = MagicMock()
         mock_response.status = 200
@@ -540,7 +552,7 @@ class TestCivitAIResponseParsing:
         }).encode()
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
-        client = CivitAIClient()
+        client = CivitAIClient(cache_manager=cache_manager)
         response = client.search_models(limit=1)
 
         model = response.items[0]

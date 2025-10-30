@@ -255,6 +255,10 @@ def mock_comfyui_clone(monkeypatch):
     ComfyUI structure instead of cloning from GitHub.
     """
     import subprocess
+    import sys
+
+    # Save original subprocess.run
+    original_subprocess_run = subprocess.run
 
     def fake_clone_comfyui(target_path: Path, version: str | None = None) -> str:
         """Fake clone that creates ComfyUI structure without network."""
@@ -266,8 +270,22 @@ def mock_comfyui_clone(monkeypatch):
         fake_clone_comfyui
     )
 
-    # Mock git_rev_parse to return a fake commit SHA
+    # Mock git_rev_parse to return fake SHA only for ComfyUI paths
+    # Let real git operations work for test environment repos
     def fake_git_rev_parse(repo_path: Path, ref: str) -> str:
+        # Only return fake SHA if this looks like ComfyUI repo path
+        if "ComfyUI" in str(repo_path):
+            return "abc123def456789012345678901234567890abcd"
+        # Otherwise use real git
+        result = subprocess.run(
+            ["git", "rev-parse", ref],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
         return "abc123def456789012345678901234567890abcd"
 
     monkeypatch.setattr(
@@ -275,17 +293,30 @@ def mock_comfyui_clone(monkeypatch):
         fake_git_rev_parse
     )
 
-    # Mock subprocess.run to handle uv and git commands
-    original_subprocess_run = subprocess.run
+    def _create_venv_structure(cwd: Path) -> None:
+        """Create cross-platform venv structure."""
+        venv_path = cwd / ".venv"
+        venv_path.mkdir(exist_ok=True)
+
+        # Windows uses Scripts/, Unix uses bin/
+        if sys.platform == "win32":
+            scripts_dir = venv_path / "Scripts"
+            scripts_dir.mkdir(exist_ok=True)
+            (scripts_dir / "python.exe").touch()
+        else:
+            bin_dir = venv_path / "bin"
+            bin_dir.mkdir(exist_ok=True)
+            (bin_dir / "python").touch()
 
     def fake_subprocess_run(cmd, *args, **kwargs):
         """Mock subprocess calls for uv and git."""
         if isinstance(cmd, list) and len(cmd) > 0:
-            command = cmd[0]
+            # Get basename for matching (handles full paths like "C:\...\uv.EXE")
+            command_path = Path(cmd[0])
+            command = command_path.stem.lower()  # "uv.EXE" -> "uv"
 
-            # Handle uv commands
+            # Handle all uv commands
             if command == "uv":
-                # Create successful result
                 result = subprocess.CompletedProcess(
                     args=cmd,
                     returncode=0,
@@ -293,41 +324,52 @@ def mock_comfyui_clone(monkeypatch):
                     stderr=""
                 )
 
-                # Handle specific uv subcommands
-                if "sync" in cmd:
-                    # Create .venv if needed
+                # uv sync or uv pip install - create venv
+                if "sync" in cmd or ("pip" in cmd and "install" in cmd):
                     cwd = kwargs.get('cwd', Path.cwd())
                     if isinstance(cwd, (str, Path)):
-                        cwd = Path(cwd)
-                        venv_path = cwd / ".venv"
-                        venv_path.mkdir(exist_ok=True)
-                        (venv_path / "bin").mkdir(exist_ok=True)
-                        (venv_path / "bin" / "python").touch()
+                        _create_venv_structure(Path(cwd))
+
+                # uv pip show - return fake package info
+                elif "pip" in cmd and "show" in cmd:
+                    result.stdout = "Name: torch\nVersion: 2.5.1+cu128\n"
+
+                # uv pip list - return empty list
+                elif "pip" in cmd and "list" in cmd:
+                    result.stdout = ""
+
+                # uv pip freeze - return empty
+                elif "pip" in cmd and "freeze" in cmd:
+                    result.stdout = ""
+
+                # uv add - no-op
+                elif "add" in cmd:
+                    pass
 
                 return result
 
-            # Handle git commands
+            # Handle git commands - let all git commands run real
+            # (git_rev_parse Python function is mocked separately above)
             elif command == "git":
-                result = subprocess.CompletedProcess(
+                return original_subprocess_run(cmd, *args, **kwargs)
+
+            # Handle Windows mklink (for model symlinks)
+            elif command == "mklink":
+                # Create a fake junction/symlink
+                if len(cmd) >= 4 and cmd[1] == "/J":
+                    link_path = Path(cmd[2])
+                    target_path = Path(cmd[3])
+                    # Create actual junction for tests to work
+                    link_path.symlink_to(target_path, target_is_directory=True)
+                return subprocess.CompletedProcess(
                     args=cmd,
                     returncode=0,
-                    stdout="",
+                    stdout="Junction created",
                     stderr=""
                 )
 
-                if "init" in cmd:
-                    # Create .git directory
-                    cwd = kwargs.get('cwd', Path.cwd())
-                    if isinstance(cwd, (str, Path)):
-                        cwd = Path(cwd)
-                        (cwd / ".git").mkdir(exist_ok=True)
-
-                elif "rev-parse" in cmd:
-                    result.stdout = "abc123def456789012345678901234567890abcd"
-
-                return result
-
-        # For other commands, use original
+        # For unmocked commands, use original subprocess.run
+        # This allows tests to run real git commands for test setup
         return original_subprocess_run(cmd, *args, **kwargs)
 
     monkeypatch.setattr("subprocess.run", fake_subprocess_run)

@@ -1,16 +1,15 @@
 [project]
-name = "comfydock-cli"
+name = "comfydock_cli"
 version = "1.0.0"
 description = "ComfyDock CLI"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "comfydock-core",
+    "comfydock_core>=1.0.0",
     "argcomplete>=3.5.0",
 ]
 
 [project.scripts]
-comfydock = "comfydock_cli.cli:main"
 cfd = "comfydock_cli.cli:main"
 
 [build-system]
@@ -18,4 +17,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
-comfydock-core = { workspace = true }
+comfydock_core = { workspace = true }

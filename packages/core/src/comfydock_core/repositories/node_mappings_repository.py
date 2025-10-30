@@ -69,7 +69,7 @@ class NodeMappingsRepository:
             OSError: If file cannot be read
         """
         try:
-            with open(self.mappings_path) as f:
+            with open(self.mappings_path, encoding='utf-8') as f:
                 data = json.load(f)
 
             # Load stats

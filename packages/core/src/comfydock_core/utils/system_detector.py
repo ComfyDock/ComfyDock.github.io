@@ -124,7 +124,7 @@ class SystemDetector:
         venv_file = self.comfyui_path / ".venv"
         if venv_file.exists() and venv_file.is_file():
             try:
-                venv_path = Path(venv_file.read_text().strip())
+                venv_path = Path(venv_file.read_text(encoding='utf-8').strip())
                 if venv_path.exists():
                     if platform.system() == "Windows":
                         python_executable = venv_path / "Scripts" / "python.exe"

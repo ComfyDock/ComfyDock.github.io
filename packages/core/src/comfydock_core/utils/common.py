@@ -111,7 +111,7 @@ def log_pyproject_content(pyproject_path: Path, context: str = "") -> None:
         context: Optional context string for the log message
     """
     try:
-        content = pyproject_path.read_text()
+        content = pyproject_path.read_text(encoding='utf-8')
         # Add indentation to each line for nice formatting
         indented_lines = ['' + line for line in content.split('\n')]
         formatted_content = '\n'.join(indented_lines)
@@ -136,7 +136,7 @@ def log_requirements_content(requirements_file: Path, show_all: bool = True) -> 
         show_all: If True, show all lines, otherwise show a summary
     """
     try:
-        content = requirements_file.read_text()
+        content = requirements_file.read_text(encoding='utf-8')
         lines = content.split('\n')
 
         # Count non-comment, non-empty lines

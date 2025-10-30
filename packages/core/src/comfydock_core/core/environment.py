@@ -23,6 +23,7 @@ from ..models.workflow import DownloadResult
 from ..strategies.confirmation import ConfirmationStrategy
 from ..services.model_downloader import DownloadRequest
 from ..utils.common import run_command
+from ..utils.pytorch import extract_pip_show_package_version
 from ..validation.resolution_tester import ResolutionTester
 
 if TYPE_CHECKING:
@@ -56,10 +57,12 @@ class Environment:
         name: str,
         path: Path,
         workspace: Workspace,
+        torch_backend: str | None = None,
     ):
         self.name = name
         self.path = path
         self.workspace = workspace
+        self.torch_backend = torch_backend
 
         # Workspace-level paths
         self.workspace_paths = workspace.paths
@@ -87,6 +90,7 @@ class Environment:
             self.workspace_paths.root,
             cec_path=self.cec_path,
             venv_path=self.venv_path,
+            torch_backend=self.torch_backend,
         )
 
     @cached_property
@@ -97,7 +101,6 @@ class Environment:
     def node_lookup(self) -> NodeLookupService:
         from ..services.node_lookup_service import NodeLookupService
         return NodeLookupService(
-            workspace_path=self.workspace_paths.root,
             cache_path=self.workspace_paths.cache,
             node_mappings_repository=self.node_mapping_repository,
             workspace_config_repository=self.workspace_config_manager,
@@ -152,6 +155,8 @@ class Environment:
     @cached_property
     def git_manager(self) -> GitManager:
         return GitManager(self.cec_path)
+
+    ## Helper methods ##
 
     ## Public methods ##
 
@@ -295,6 +300,13 @@ class Environment:
             logger.warning(f"Failed to ensure model symlink: {e}")
             result.errors.append(f"Model symlink configuration failed: {e}")
             # Continue anyway - symlink might already exist from environment creation
+
+        # Mark environment as complete after successful sync (repair operation)
+        # This ensures environments that lost .complete (e.g., from manual git pull) are visible
+        if result.success and not dry_run:
+            from ..utils.environment_cleanup import mark_environment_complete
+            mark_environment_complete(self.cec_path)
+            logger.debug("Marked environment as complete")
 
         if result.success:
             logger.info("Successfully synced environment")
@@ -1028,6 +1040,77 @@ class Environment:
         """List constraint dependencies."""
         return self.pyproject.uv_config.get_constraints()
 
+    # ===== Python Dependency Management =====
+
+    def add_dependencies(
+        self,
+        packages: list[str] | None = None,
+        requirements_file: Path | None = None,
+        upgrade: bool = False
+    ) -> str:
+        """Add Python dependencies to the environment.
+
+        Uses uv add to add packages to [project.dependencies] and install them.
+
+        Args:
+            packages: List of package specifications (e.g., ['requests>=2.0.0', 'pillow'])
+            requirements_file: Path to requirements.txt file to add packages from
+            upgrade: Whether to upgrade existing packages
+
+        Returns:
+            UV command output
+
+        Raises:
+            UVCommandError: If uv add fails
+            ValueError: If neither packages nor requirements_file is provided
+        """
+        if not packages and not requirements_file:
+            raise ValueError("Either packages or requirements_file must be provided")
+
+        return self.uv_manager.add_dependency(
+            packages=packages,
+            requirements_file=requirements_file,
+            upgrade=upgrade
+        )
+
+    def remove_dependencies(self, packages: list[str]) -> dict:
+        """Remove Python dependencies from the environment.
+
+        Uses uv remove to remove packages from [project.dependencies] and uninstall them.
+        Safely handles packages that don't exist in dependencies.
+
+        Args:
+            packages: List of package names to remove
+
+        Returns:
+            Dict with 'removed' (list of packages removed) and 'skipped' (list of packages not in deps)
+
+        Raises:
+            UVCommandError: If uv remove fails for existing packages
+        """
+        return self.uv_manager.remove_dependency(packages=packages)
+
+    def list_dependencies(self, all: bool = False) -> dict[str, list[str]]:
+        """List project dependencies.
+
+        Args:
+            all: If True, include all dependency groups. If False, only base dependencies.
+
+        Returns:
+            Dictionary mapping group name to list of dependencies.
+            Base dependencies are always under "dependencies" key and appear first.
+        """
+        config = self.pyproject.load()
+        base_deps = config.get('project', {}).get('dependencies', [])
+
+        result = {"dependencies": base_deps}
+
+        if all:
+            dep_groups = self.pyproject.dependencies.get_groups()
+            result.update(dep_groups)
+
+        return result
+
     def _execute_pending_downloads(
         self,
         result: ResolutionResult,
@@ -1505,15 +1588,110 @@ class Environment:
         if models_dir.exists() and not models_dir.is_symlink():
             shutil.rmtree(models_dir)
 
-        # Phase 2: Install dependencies
+        # Phase 1.5: Create venv and optionally install PyTorch with specific backend
+        # Read Python version from .python-version file
+        python_version_file = self.cec_path / ".python-version"
+        python_version = python_version_file.read_text(encoding='utf-8').strip() if python_version_file.exists() else None
+
+        if self.torch_backend:
+            if callbacks:
+                callbacks.on_phase("configure_pytorch", f"Configuring PyTorch backend: {self.torch_backend}")
+
+            logger.info(f"Creating venv with Python {python_version}")
+            # Create empty venv (doesn't install project dependencies)
+            self.uv_manager.create_venv(self.venv_path, python_version=python_version, seed=True)
+
+            logger.info(f"Installing PyTorch with backend: {self.torch_backend}")
+            # Install PyTorch with specified backend
+            self.uv_manager.install_packages(
+                packages=["torch", "torchvision", "torchaudio"],
+                python=self.uv_manager.python_executable,
+                torch_backend=self.torch_backend,
+                verbose=True
+            )
+
+            # Update constraints and index configuration with new versions
+            from ..constants import PYTORCH_CORE_PACKAGES
+            from ..utils.pytorch import extract_backend_from_version, get_pytorch_index_url
+
+            # Get first package version to extract backend
+            first_version = extract_pip_show_package_version(
+                self.uv_manager.show_package("torch", self.uv_manager.python_executable)
+            )
+
+            if first_version:
+                # Extract backend and configure index
+                backend = extract_backend_from_version(first_version)
+                logger.info(f"Detected PyTorch backend from installed version: {backend}")
+
+                if backend:
+                    # Remove old PyTorch indexes/sources
+                    config = self.pyproject.load()
+                    if "tool" in config and "uv" in config["tool"]:
+                        # Remove old PyTorch indexes
+                        indexes = config["tool"]["uv"].get("index", [])
+                        if isinstance(indexes, list):
+                            config["tool"]["uv"]["index"] = [
+                                idx for idx in indexes
+                                if not any(p in idx.get("name", "").lower() for p in ["pytorch-", "torch-"])
+                            ]
+
+                        # Remove old PyTorch sources
+                        sources = config.get("tool", {}).get("uv", {}).get("sources", {})
+                        for pkg in PYTORCH_CORE_PACKAGES:
+                            sources.pop(pkg, None)
+
+                        self.pyproject.save(config)
+
+                    # Configure new index (works for any backend)
+                    index_name = f"pytorch-{backend}"
+                    self.pyproject.uv_config.add_index(
+                        name=index_name,
+                        url=get_pytorch_index_url(backend),
+                        explicit=True
+                    )
+
+                    # Add sources
+                    for pkg in PYTORCH_CORE_PACKAGES:
+                        self.pyproject.uv_config.add_source(pkg, {"index": index_name})
+
+                    logger.info(f"Configured PyTorch index: {index_name}")
+
+            # Update constraints
+            for pkg in PYTORCH_CORE_PACKAGES:
+                version = extract_pip_show_package_version(
+                    self.uv_manager.show_package(pkg, self.uv_manager.python_executable)
+                )
+                if version:
+                    # Remove old constraint if exists
+                    self.pyproject.uv_config.remove_constraint(pkg)
+                    # Add new constraint
+                    self.pyproject.uv_config.add_constraint(f"{pkg}=={version}")
+                    logger.info(f"Updated constraint: {pkg}=={version}")
+
+        # Phase 2: Install dependencies (will skip torch if already installed)
         if callbacks:
             callbacks.on_phase("install_deps", "Installing dependencies...")
         self.uv_manager.sync_project(verbose=False)
 
-        # Phase 3: Initialize git
+        # Phase 3: Setup git repository
+        # For git imports: .git already exists with remote, just ensure gitignore
+        # For tarball imports: .git doesn't exist, initialize fresh repo
+        git_existed = (self.cec_path / ".git").exists()
+
         if callbacks:
-            callbacks.on_phase("init_git", "Initializing git repository...")
-        self.git_manager.initialize_environment_repo("Imported environment")
+            phase_msg = "Ensuring git configuration..." if git_existed else "Initializing git repository..."
+            callbacks.on_phase("init_git", phase_msg)
+
+        if git_existed:
+            # Git import case: preserve existing repo, just ensure gitignore
+            logger.info("Git repository already exists (imported from git), preserving remote and history")
+            self.git_manager._create_gitignore()
+            self.git_manager.ensure_git_identity()
+        else:
+            # Tarball import case: initialize fresh repo
+            logger.info("Initializing new git repository")
+            self.git_manager.initialize_environment_repo("Imported environment")
 
         # Phase 4: Copy workflows
         if callbacks:
@@ -1590,5 +1768,15 @@ class Environment:
         # Report download failures
         if download_failures and callbacks:
             callbacks.on_download_failures(download_failures)
+
+        # Mark environment as fully initialized
+        from ..utils.environment_cleanup import mark_environment_complete
+        mark_environment_complete(self.cec_path)
+
+        # Phase 7: Commit all changes from import process
+        # This captures: workflows copied, nodes synced, models resolved, pyproject updates
+        if self.git_manager.has_uncommitted_changes():
+            self.git_manager.commit_with_identity("Imported environment", add_all=True)
+            logger.info("Committed import changes")
 
         logger.info("Import finalization completed successfully")

@@ -229,9 +229,11 @@ class ModelRepository:
         """
 
         base_dir_str = str(base_directory.resolve())
+        # Normalize to forward slashes for cross-platform consistency
+        normalized_path = relative_path.replace('\\', '/')
         self.sqlite.execute_write(
             query,
-            (model_hash, base_dir_str, relative_path, filename, mtime, int(datetime.now().timestamp()))
+            (model_hash, base_dir_str, normalized_path, filename, mtime, int(datetime.now().timestamp()))
         )
 
         logger.debug(f"Added location: {base_dir_str}/{relative_path} for model {model_hash[:8]}...")
@@ -794,6 +796,9 @@ class ModelRepository:
         if base_directory == "USE_CURRENT":
             base_directory = self.current_directory
 
+        # Normalize to forward slashes for cross-platform consistency
+        normalized_path = relative_path.replace('\\', '/')
+
         if base_directory:
             base_dir_str = str(base_directory.resolve())
             query = """
@@ -804,7 +809,7 @@ class ModelRepository:
             WHERE l.relative_path = ? AND l.base_directory = ?
             LIMIT 1
             """
-            results = self.sqlite.execute_query(query, (relative_path, base_dir_str))
+            results = self.sqlite.execute_query(query, (normalized_path, base_dir_str))
         else:
             query = """
             SELECT m.hash, m.file_size, m.blake3_hash, m.sha256_hash, m.metadata,
@@ -814,7 +819,7 @@ class ModelRepository:
             WHERE l.relative_path = ?
             LIMIT 1
             """
-            results = self.sqlite.execute_query(query, (relative_path,))
+            results = self.sqlite.execute_query(query, (normalized_path,))
 
         if not results:
             return None

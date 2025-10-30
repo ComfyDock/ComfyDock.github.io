@@ -73,3 +73,9 @@ GITHUB_NODE_MAPPINGS_URL = "https://raw.githubusercontent.com/ComfyDock/ComfyDoc
 
 # TODO: Update to 24 hours in actual release
 MAX_REGISTRY_DATA_AGE_HOURS = 2400
+
+# PyTorch core packages
+PYTORCH_CORE_PACKAGES = ["torch", "torchvision", "torchaudio"]
+
+# PyTorch index base URL
+PYTORCH_INDEX_BASE_URL = "https://download.pytorch.org/whl"

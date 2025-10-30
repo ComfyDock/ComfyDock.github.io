@@ -9,7 +9,7 @@ import pytest
 class TestGitSubdirectoryImport:
     """Test importing environments from subdirectories in git repositories."""
 
-    def test_import_from_subdirectory(self, test_workspace, tmp_path):
+    def test_import_from_subdirectory(self, test_workspace, tmp_path, mock_comfyui_clone, mock_github_api):
         """Test importing from a subdirectory using # syntax."""
         # Create a mock git repo with subdirectory structure
         git_repo = tmp_path / "test-repo"
@@ -62,24 +62,13 @@ nodes = {}
             env=env_vars
         )
 
-        # Mock clone_comfyui to avoid actually cloning ComfyUI
-        def mock_clone_comfyui(target_path, version):
-            target_path.mkdir(parents=True, exist_ok=True)
-            (target_path / "main.py").write_text("# ComfyUI")
-            (target_path / "folder_paths.py").write_text("# paths")
-            (target_path / "comfy").mkdir()
-            (target_path / "models").mkdir()
-            return version
-
-        # Import with subdirectory syntax
-        with patch('comfydock_core.utils.comfyui_ops.clone_comfyui', side_effect=mock_clone_comfyui), \
-             patch('comfydock_core.utils.git.git_rev_parse', return_value="abc123def456"):
-            git_url = f"{git_repo}#examples/example1"
-            env = test_workspace.import_from_git(
-                git_url=git_url,
-                name="test-subdir-env",
-                model_strategy="skip"
-            )
+        # Import with subdirectory syntax (fixture handles mocking)
+        git_url = f"{git_repo}#examples/example1"
+        env = test_workspace.import_from_git(
+            git_url=git_url,
+            name="test-subdir-env",
+            model_strategy="skip"
+        )
 
         # Verify environment was created with subdirectory contents
         assert env.path.exists()

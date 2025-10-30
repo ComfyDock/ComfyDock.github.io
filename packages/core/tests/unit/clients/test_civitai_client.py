@@ -1,29 +1,40 @@
 """Tests for CivitAI API client."""
 
 import json
+import tempfile
 from unittest.mock import MagicMock, patch, mock_open
 from pathlib import Path
 
+import pytest
+
 from comfydock_core.clients.civitai_client import CivitAIClient
 from comfydock_core.models.civitai import SearchParams, ModelType, SortOrder
+from comfydock_core.caching.api_cache import APICacheManager
+
+
+@pytest.fixture
+def cache_manager():
+    """Create a temporary cache manager for tests."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield APICacheManager(cache_base_path=Path(tmpdir))
 
 
 class TestCivitAIClient:
     """Test CivitAI client functionality."""
 
-    def test_client_initialization_with_api_key(self):
+    def test_client_initialization_with_api_key(self, cache_manager):
         """Test client initializes with direct API key."""
-        client = CivitAIClient(api_key="test-api-key")
+        client = CivitAIClient(cache_manager=cache_manager, api_key="test-api-key")
         assert client._api_key == "test-api-key"
 
     @patch.dict("os.environ", {"CIVITAI_API_TOKEN": "env-api-key"})
-    def test_client_uses_environment_token(self):
+    def test_client_uses_environment_token(self, cache_manager):
         """Test client uses environment variable when no direct key provided."""
-        client = CivitAIClient()
+        client = CivitAIClient(cache_manager=cache_manager)
         assert client._api_key == "env-api-key"
 
     @patch("urllib.request.urlopen")
-    def test_search_models_basic(self, mock_urlopen):
+    def test_search_models_basic(self, mock_urlopen, cache_manager):
         """Test basic model search functionality."""
         # Mock API response
         mock_response = MagicMock()
@@ -55,7 +66,7 @@ class TestCivitAIClient:
         }).encode()
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
-        client = CivitAIClient()
+        client = CivitAIClient(cache_manager=cache_manager)
         response = client.search_models(query="anime", limit=10)
 
         assert len(response.items) == 1
@@ -81,9 +92,9 @@ class TestCivitAIClient:
         assert result["limit"] == 50
         assert result["nsfw"] == "false"
 
-    def test_hash_algorithm_detection(self):
+    def test_hash_algorithm_detection(self, cache_manager):
         """Test automatic hash algorithm detection."""
-        client = CivitAIClient()
+        client = CivitAIClient(cache_manager=cache_manager)
 
         assert client._detect_hash_algorithm("12345678") == "CRC32"
         assert client._detect_hash_algorithm("1234567890") == "AutoV1"
@@ -91,9 +102,9 @@ class TestCivitAIClient:
         assert client._detect_hash_algorithm("a" * 64) == "SHA256"
         assert client._detect_hash_algorithm("b" * 128) == "Blake3"
 
-    def test_download_url_generation(self):
+    def test_download_url_generation(self, cache_manager):
         """Test download URL generation with parameters."""
-        client = CivitAIClient(api_key="test-token")
+        client = CivitAIClient(cache_manager=cache_manager, api_key="test-token")
 
         url = client.get_download_url(
             version_id=12345,

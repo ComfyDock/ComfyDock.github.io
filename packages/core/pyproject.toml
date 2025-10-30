@@ -1,5 +1,5 @@
 [project]
-name = "comfydock-core"
+name = "comfydock_core"
 version = "1.0.0"
 description = "ComfyDock Core - ComfyUI Package and Environment Manager"
 readme = "README.md"

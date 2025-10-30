@@ -360,9 +360,9 @@ class WorkflowManager:
 
         try:
             # Compare file contents, ignoring volatile metadata fields
-            with open(comfyui_file) as f:
+            with open(comfyui_file, encoding='utf-8') as f:
                 comfyui_content = json.load(f)
-            with open(cec_file) as f:
+            with open(cec_file, encoding='utf-8') as f:
                 cec_content = json.load(f)
 
             # Normalize by removing volatile fields that change between saves
@@ -1348,14 +1348,14 @@ class WorkflowManager:
         if not model:
             return False
 
-        # Get expected path after stripping base directory
+        # Get expected path after stripping base directory (already normalized to forward slashes)
         expected_path = self._strip_base_directory_for_node(
             ref.node_type,
             model.relative_path
         )
 
-        # Get current path from workflow JSON widget value
-        current_path = ref.widget_value
+        # Normalize current path for comparison (handles Windows backslashes)
+        current_path = ref.widget_value.replace('\\', '/')
 
         # Return True if paths differ
         return current_path != expected_path
@@ -1393,6 +1393,9 @@ class WorkflowManager:
             "a/b/c/model.ckpt"  # Subdirectories preserved
         """
         from ..configs.model_config import ModelConfig
+
+        # Normalize to forward slashes for cross-platform compatibility (Windows uses backslashes)
+        relative_path = relative_path.replace('\\', '/')
 
         model_config = ModelConfig.load()
         base_dirs = model_config.get_directories_for_node(node_type)

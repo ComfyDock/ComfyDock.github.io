@@ -18,8 +18,48 @@ from .global_commands import GlobalCommands
 from .logging.logging_config import setup_logging
 
 
+def _get_cfd_config_dir() -> Path:
+    """Get CFD config directory (creates if needed)."""
+    config_dir = Path.home() / ".config" / "cfd"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return config_dir
+
+
+def _check_for_old_docker_installation():
+    """Warn once about old Docker-based ComfyDock installation."""
+    old_config = Path.home() / ".comfydock" / "environments.json"
+    if not old_config.exists():
+        return  # No old Docker installation detected
+
+    # Check if we've already shown this warning
+    warning_flag = _get_cfd_config_dir() / ".docker_warning_shown"
+    if warning_flag.exists():
+        return  # Already warned user
+
+    # Show warning (compact, informative)
+    print("\n" + "="*70)
+    print("ℹ️  OLD DOCKER-BASED COMFYDOCK DETECTED")
+    print("="*70)
+    print("\nYou have an old Docker-based ComfyDock (v0.3.x) at ~/.comfydock")
+    print("This is the NEW ComfyDock v1.0+ (UV-based).")
+    print("\nKey differences:")
+    print("  • Old version: Docker containers, 'comfydock' command")
+    print("  • New version: UV packages, 'cfd' command")
+    print("\nBoth versions can coexist. Your old environments are unchanged.")
+    print("\nTo use old version: pip install comfydock==0.1.6")
+    print("To use new version: cfd init")
+    print("\nMigration guide: https://github.com/ComfyDock/comfydock/blob/main/MIGRATION.md")
+    print("="*70 + "\n")
+
+    # Mark warning as shown
+    warning_flag.touch()
+
+
 def main():
     """Main entry point for ComfyDock CLI."""
+    # Check for old Docker installation (show warning once)
+    _check_for_old_docker_installation()
+
     # Initialize logging system with minimal console output
     # Environment commands will add file handlers as needed
     setup_logging(level="INFO", simple_format=True, console_level="CRITICAL")
@@ -57,7 +97,7 @@ def create_parser():
     """Create the argument parser with hierarchical command structure."""
     parser = argparse.ArgumentParser(
         description="ComfyDock - Manage ComfyUI workspaces and environments",
-        prog="comfydock"
+        prog="cfd"
     )
 
     # Global options
@@ -91,6 +131,8 @@ def _add_global_commands(subparsers):
     # init - Initialize workspace
     init_parser = subparsers.add_parser("init", help="Initialize ComfyDock workspace")
     init_parser.add_argument("path", type=Path, nargs="?", help="Workspace directory (default: ~/comfydock)")
+    init_parser.add_argument("--models-dir", type=Path, help="Path to existing models directory to index")
+    init_parser.add_argument("--yes", "-y", action="store_true", help="Use all defaults, no interactive prompts")
     init_parser.set_defaults(func=global_cmds.init)
 
     # list - List all environments
@@ -98,17 +140,27 @@ def _add_global_commands(subparsers):
     list_parser.set_defaults(func=global_cmds.list_envs)
 
     # migrate - Import existing ComfyUI
-    migrate_parser = subparsers.add_parser("migrate", help="Scan and import existing ComfyUI instance")
-    migrate_parser.add_argument("source_path", type=Path, help="Path to existing ComfyUI")
-    migrate_parser.add_argument("env_name", help="New environment name")
-    migrate_parser.add_argument("--scan-only", action="store_true", help="Only scan, don't import")
-    migrate_parser.set_defaults(func=global_cmds.migrate)
+    # migrate_parser = subparsers.add_parser("migrate", help="Scan and import existing ComfyUI instance")
+    # migrate_parser.add_argument("source_path", type=Path, help="Path to existing ComfyUI")
+    # migrate_parser.add_argument("env_name", help="New environment name")
+    # migrate_parser.add_argument("--scan-only", action="store_true", help="Only scan, don't import")
+    # migrate_parser.set_defaults(func=global_cmds.migrate)
 
     # import - Import ComfyDock environment
     import_parser = subparsers.add_parser("import", help="Import ComfyDock environment from tarball or git repository")
     import_parser.add_argument("path", type=str, nargs="?", help="Path to .tar.gz file or git repository URL (use #subdirectory for subdirectory imports)")
     import_parser.add_argument("--name", type=str, help="Name for imported environment (skip prompt)")
     import_parser.add_argument("--branch", "-b", type=str, help="Git branch, tag, or commit to import (git imports only)")
+    import_parser.add_argument(
+        "--torch-backend",
+        default="auto",
+        metavar="BACKEND",
+        help=(
+            "PyTorch backend. Examples: auto (detect GPU), cpu, "
+            "cu128 (CUDA 12.8), cu126, cu124, rocm6.3 (AMD), xpu (Intel). "
+            "Default: auto"
+        ),
+    )
     import_parser.add_argument("--use", action="store_true", help="Set imported environment as active")
     import_parser.set_defaults(func=global_cmds.import_env)
 
@@ -215,6 +267,16 @@ def _add_env_commands(subparsers):
     create_parser.add_argument("--template", type=Path, help="Template manifest")
     create_parser.add_argument("--python", default="3.11", help="Python version")
     create_parser.add_argument("--comfyui", help="ComfyUI version")
+    create_parser.add_argument(
+        "--torch-backend",
+        default="auto",
+        metavar="BACKEND",
+        help=(
+            "PyTorch backend. Examples: auto (detect GPU), cpu, "
+            "cu128 (CUDA 12.8), cu126, cu124, rocm6.3 (AMD), xpu (Intel). "
+            "Default: auto"
+        ),
+    )
     create_parser.add_argument("--use", action="store_true", help="Set active environment after creation")
     create_parser.set_defaults(func=env_cmds.create)
 
@@ -252,17 +314,28 @@ def _add_env_commands(subparsers):
     )
     repair_parser.set_defaults(func=env_cmds.repair)
 
-    # commit - Commit unsaved changes
-    commit_parser = subparsers.add_parser("commit", help="Commit unsaved changes to pyproject.toml (or uv.lock)")
+    # commit - Commit management with subcommands
+    commit_parser = subparsers.add_parser("commit", help="Commit changes and view history")
+    commit_subparsers = commit_parser.add_subparsers(dest="commit_command", help="Commit commands")
+
+    # commit log - Show commit history
+    commit_log_parser = commit_subparsers.add_parser("log", help="Show commit history")
+    commit_log_parser.add_argument("-v", "--verbose", action="store_true", help="Show full details")
+    commit_log_parser.set_defaults(func=env_cmds.commit_log)
+
+    # commit (no subcommand) - defaults to save
     commit_parser.add_argument("-m", "--message", help="Commit message (auto-generated if not provided)")
     commit_parser.add_argument("--auto", action="store_true", help="Auto-resolve issues without interaction")
     commit_parser.add_argument("--allow-issues", action="store_true", help="Allow committing workflows with unresolved issues")
     commit_parser.set_defaults(func=env_cmds.commit)
 
-    # log - Show commit history
-    log_parser = subparsers.add_parser("log", help="Show commit history")
-    log_parser.add_argument("-v", "--verbose", action="store_true", help="Show full details")
-    log_parser.set_defaults(func=env_cmds.log)
+    # logs - Show application logs
+    logs_parser = subparsers.add_parser("logs", help="Show application logs for debugging")
+    logs_parser.add_argument("-n", "--lines", type=int, default=200, help="Number of lines to show (default: 200)")
+    logs_parser.add_argument("--level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Filter by log level")
+    logs_parser.add_argument("--full", action="store_true", help="Show all logs (no line limit)")
+    logs_parser.add_argument("--workspace", action="store_true", help="Show workspace logs instead of environment logs")
+    logs_parser.set_defaults(func=env_cmds.logs)
 
     # rollback - Revert changes
     rollback_parser = subparsers.add_parser("rollback", help="Rollback to a previous version or discard uncommitted changes")
@@ -415,6 +488,27 @@ def _add_env_commands(subparsers):
     constraint_remove_parser = constraint_subparsers.add_parser("remove", help="Remove constraint dependencies")
     constraint_remove_parser.add_argument("packages", nargs="+", help="Package names to remove")
     constraint_remove_parser.set_defaults(func=env_cmds.constraint_remove)
+
+    # Python dependency management subcommands
+    py_parser = subparsers.add_parser("py", help="Manage Python dependencies")
+    py_subparsers = py_parser.add_subparsers(dest="py_command", help="Python dependency commands")
+
+    # py add
+    py_add_parser = py_subparsers.add_parser("add", help="Add Python dependencies")
+    py_add_parser.add_argument("packages", nargs="*", help="Package specifications (e.g., requests>=2.0.0)")
+    py_add_parser.add_argument("-r", "--requirements", type=Path, help="Add packages from requirements.txt file")
+    py_add_parser.add_argument("--upgrade", action="store_true", help="Upgrade existing packages")
+    py_add_parser.set_defaults(func=env_cmds.py_add)
+
+    # py remove
+    py_remove_parser = py_subparsers.add_parser("remove", help="Remove Python dependencies")
+    py_remove_parser.add_argument("packages", nargs="+", help="Package names to remove")
+    py_remove_parser.set_defaults(func=env_cmds.py_remove)
+
+    # py list
+    py_list_parser = py_subparsers.add_parser("list", help="List project dependencies")
+    py_list_parser.add_argument("--all", action="store_true", help="Show all dependencies including dependency groups")
+    py_list_parser.set_defaults(func=env_cmds.py_list)
 
 if __name__ == "__main__":
     main()

@@ -61,21 +61,21 @@ class CivitAIClient:
 
     def __init__(
         self,
+        cache_manager: APICacheManager,
         api_key: str | None = None,
         workspace_config: WorkspaceConfigRepository | None = None,
         base_url: str = DEFAULT_CIVITAI_URL,
-        cache_manager: APICacheManager | None = None,
     ):
         """Initialize CivitAI client.
 
         Args:
+            cache_manager: Required cache manager for API responses
             api_key: Direct API key override
             workspace_config: Workspace config repository for API key lookup
             base_url: CivitAI API base URL
-            cache_manager: Cache manager for API responses
         """
         self.base_url = base_url
-        self.cache_manager = cache_manager or APICacheManager()
+        self.cache_manager = cache_manager
         self.workspace_config = workspace_config
 
         # Resolve API key: direct > environment > config

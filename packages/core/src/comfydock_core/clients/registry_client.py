@@ -34,11 +34,11 @@ class ComfyRegistryClient:
 
     def __init__(
         self,
+        cache_manager: APICacheManager,
         base_url: str = DEFAULT_REGISTRY_URL,
-        cache_manager: APICacheManager | None = None,
     ):
         self.base_url = base_url
-        self.cache_manager = cache_manager or APICacheManager()
+        self.cache_manager = cache_manager
         self.rate_limiter = RateLimitManager(min_interval=0.05)
         self.retry_config = RetryConfig(
             max_retries=3,
