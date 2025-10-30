@@ -1596,10 +1596,24 @@ class Environment:
             callbacks.on_phase("install_deps", "Installing dependencies...")
         self.uv_manager.sync_project(verbose=False)
 
-        # Phase 3: Initialize git
+        # Phase 3: Setup git repository
+        # For git imports: .git already exists with remote, just ensure gitignore
+        # For tarball imports: .git doesn't exist, initialize fresh repo
+        git_existed = (self.cec_path / ".git").exists()
+
         if callbacks:
-            callbacks.on_phase("init_git", "Initializing git repository...")
-        self.git_manager.initialize_environment_repo("Imported environment")
+            phase_msg = "Ensuring git configuration..." if git_existed else "Initializing git repository..."
+            callbacks.on_phase("init_git", phase_msg)
+
+        if git_existed:
+            # Git import case: preserve existing repo, just ensure gitignore
+            logger.info("Git repository already exists (imported from git), preserving remote and history")
+            self.git_manager._create_gitignore()
+            self.git_manager.ensure_git_identity()
+        else:
+            # Tarball import case: initialize fresh repo
+            logger.info("Initializing new git repository")
+            self.git_manager.initialize_environment_repo("Imported environment")
 
         # Phase 4: Copy workflows
         if callbacks:
@@ -1680,5 +1694,11 @@ class Environment:
         # Mark environment as fully initialized
         from ..utils.environment_cleanup import mark_environment_complete
         mark_environment_complete(self.cec_path)
+
+        # Phase 7: Commit all changes from import process
+        # This captures: workflows copied, nodes synced, models resolved, pyproject updates
+        if self.git_manager.has_uncommitted_changes():
+            self.git_manager.commit_with_identity("Imported environment", add_all=True)
+            logger.info("Committed import changes")
 
         logger.info("Import finalization completed successfully")

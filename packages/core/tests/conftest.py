@@ -270,8 +270,22 @@ def mock_comfyui_clone(monkeypatch):
         fake_clone_comfyui
     )
 
-    # Mock git_rev_parse to return a fake commit SHA
+    # Mock git_rev_parse to return fake SHA only for ComfyUI paths
+    # Let real git operations work for test environment repos
     def fake_git_rev_parse(repo_path: Path, ref: str) -> str:
+        # Only return fake SHA if this looks like ComfyUI repo path
+        if "ComfyUI" in str(repo_path):
+            return "abc123def456789012345678901234567890abcd"
+        # Otherwise use real git
+        result = subprocess.run(
+            ["git", "rev-parse", ref],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
         return "abc123def456789012345678901234567890abcd"
 
     monkeypatch.setattr(
@@ -334,17 +348,9 @@ def mock_comfyui_clone(monkeypatch):
 
                 return result
 
-            # Handle git commands - only mock specific ones, let others run real
+            # Handle git commands - let all git commands run real
+            # (git_rev_parse Python function is mocked separately above)
             elif command == "git":
-                # Only mock git rev-parse, let all other git commands run normally
-                if "rev-parse" in cmd:
-                    return subprocess.CompletedProcess(
-                        args=cmd,
-                        returncode=0,
-                        stdout="abc123def456789012345678901234567890abcd",
-                        stderr=""
-                    )
-                # For all other git commands, use original (real git)
                 return original_subprocess_run(cmd, *args, **kwargs)
 
             # Handle Windows mklink (for model symlinks)
