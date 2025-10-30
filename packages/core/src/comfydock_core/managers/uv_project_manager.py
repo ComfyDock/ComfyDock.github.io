@@ -144,7 +144,7 @@ class UVProjectManager:
 
         # Handle both Path and list[str] input
         if isinstance(requirements, Path):
-            with open(requirements) as f:
+            with open(requirements, encoding='utf-8') as f:
                 lines = f.readlines()
         else:
             lines = requirements

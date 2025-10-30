@@ -136,7 +136,7 @@ class PyprojectManager:
         start_time = time.perf_counter()
 
         try:
-            with open(self.path) as f:
+            with open(self.path, encoding='utf-8') as f:
                 config = tomlkit.load(f)
         except (OSError, TOMLKitError) as e:
             raise CDPyprojectInvalidError(f"Failed to parse pyproject.toml at {self.path}: {e}")

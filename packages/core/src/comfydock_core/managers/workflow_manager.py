@@ -360,9 +360,9 @@ class WorkflowManager:
 
         try:
             # Compare file contents, ignoring volatile metadata fields
-            with open(comfyui_file) as f:
+            with open(comfyui_file, encoding='utf-8') as f:
                 comfyui_content = json.load(f)
-            with open(cec_file) as f:
+            with open(cec_file, encoding='utf-8') as f:
                 cec_content = json.load(f)
 
             # Normalize by removing volatile fields that change between saves

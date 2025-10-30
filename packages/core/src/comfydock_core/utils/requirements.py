@@ -175,7 +175,7 @@ def save_requirements_txt(requirements: dict[str, str], system_info: dict, comfy
     """Save the resolved requirements to a requirements.txt file."""
     req_path = Path("comfyui_requirements.txt")
 
-    with open(req_path, 'w') as f:
+    with open(req_path, 'w', encoding='utf-8') as f:
         f.write("# ComfyUI Migration Requirements\n")
         f.write(f"# Generated from: {comfyui_path}\n")
         f.write(f"# Python version: {system_info.get('python_version')}\n")

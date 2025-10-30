@@ -92,7 +92,7 @@ class WorkspaceFactory:
                 }
             }
 
-            with open(workspace_paths.workspace_file, 'w') as f:
+            with open(workspace_paths.workspace_file, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, indent=2)
 
             logger.info(f"Created workspace at {workspace_paths.root}")

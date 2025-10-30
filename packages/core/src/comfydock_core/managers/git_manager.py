@@ -60,6 +60,9 @@ __pycache__/
 # Temporary files
 *.tmp
 *.bak
+
+# Runtime marker (created after successful environment initialization)
+.complete
 """
 
     def ensure_git_identity(self) -> None:

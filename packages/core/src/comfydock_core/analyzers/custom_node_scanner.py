@@ -63,7 +63,7 @@ class CustomNodeScanner:
         requirements = []
 
         try:
-            with open(req_file) as f:
+            with open(req_file, encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     # Skip full-line comments and empty lines

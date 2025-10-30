@@ -579,7 +579,7 @@ class Workspace:
             OSError: If workspace metadata cannot be read
         """
         try:
-            with open(self.paths.workspace_file) as f:
+            with open(self.paths.workspace_file, encoding='utf-8') as f:
                 metadata = json.load(f)
                 active_name = metadata.get("active_environment")
 
@@ -625,14 +625,14 @@ class Workspace:
             # Read existing metadata
             metadata = {}
             if self.paths.workspace_file.exists():
-                with open(self.paths.workspace_file) as f:
+                with open(self.paths.workspace_file, encoding='utf-8') as f:
                     metadata = json.load(f)
 
             # Update active environment
             metadata["active_environment"] = name
 
             # Write back
-            with open(self.paths.workspace_file, 'w') as f:
+            with open(self.paths.workspace_file, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, indent=2)
 
         except PermissionError as e:

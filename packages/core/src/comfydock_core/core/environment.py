@@ -1513,7 +1513,7 @@ class Environment:
         # Phase 1.5: Create venv and optionally install PyTorch with specific backend
         # Read Python version from .python-version file
         python_version_file = self.cec_path / ".python-version"
-        python_version = python_version_file.read_text().strip() if python_version_file.exists() else None
+        python_version = python_version_file.read_text(encoding='utf-8').strip() if python_version_file.exists() else None
 
         if self.torch_backend:
             if callbacks:

@@ -110,7 +110,7 @@ class ImportAnalyzer:
         """
         # Parse pyproject.toml
         pyproject_path = cec_path / "pyproject.toml"
-        with open(pyproject_path) as f:
+        with open(pyproject_path, encoding='utf-8') as f:
             pyproject_data = tomlkit.load(f)
 
         comfydock_config = pyproject_data.get("tool", {}).get("comfydock", {})

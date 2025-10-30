@@ -157,7 +157,7 @@ class StatusScanner:
                 try:
                     import tomlkit
 
-                    with open(pyproject_path) as f:
+                    with open(pyproject_path, encoding='utf-8') as f:
                         data = tomlkit.load(f)
 
                     # Try different locations for version
