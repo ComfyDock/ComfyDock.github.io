@@ -75,7 +75,12 @@ class GlobalCommands:
                     print("✓ Registry data downloaded")
                     logger.info("Registry data downloaded successfully")
                 else:
-                    print("⚠️  Could not fetch registry data (will retry when needed)")
+                    print("⚠️  Could not fetch registry data")
+                    print("   Some features will be limited until registry data is available:")
+                    print("   • Automatic node resolution from workflow files")
+                    print("   • Node package search and discovery")
+                    print("")
+                    print("   Download later with: cfd registry update")
                     logger.warning("Failed to fetch initial registry data")
 
             print(f"✓ Workspace initialized at {workspace.path}")

@@ -64,9 +64,6 @@ make test
 
 # Run linting
 make lint
-
-# Format code
-make format
 ```
 
 ### Version Management Workflow
