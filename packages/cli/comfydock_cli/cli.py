@@ -237,6 +237,14 @@ def _add_global_commands(subparsers):
     config_parser.add_argument("--show", action="store_true", help="Show current configuration")
     config_parser.set_defaults(func=global_cmds.config)
 
+    # logs - Show application logs
+    logs_parser = subparsers.add_parser("logs", help="Show application logs for debugging")
+    logs_parser.add_argument("-n", "--lines", type=int, default=200, help="Number of lines to show (default: 200)")
+    logs_parser.add_argument("--level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Filter by log level")
+    logs_parser.add_argument("--full", action="store_true", help="Show all logs (no line limit)")
+    logs_parser.add_argument("--workspace", action="store_true", help="Show workspace logs instead of environment logs")
+    logs_parser.set_defaults(func=global_cmds.logs)
+
     # Shell completion management
     completion_cmds = CompletionCommands()
     completion_parser = subparsers.add_parser("completion", help="Manage shell tab completion")
@@ -328,14 +336,6 @@ def _add_env_commands(subparsers):
     commit_parser.add_argument("--auto", action="store_true", help="Auto-resolve issues without interaction")
     commit_parser.add_argument("--allow-issues", action="store_true", help="Allow committing workflows with unresolved issues")
     commit_parser.set_defaults(func=env_cmds.commit)
-
-    # logs - Show application logs
-    logs_parser = subparsers.add_parser("logs", help="Show application logs for debugging")
-    logs_parser.add_argument("-n", "--lines", type=int, default=200, help="Number of lines to show (default: 200)")
-    logs_parser.add_argument("--level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Filter by log level")
-    logs_parser.add_argument("--full", action="store_true", help="Show all logs (no line limit)")
-    logs_parser.add_argument("--workspace", action="store_true", help="Show workspace logs instead of environment logs")
-    logs_parser.set_defaults(func=env_cmds.logs)
 
     # rollback - Revert changes
     rollback_parser = subparsers.add_parser("rollback", help="Rollback to a previous version or discard uncommitted changes")

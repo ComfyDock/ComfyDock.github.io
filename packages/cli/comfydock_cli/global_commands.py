@@ -244,6 +244,86 @@ class GlobalCommands:
             print(f"✗ Failed to list environments: {e}", file=sys.stderr)
             sys.exit(1)
 
+    def logs(self, args):
+        """Show application logs with smart environment detection."""
+        import re
+
+        # Smart detection: workspace flag > -e flag > active env > workspace fallback
+        if args.workspace:
+            log_file = self.workspace.paths.logs / "workspace" / "full.log"
+            log_source = "workspace"
+        elif hasattr(args, 'target_env') and args.target_env:
+            log_file = self.workspace.paths.logs / args.target_env / "full.log"
+            log_source = args.target_env
+        else:
+            active_env = self.workspace.get_active_environment()
+            if active_env:
+                log_file = self.workspace.paths.logs / active_env.name / "full.log"
+                log_source = active_env.name
+            else:
+                log_file = self.workspace.paths.logs / "workspace" / "full.log"
+                log_source = "workspace"
+
+        if not log_file.exists():
+            print(f"✗ No logs found for {log_source}")
+            print(f"   Expected at: {log_file}")
+            return
+
+        # Read log lines
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+        except Exception as e:
+            print(f"✗ Failed to read log file: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        # Group lines into complete log records (header + continuation lines)
+        log_pattern = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - ')
+        records = []
+        current_record = []
+
+        for line in lines:
+            if log_pattern.match(line):
+                if current_record:
+                    records.append(current_record)
+                current_record = [line]
+            else:
+                if current_record:
+                    current_record.append(line)
+                else:
+                    current_record = [line]
+
+        if current_record:
+            records.append(current_record)
+
+        # Filter by level if specified
+        if args.level:
+            records = [r for r in records if r and f" - {args.level} - " in r[0]]
+
+        # Apply line limit to records
+        if not args.full:
+            records = records[-args.lines:]
+
+        if not records:
+            print("No logs found matching criteria")
+            return
+
+        # Display
+        total_lines = sum(len(record) for record in records)
+        print(f"=== Logs for {log_source} ===")
+        print(f"Log file: {log_file}")
+        if args.level:
+            print(f"Level filter: {args.level}")
+        print(f"Showing: {len(records)} log records ({total_lines} lines)\n")
+
+        for record in records:
+            for line in record:
+                print(line.rstrip())
+
+        print(f"\n=== End of logs ===")
+        if not args.full and len(records) == args.lines:
+            print(f"Tip: Use --full to see all logs, or increase --lines to see more")
+
     @with_workspace_logging("migrate")
     def migrate(self, args):
         """Migrate an existing ComfyUI installation (not implemented in MVP)."""
