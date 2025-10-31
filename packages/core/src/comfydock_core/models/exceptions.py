@@ -131,6 +131,23 @@ class CDRegistryConnectionError(CDRegistryError):
     """Network/connection errors to registry."""
     pass
 
+class CDRegistryDataError(ComfyDockError):
+    """Registry data is not available or cannot be loaded.
+
+    This error indicates that registry node mappings are missing or corrupted.
+    Recovery typically involves downloading or updating the registry data.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        cache_path: str | None = None,
+        can_retry: bool = True
+    ):
+        super().__init__(message)
+        self.cache_path = cache_path
+        self.can_retry = can_retry
+
 # ===================================================
 # Pyproject exceptions
 # ===================================================

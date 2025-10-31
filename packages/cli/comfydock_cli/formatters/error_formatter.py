@@ -1,10 +1,28 @@
 # formatters/error_formatter.py
 
-from comfydock_core.models.exceptions import NodeAction, CDNodeConflictError
+from comfydock_core.models.exceptions import NodeAction, CDNodeConflictError, CDRegistryDataError
 
 
 class NodeErrorFormatter:
     """Formats core library errors for CLI display."""
+
+    @staticmethod
+    def format_registry_error(error: CDRegistryDataError) -> str:
+        """Format registry data error with recovery commands."""
+        lines = [str(error)]
+
+        if error.cache_path:
+            lines.append(f"  Cache location: {error.cache_path}")
+
+        if error.can_retry:
+            lines.append("\nTo fix this issue:")
+            lines.append("  1. Download registry data:")
+            lines.append("     → cfd registry update")
+            lines.append("")
+            lines.append("  2. Check download status:")
+            lines.append("     → cfd registry status")
+
+        return "\n".join(lines)
 
     @staticmethod
     def format_node_action(action: NodeAction) -> str:

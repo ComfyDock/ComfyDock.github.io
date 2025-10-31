@@ -39,14 +39,20 @@ class NodeMappingsRepository:
             data_manager: RegistryDataManager that handles freshness and caching
 
         Raises:
-            FileNotFoundError: If mappings file doesn't exist after freshness check
+            CDRegistryDataError: If mappings file doesn't exist after freshness check
         """
+        from ..models.exceptions import CDRegistryDataError
+
         self.data_manager = data_manager
         # Staleness check happens here - data_manager ensures file is fresh
         self.mappings_path = data_manager.get_mappings_path()
 
         if not self.mappings_path.exists():
-            raise FileNotFoundError(f"Global mappings file not found: {self.mappings_path}")
+            raise CDRegistryDataError(
+                message="Registry node mappings not available. The mappings file was not found after attempting to fetch it.",
+                cache_path=str(self.mappings_path.parent),
+                can_retry=True
+            )
 
     @cached_property
     def global_mappings(self) -> GlobalNodeMappings:

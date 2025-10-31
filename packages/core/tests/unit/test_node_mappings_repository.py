@@ -62,15 +62,22 @@ class TestNodeMappingsRepositoryLoading:
         assert "test-package" in repo.global_mappings.packages
 
     def test_raises_error_if_file_not_found(self, tmp_path):
-        """Should raise FileNotFoundError if mappings file doesn't exist."""
+        """Should raise CDRegistryDataError if mappings file doesn't exist."""
+        from comfydock_core.models.exceptions import CDRegistryDataError
+
         # ARRANGE
         non_existent_file = tmp_path / "does_not_exist.json"
         mock_data_manager = Mock()
         mock_data_manager.get_mappings_path.return_value = non_existent_file
 
         # ACT & ASSERT
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(CDRegistryDataError) as exc_info:
             NodeMappingsRepository(data_manager=mock_data_manager)
+
+        # Verify exception has proper context
+        error = exc_info.value
+        assert error.cache_path == str(non_existent_file.parent)
+        assert error.can_retry is True
 
     def test_caches_loaded_mappings(self, tmp_path):
         """Should cache mappings to avoid reloading."""

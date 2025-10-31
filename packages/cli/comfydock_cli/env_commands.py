@@ -7,7 +7,7 @@ import sys
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from comfydock_core.models.exceptions import CDEnvironmentError, CDNodeConflictError, UVCommandError
+from comfydock_core.models.exceptions import CDEnvironmentError, CDNodeConflictError, CDRegistryDataError, UVCommandError
 from comfydock_core.utils.uv_error_handler import handle_uv_error
 
 from .formatters.error_formatter import NodeErrorFormatter
@@ -635,6 +635,14 @@ class EnvironmentCommands:
         # Directly add the node
         try:
             node_info = env.add_node(node_name, is_development=args.dev, no_test=args.no_test, force=args.force)
+        except CDRegistryDataError as e:
+            # Registry data unavailable
+            formatted = NodeErrorFormatter.format_registry_error(e)
+            if logger:
+                logger.error(f"Registry data unavailable for node add: {e}", exc_info=True)
+            print(f"✗ Cannot add node - registry data unavailable", file=sys.stderr)
+            print(formatted, file=sys.stderr)
+            sys.exit(1)
         except CDNodeConflictError as e:
             # Use formatter to render error with CLI commands
             formatted = NodeErrorFormatter.format_conflict_error(e)
@@ -1633,6 +1641,14 @@ class EnvironmentCommands:
                 model_strategy=model_strategy,
                 download_callbacks=create_batch_download_callbacks()
             )
+        except CDRegistryDataError as e:
+            # Registry data unavailable
+            formatted = NodeErrorFormatter.format_registry_error(e)
+            if logger:
+                logger.error(f"Registry data unavailable for workflow resolve: {e}", exc_info=True)
+            print(f"✗ Cannot resolve workflow - registry data unavailable", file=sys.stderr)
+            print(formatted, file=sys.stderr)
+            sys.exit(1)
         except FileNotFoundError as e:
             if logger:
                 logger.error(f"Resolution failed for '{args.name}': {e}", exc_info=True)
