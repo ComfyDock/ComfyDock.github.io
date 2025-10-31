@@ -135,11 +135,9 @@ shell-server:
 # Version management commands
 show-versions:
 	@echo "Current package versions:"
-	@echo -n "  comfydock:        " && grep -oP 'version = "\K[^"]+' pyproject.toml
-	@echo -n "  comfydock-core:   " && grep -oP 'version = "\K[^"]+' packages/core/pyproject.toml
-	@echo -n "  comfydock-server: " && grep -oP 'version = "\K[^"]+' packages/server/pyproject.toml
-	@echo -n "  comfydock-cli:    " && grep -oP 'version = "\K[^"]+' packages/cli/pyproject.toml
-	@echo -n "  comfydock-cec:    " && grep -oP 'version = "\K[^"]+' packages/cec/pyproject.toml
+	@echo -n "  comfydock:      " && grep '^version =' pyproject.toml | grep -oP 'version = "\K[^"]+'
+	@echo -n "  comfydock-core: " && grep '^version =' packages/core/pyproject.toml | grep -oP 'version = "\K[^"]+'
+	@echo -n "  comfydock-cli:  " && grep '^version =' packages/cli/pyproject.toml | grep -oP 'version = "\K[^"]+'
 
 # Check version compatibility
 check-versions:

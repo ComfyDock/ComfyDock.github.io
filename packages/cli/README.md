@@ -625,7 +625,7 @@ See [packages/core/README.md](../core/README.md) for core library documentation.
 
 This is a MVP project run by a single developer. Contributions welcome!
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development setup (when it exists).
+**Note:** Contributors must sign our [Contributor License Agreement](../../CLA.md) to enable dual-licensing. See [CONTRIBUTING.md](../../CONTRIBUTING.md) for details.
 
 **Adding a new command:**
 1. Add command parser in `cli.py` (`_add_global_commands` or `_add_env_commands`)

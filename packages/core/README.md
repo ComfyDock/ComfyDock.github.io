@@ -887,13 +887,19 @@ The CLI (`comfydock-cli` package) is built on top of this core library:
 
 ## License
 
-ComfyDock Core is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+ComfyDock Core is **dual-licensed**:
 
-This means you can freely use, modify, and distribute ComfyDock Core, but any modifications or network services using this library must also be open-sourced under AGPL-3.0.
+- **AGPL-3.0** for open-source use (free forever)
+- **Commercial licenses** available for businesses requiring proprietary use
 
-**For businesses** requiring a permissive license for commercial use, dual licensing is available. Please contact us to discuss your use case and licensing options.
+**For open-source projects:** Use freely under AGPL-3.0. Modifications must be open-sourced.
 
-See [LICENSE.txt](../../LICENSE.txt) for the full license text.
+**For businesses:** Contact us for commercial licensing if you need to:
+- Build proprietary applications without open-sourcing modifications
+- Offer SaaS without disclosing source code
+- Integrate into closed-source products
+
+See [LICENSE.txt](../../LICENSE.txt) for the full AGPL-3.0 license text.
 
 ## Version & Stability
 

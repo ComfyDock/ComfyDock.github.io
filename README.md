@@ -289,10 +289,37 @@ This project is currently maintained by a single developer. Contributions are we
 
 ## License
 
-ComfyDock is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+ComfyDock is **dual-licensed** to support both open-source and commercial use:
 
-This means you can freely use, modify, and distribute ComfyDock, but any modifications or network services using ComfyDock must also be open-sourced under AGPL-3.0.
+### Open Source: AGPL-3.0
 
-**For businesses** requiring a permissive license for commercial use, dual licensing is available. Please contact us to discuss your use case and licensing options.
+The project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** for open-source use.
+
+- ✅ **Free forever** - Use, modify, and distribute freely
+- ✅ **Strong copyleft** - Modifications must be open-sourced under AGPL-3.0
+- ✅ **Network use** - SaaS deployments must make source available to users
+- ✅ **Community-driven** - Ensures improvements benefit everyone
 
 See [LICENSE.txt](LICENSE.txt) for the full license text.
+
+### Commercial: Proprietary Licensing
+
+**For businesses** requiring proprietary use without AGPL-3.0 obligations:
+
+- 🏢 **Proprietary deployments** - No requirement to open-source your modifications
+- 🏢 **SaaS without disclosure** - Run network services without sharing code
+- 🏢 **Custom terms** - Tailored licensing for enterprise needs
+- 🏢 **Support options** - Priority support and custom development available
+
+**Contact us** to discuss commercial licensing options and pricing.
+
+### Why Dual Licensing?
+
+This model allows us to:
+- Keep the project **free and open-source** for the community
+- Generate **sustainable funding** for continued development
+- Offer **flexibility** for businesses with different needs
+
+### Contributing
+
+By contributing to ComfyDock, you agree to our [Contributor License Agreement](CLA.md), which allows us to distribute your contributions under both licenses. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
