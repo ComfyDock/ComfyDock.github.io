@@ -1,9 +1,11 @@
 """Environment-specific commands for ComfyDock CLI - Simplified."""
 from __future__ import annotations
 
+import argparse
+
 import sys
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from comfydock_core.models.exceptions import CDEnvironmentError, CDNodeConflictError, UVCommandError
 from comfydock_core.utils.uv_error_handler import handle_uv_error
@@ -27,7 +29,7 @@ logger = get_logger(__name__)
 class EnvironmentCommands:
     """Handler for environment-specific commands - simplified for MVP."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize environment commands handler."""
         pass
 
@@ -71,7 +73,7 @@ class EnvironmentCommands:
     # === Commands that operate ON environments ===
 
     @with_env_logging("env create")
-    def create(self, args, logger=None):
+    def create(self, args: argparse.Namespace, logger=None) -> None:
         """Create a new environment."""
         print(f"🚀 Creating environment: {args.name}")
         print("   This will download PyTorch and dependencies (may take a few minutes)...")
@@ -114,7 +116,7 @@ class EnvironmentCommands:
             print(f"  • Set as active: cfd use {args.name}")
 
     @with_env_logging("env use")
-    def use(self, args, logger=None):
+    def use(self, args: argparse.Namespace, logger=None) -> None:
         """Set the active environment."""
         from comfydock_cli.utils.progress import create_model_sync_progress
 
@@ -131,7 +133,7 @@ class EnvironmentCommands:
         print("You can now run commands without the -e flag")
 
     @with_env_logging("env delete")
-    def delete(self, args, logger=None):
+    def delete(self, args: argparse.Namespace, logger=None) -> None:
         """Delete an environment."""
         # Check that environment exists (don't require active environment)
         env_path = self.workspace.paths.environments / args.name
@@ -164,7 +166,7 @@ class EnvironmentCommands:
     # === Commands that operate IN environments ===
 
     @with_env_logging("env run")
-    def run(self, args):
+    def run(self, args: argparse.Namespace) -> None:
         """Run ComfyUI in the specified environment."""
         env = self._get_env(args)
         comfyui_args = args.args if hasattr(args, 'args') else []
@@ -180,7 +182,7 @@ class EnvironmentCommands:
         sys.exit(result.returncode)
 
     @with_env_logging("env status")
-    def status(self, args):
+    def status(self, args: argparse.Namespace) -> None:
         """Show environment status using semantic methods."""
         env = self._get_env(args)
 
@@ -313,7 +315,7 @@ class EnvironmentCommands:
 
     # Removed: _has_uninstalled_packages - this logic is now in core's WorkflowAnalysisStatus
 
-    def _print_workflow_issues(self, wf_analysis: WorkflowAnalysisStatus):
+    def _print_workflow_issues(self, wf_analysis: WorkflowAnalysisStatus) -> None:
         """Print compact workflow issues summary using model properties only."""
         # Build compact summary using WorkflowAnalysisStatus properties (no pyproject access!)
         parts = []
@@ -343,7 +345,7 @@ class EnvironmentCommands:
         if parts:
             print(f"      {', '.join(parts)}")
 
-    def _show_smart_suggestions(self, status, dev_drift):
+    def _show_smart_suggestions(self, status: EnvironmentStatus, dev_drift) -> None:
         """Show contextual suggestions based on current state."""
         suggestions = []
 
@@ -475,7 +477,7 @@ class EnvironmentCommands:
             for s in suggestions:
                 print(f"  {s}")
 
-    def _show_git_changes(self, status: EnvironmentStatus):
+    def _show_git_changes(self, status: EnvironmentStatus) -> None:
         """Helper method to show git changes in a structured way."""
         # Show node changes
         if status.git.nodes_added or status.git.nodes_removed:
@@ -542,7 +544,7 @@ class EnvironmentCommands:
                     print(f"    - {workflow_name}.json")
 
     @with_env_logging("commit log")
-    def commit_log(self, args, logger=None):
+    def commit_log(self, args: argparse.Namespace, logger=None) -> None:
         """Show environment version history with simple identifiers."""
         env = self._get_env(args)
 
@@ -581,7 +583,7 @@ class EnvironmentCommands:
     # === Node management ===
 
     @with_env_logging("env node add")
-    def node_add(self, args, logger=None):
+    def node_add(self, args: argparse.Namespace, logger=None) -> None:
         """Add custom node(s) - directly modifies pyproject.toml."""
         env = self._get_env(args)
 
@@ -656,7 +658,7 @@ class EnvironmentCommands:
         print(f"\nRun 'comfydock -e {env.name} env status' to review changes")
 
     @with_env_logging("env node remove")
-    def node_remove(self, args, logger=None):
+    def node_remove(self, args: argparse.Namespace, logger=None) -> None:
         """Remove custom node(s) - handles filesystem immediately."""
         env = self._get_env(args)
 
@@ -727,7 +729,7 @@ class EnvironmentCommands:
         print(f"\nRun 'comfydock -e {env.name} env status' to review changes")
 
     @with_env_logging("env node list")
-    def node_list(self, args):
+    def node_list(self, args: argparse.Namespace) -> None:
         """List custom nodes in the environment."""
         env = self._get_env(args)
 
@@ -742,7 +744,7 @@ class EnvironmentCommands:
             print(f"  • {node.registry_id or node.name} ({node.source})")
 
     @with_env_logging("env node update")
-    def node_update(self, args, logger=None):
+    def node_update(self, args: argparse.Namespace, logger=None) -> None:
         """Update a custom node."""
         from comfydock_core.strategies.confirmation import (
             AutoConfirmStrategy,
@@ -790,7 +792,7 @@ class EnvironmentCommands:
     # === Constraint management ===
 
     @with_env_logging("env constraint add")
-    def constraint_add(self, args, logger=None):
+    def constraint_add(self, args: argparse.Namespace, logger=None) -> None:
         """Add constraint dependencies to [tool.uv]."""
         env = self._get_env(args)
 
@@ -811,7 +813,7 @@ class EnvironmentCommands:
         print(f"\nRun 'comfydock -e {env.name} constraint list' to view all constraints")
 
     @with_env_logging("env constraint list")
-    def constraint_list(self, args):
+    def constraint_list(self, args: argparse.Namespace) -> None:
         """List constraint dependencies from [tool.uv]."""
         env = self._get_env(args)
 
@@ -827,7 +829,7 @@ class EnvironmentCommands:
             print(f"  • {constraint}")
 
     @with_env_logging("env constraint remove")
-    def constraint_remove(self, args, logger=None):
+    def constraint_remove(self, args: argparse.Namespace, logger=None) -> None:
         """Remove constraint dependencies from [tool.uv]."""
         env = self._get_env(args)
 
@@ -858,7 +860,7 @@ class EnvironmentCommands:
     # === Python dependency management ===
 
     @with_env_logging("env py add")
-    def py_add(self, args, logger=None):
+    def py_add(self, args: argparse.Namespace, logger=None) -> None:
         """Add Python dependencies to the environment."""
         env = self._get_env(args)
 
@@ -914,7 +916,7 @@ class EnvironmentCommands:
         print(f"\nRun 'cfd -e {env.name} status' to review changes")
 
     @with_env_logging("env py remove")
-    def py_remove(self, args, logger=None):
+    def py_remove(self, args: argparse.Namespace, logger=None) -> None:
         """Remove Python dependencies from the environment."""
         env = self._get_env(args)
 
@@ -956,7 +958,7 @@ class EnvironmentCommands:
         print(f"\nRun 'cfd -e {env.name} status' to review changes")
 
     @with_env_logging("env py list")
-    def py_list(self, args):
+    def py_list(self, args: argparse.Namespace) -> None:
         """List Python dependencies."""
         env = self._get_env(args)
 
@@ -995,7 +997,7 @@ class EnvironmentCommands:
     # === Git-based operations ===
 
     @with_env_logging("env repair")
-    def repair(self, args, logger=None):
+    def repair(self, args: argparse.Namespace, logger=None) -> None:
         """Repair environment to match pyproject.toml (for manual edits or git operations)."""
         env = self._get_env(args)
 
@@ -1006,9 +1008,11 @@ class EnvironmentCommands:
             print("✓ No changes to apply")
             return
 
+        # Get preview for display and later use
+        preview: dict[str, Any] = status.get_sync_preview()
+
         # Confirm unless --yes
         if not args.yes:
-            preview = status.get_sync_preview()
 
             # Check if there are actually any changes to show
             has_changes = (
@@ -1173,7 +1177,7 @@ class EnvironmentCommands:
         print(f"\nEnvironment '{env.name}' is ready to use")
 
     @with_env_logging("env rollback")
-    def rollback(self, args, logger=None):
+    def rollback(self, args: argparse.Namespace, logger=None) -> None:
         """Rollback to previous state or discard uncommitted changes."""
         from .strategies.rollback import AutoRollbackStrategy, InteractiveRollbackStrategy
 
@@ -1223,7 +1227,7 @@ class EnvironmentCommands:
             sys.exit(1)
 
     @with_env_logging("env commit")
-    def commit(self, args, logger=None):
+    def commit(self, args: argparse.Namespace, logger=None) -> None:
         """Commit workflows with optional issue resolution."""
         env = self._get_env(args)
 
@@ -1287,7 +1291,7 @@ class EnvironmentCommands:
             print(f"  • Deleted {deleted_count} workflow(s)")
 
     @with_env_logging("env reset")
-    def reset(self, args):
+    def reset(self, args: argparse.Namespace) -> None:
         """Reset uncommitted changes in pyproject.toml."""
         env = self._get_env(args)
 
@@ -1307,7 +1311,7 @@ class EnvironmentCommands:
     # === Git remote operations ===
 
     @with_env_logging("env pull")
-    def pull(self, args, logger=None):
+    def pull(self, args: argparse.Namespace, logger=None) -> None:
         """Pull from remote and repair environment."""
         env = self._get_env(args)
 
@@ -1450,7 +1454,7 @@ class EnvironmentCommands:
             sys.exit(1)
 
     @with_env_logging("env push")
-    def push(self, args, logger=None):
+    def push(self, args: argparse.Namespace, logger=None) -> None:
         """Push commits to remote."""
         env = self._get_env(args)
 
@@ -1512,7 +1516,7 @@ class EnvironmentCommands:
             sys.exit(1)
 
     @with_env_logging("env remote")
-    def remote(self, args, logger=None):
+    def remote(self, args: argparse.Namespace, logger=None) -> None:
         """Manage git remotes."""
         env = self._get_env(args)
 
@@ -1568,7 +1572,7 @@ class EnvironmentCommands:
     # === Workflow management ===
 
     @with_env_logging("workflow list", get_env_name=lambda self, args: self._get_env(args).name)
-    def workflow_list(self, args):
+    def workflow_list(self, args: argparse.Namespace) -> None:
         """List all workflows with their sync status."""
         env = self._get_env(args)
 
@@ -1605,7 +1609,7 @@ class EnvironmentCommands:
             print("\nRun 'cfd commit' to save current state")
 
     @with_env_logging("workflow resolve", get_env_name=lambda self, args: self._get_env(args).name)
-    def workflow_resolve(self, args, logger=None):
+    def workflow_resolve(self, args: argparse.Namespace, logger=None) -> None:
         """Resolve workflow dependencies interactively."""
         env = self._get_env(args)
 

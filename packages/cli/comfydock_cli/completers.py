@@ -1,6 +1,11 @@
 """Custom argcomplete completers for ComfyDock CLI."""
-from argcomplete import warn
+import argparse
+from typing import Any
 
+from argcomplete.io import warn
+
+from comfydock_core.core.environment import Environment
+from comfydock_core.core.workspace import Workspace
 from comfydock_core.factories.workspace_factory import WorkspaceFactory
 from comfydock_core.models.exceptions import CDWorkspaceNotFoundError
 
@@ -9,7 +14,7 @@ from comfydock_core.models.exceptions import CDWorkspaceNotFoundError
 # Shared Utilities
 # ============================================================================
 
-def get_workspace_safe():
+def get_workspace_safe() -> Workspace | None:
     """Get workspace or return None if not initialized."""
     try:
         return WorkspaceFactory.find()
@@ -20,7 +25,7 @@ def get_workspace_safe():
         return None
 
 
-def get_env_from_args(parsed_args, workspace):
+def get_env_from_args(parsed_args: argparse.Namespace, workspace: Workspace) -> Environment | None:
     """Get environment from -e flag or active environment.
 
     Args:
@@ -46,7 +51,7 @@ def get_env_from_args(parsed_args, workspace):
         return None
 
 
-def filter_by_prefix(items, prefix):
+def filter_by_prefix(items: list[str], prefix: str) -> list[str]:
     """Filter items that start with the given prefix."""
     return [item for item in items if item.startswith(prefix)]
 
@@ -55,7 +60,7 @@ def filter_by_prefix(items, prefix):
 # Completers
 # ============================================================================
 
-def environment_completer(prefix, parsed_args, **kwargs):
+def environment_completer(prefix: str, parsed_args: argparse.Namespace, **kwargs: Any) -> list[str]:
     """Complete environment names from workspace.
 
     Used for:
@@ -76,7 +81,7 @@ def environment_completer(prefix, parsed_args, **kwargs):
         return []
 
 
-def workflow_completer(prefix, parsed_args, **kwargs):
+def workflow_completer(prefix: str, parsed_args: argparse.Namespace, **kwargs: Any) -> list[str]:
     """Complete workflow names, prioritizing unresolved workflows.
 
     Smart ordering:
@@ -116,7 +121,7 @@ def workflow_completer(prefix, parsed_args, **kwargs):
         return []
 
 
-def installed_node_completer(prefix, parsed_args, **kwargs):
+def installed_node_completer(prefix: str, parsed_args: argparse.Namespace, **kwargs: Any) -> list[str]:
     """Complete installed node names.
 
     Used for:
