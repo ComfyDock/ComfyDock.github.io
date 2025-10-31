@@ -1,5 +1,6 @@
 """Global workspace-level commands for ComfyDock CLI - Simplified."""
 
+import argparse
 import sys
 from functools import cached_property
 from pathlib import Path
@@ -19,15 +20,15 @@ logger = get_logger(__name__)
 class GlobalCommands:
     """Handler for global workspace commands."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize global commands handler."""
         pass
 
     @cached_property
-    def workspace(self) -> "Workspace":
+    def workspace(self) -> Workspace:
         return get_workspace_or_exit()
 
-    def init(self, args):
+    def init(self, args: argparse.Namespace) -> None:
         """Initialize a new ComfyDock workspace.
 
         Creates:
@@ -90,7 +91,7 @@ class GlobalCommands:
             print(f"✗ Failed to initialize workspace: {e}", file=sys.stderr)
             sys.exit(1)
 
-    def _setup_models_directory(self, workspace: Workspace, args):
+    def _setup_models_directory(self, workspace: Workspace, args: argparse.Namespace) -> None:
         """Handle interactive or automatic models directory setup during init.
 
         Args:
@@ -176,13 +177,13 @@ class GlobalCommands:
             # User chose default
             self._show_default_models_dir(workspace)
 
-    def _show_default_models_dir(self, workspace: Workspace):
+    def _show_default_models_dir(self, workspace: Workspace) -> None:
         """Show the default models directory message."""
         models_dir = workspace.get_models_directory()
         print(f"\n✓ Using default models directory: {models_dir}")
         print("   (Change later with: cfd model index dir <path>)")
 
-    def _scan_and_set_models_dir(self, workspace: Workspace, models_path: Path):
+    def _scan_and_set_models_dir(self, workspace: Workspace, models_path: Path) -> None:
         """Scan a models directory and set it as the workspace models directory.
 
         Args:
@@ -217,7 +218,7 @@ class GlobalCommands:
             self._show_default_models_dir(workspace)
 
     @with_workspace_logging("list")
-    def list_envs(self, args):
+    def list_envs(self, args: argparse.Namespace) -> None:
         """List all environments in the workspace."""
         logger.info("Listing environments in workspace")
 
@@ -244,8 +245,88 @@ class GlobalCommands:
             print(f"✗ Failed to list environments: {e}", file=sys.stderr)
             sys.exit(1)
 
+    def logs(self, args: argparse.Namespace) -> None:
+        """Show application logs with smart environment detection."""
+        import re
+
+        # Smart detection: workspace flag > -e flag > active env > workspace fallback
+        if args.workspace:
+            log_file = self.workspace.paths.logs / "workspace" / "full.log"
+            log_source = "workspace"
+        elif hasattr(args, 'target_env') and args.target_env:
+            log_file = self.workspace.paths.logs / args.target_env / "full.log"
+            log_source = args.target_env
+        else:
+            active_env = self.workspace.get_active_environment()
+            if active_env:
+                log_file = self.workspace.paths.logs / active_env.name / "full.log"
+                log_source = active_env.name
+            else:
+                log_file = self.workspace.paths.logs / "workspace" / "full.log"
+                log_source = "workspace"
+
+        if not log_file.exists():
+            print(f"✗ No logs found for {log_source}")
+            print(f"   Expected at: {log_file}")
+            return
+
+        # Read log lines
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+        except Exception as e:
+            print(f"✗ Failed to read log file: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        # Group lines into complete log records (header + continuation lines)
+        log_pattern = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - ')
+        records = []
+        current_record = []
+
+        for line in lines:
+            if log_pattern.match(line):
+                if current_record:
+                    records.append(current_record)
+                current_record = [line]
+            else:
+                if current_record:
+                    current_record.append(line)
+                else:
+                    current_record = [line]
+
+        if current_record:
+            records.append(current_record)
+
+        # Filter by level if specified
+        if args.level:
+            records = [r for r in records if r and f" - {args.level} - " in r[0]]
+
+        # Apply line limit to records
+        if not args.full:
+            records = records[-args.lines:]
+
+        if not records:
+            print("No logs found matching criteria")
+            return
+
+        # Display
+        total_lines = sum(len(record) for record in records)
+        print(f"=== Logs for {log_source} ===")
+        print(f"Log file: {log_file}")
+        if args.level:
+            print(f"Level filter: {args.level}")
+        print(f"Showing: {len(records)} log records ({total_lines} lines)\n")
+
+        for record in records:
+            for line in record:
+                print(line.rstrip())
+
+        print(f"\n=== End of logs ===")
+        if not args.full and len(records) == args.lines:
+            print(f"Tip: Use --full to see all logs, or increase --lines to see more")
+
     @with_workspace_logging("migrate")
-    def migrate(self, args):
+    def migrate(self, args: argparse.Namespace) -> None:
         """Migrate an existing ComfyUI installation (not implemented in MVP)."""
         print("⚠️  Migration is not yet implemented in this MVP")
         print("\nFor now, you can:")
@@ -277,10 +358,8 @@ class GlobalCommands:
             else:
                 print(f"✗ Path not found: {source_path}")
 
-        return 0
-
     @with_workspace_logging("import")
-    def import_env(self, args):
+    def import_env(self, args: argparse.Namespace) -> None:
         """Import a ComfyDock environment from a tarball or git repository."""
         from pathlib import Path
 
@@ -289,7 +368,7 @@ class GlobalCommands:
         if not args.path:
             print("✗ Please specify path to import tarball or git URL")
             print("  Usage: comfydock import <path.tar.gz|git-url>")
-            return 1
+            sys.exit(1)
 
         # Detect if this is a git URL or local tarball
         is_git = is_git_url(args.path)
@@ -304,7 +383,7 @@ class GlobalCommands:
             tarball_path = Path(args.path)
             if not tarball_path.exists():
                 print(f"✗ File not found: {tarball_path}")
-                return 1
+                sys.exit(1)
             print(f"📦 Importing environment from {tarball_path.name}")
             print()
 
@@ -315,7 +394,7 @@ class GlobalCommands:
             env_name = input("Environment name: ").strip()
             if not env_name:
                 print("✗ Environment name required")
-                return 1
+                sys.exit(1)
 
         # Ask for model download strategy
         print("\nModel download strategy:")
@@ -423,12 +502,12 @@ class GlobalCommands:
 
         except Exception as e:
             print(f"\n✗ Import failed: {e}")
-            return 1
+            sys.exit(1)
 
-        return 0
+        sys.exit(0)
 
     @with_workspace_logging("export")
-    def export_env(self, args):
+    def export_env(self, args: argparse.Namespace) -> None:
         """Export a ComfyDock environment to a package."""
         from datetime import datetime
         from pathlib import Path
@@ -442,10 +521,10 @@ class GlobalCommands:
                 if not env:
                     print("✗ No active environment. Use: comfydock use <name>")
                     print("   Or specify with: comfydock -e <name> export")
-                    return 1
+                    sys.exit(1)
         except Exception as e:
             print(f"✗ Error getting environment: {e}")
-            return 1
+            sys.exit(1)
 
         # Determine output path
         if args.path:
@@ -520,7 +599,7 @@ class GlobalCommands:
                         # Clean up the created tarball
                         if tarball_path.exists():
                             tarball_path.unlink()
-                        return 1
+                        sys.exit(1)
 
             size_mb = tarball_path.stat().st_size / (1024 * 1024)
             print(f"\n✅ Export complete: {tarball_path.name} ({size_mb:.1f} MB)")
@@ -547,18 +626,18 @@ class GlobalCommands:
                     elif e.context.has_unresolved_issues:
                         print("\n💡 Resolve workflow issues first:")
                         print("   comfydock workflow resolve <workflow_name>")
-                return 1
+                sys.exit(1)
 
             # Generic error handling
             print(f"✗ Export failed: {e}")
-            return 1
+            sys.exit(1)
 
-        return 0
+        sys.exit(0)
 
     # === Model Management Commands ===
 
     @with_workspace_logging("model index list")
-    def model_index_list(self, args):
+    def model_index_list(self, args: argparse.Namespace) -> None:
         """List all indexed models."""
         from comfydock_core.utils.common import format_size
 
@@ -599,7 +678,7 @@ class GlobalCommands:
             sys.exit(1)
 
     @with_workspace_logging("model index find")
-    def model_index_find(self, args):
+    def model_index_find(self, args: argparse.Namespace) -> None:
         """Search for models by hash or filename."""
         from comfydock_core.utils.common import format_size
 
@@ -619,8 +698,9 @@ class GlobalCommands:
             # Group models by hash (same file in different locations)
             from collections import defaultdict
             from pathlib import Path
+            from typing import Any
 
-            grouped = defaultdict(lambda: {'model': None, 'paths': []})
+            grouped: defaultdict[str, dict[str, Any]] = defaultdict(lambda: {'model': None, 'paths': []})
             for model in results:
                 grouped[model.hash]['model'] = model
                 if model.base_directory:
@@ -662,7 +742,7 @@ class GlobalCommands:
             sys.exit(1)
 
     @with_workspace_logging("model index show")
-    def model_index_show(self, args):
+    def model_index_show(self, args: argparse.Namespace) -> None:
         """Show detailed information about a specific model."""
         from datetime import datetime
 
@@ -757,7 +837,7 @@ class GlobalCommands:
     # === Registry Commands ===
 
     @with_workspace_logging("registry status")
-    def registry_status(self, args):
+    def registry_status(self, args: argparse.Namespace) -> None:
         """Show registry cache status."""
         try:
             info = self.workspace.get_registry_info()
@@ -780,7 +860,7 @@ class GlobalCommands:
             sys.exit(1)
 
     @with_workspace_logging("registry update")
-    def registry_update(self, args):
+    def registry_update(self, args: argparse.Namespace) -> None:
         """Update registry data from GitHub."""
         try:
             print("🔄 Updating registry data from GitHub...")
@@ -802,7 +882,7 @@ class GlobalCommands:
             sys.exit(1)
 
     @with_workspace_logging("model index dir")
-    def model_dir_add(self, args):
+    def model_dir_add(self, args: argparse.Namespace) -> None:
         """Set the global models directory."""
         from comfydock_cli.utils.progress import create_model_sync_progress
 
@@ -833,7 +913,7 @@ class GlobalCommands:
             sys.exit(1)
 
     @with_workspace_logging("model index sync")
-    def model_index_sync(self, args):
+    def model_index_sync(self, args: argparse.Namespace) -> None:
         """Scan models directory and update index."""
         from comfydock_cli.utils.progress import create_model_sync_progress
 
@@ -856,7 +936,7 @@ class GlobalCommands:
             sys.exit(1)
 
     @with_workspace_logging("model index status")
-    def model_index_status(self, args):
+    def model_index_status(self, args: argparse.Namespace) -> None:
         """Show model index status and statistics."""
         logger.info("Getting model status")
 
@@ -893,7 +973,7 @@ class GlobalCommands:
             sys.exit(1)
 
     @with_workspace_logging("model download")
-    def model_download(self, args):
+    def model_download(self, args: argparse.Namespace) -> None:
         """Download model from URL with interactive path confirmation."""
         from comfydock_core.services.model_downloader import DownloadRequest
 
@@ -983,7 +1063,7 @@ class GlobalCommands:
     # === Model Source Management ===
 
     @with_workspace_logging("model add-source")
-    def model_add_source(self, args):
+    def model_add_source(self, args: argparse.Namespace) -> None:
         """Add download source URLs to models."""
         env = self.workspace.get_active_environment()
 
@@ -1080,7 +1160,7 @@ class GlobalCommands:
     # === Config Management ===
 
     @with_workspace_logging("config")
-    def config(self, args):
+    def config(self, args: argparse.Namespace) -> None:
         """Manage ComfyDock configuration settings."""
         # Flag mode - direct operations
         if hasattr(args, 'civitai_key') and args.civitai_key is not None:

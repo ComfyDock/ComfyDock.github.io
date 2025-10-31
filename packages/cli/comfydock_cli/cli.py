@@ -25,7 +25,7 @@ def _get_cfd_config_dir() -> Path:
     return config_dir
 
 
-def _check_for_old_docker_installation():
+def _check_for_old_docker_installation() -> None:
     """Warn once about old Docker-based ComfyDock installation."""
     old_config = Path.home() / ".comfydock" / "environments.json"
     if not old_config.exists():
@@ -55,7 +55,7 @@ def _check_for_old_docker_installation():
     warning_flag.touch()
 
 
-def main():
+def main() -> None:
     """Main entry point for ComfyDock CLI."""
     # Check for old Docker installation (show warning once)
     _check_for_old_docker_installation()
@@ -93,7 +93,7 @@ def main():
         sys.exit(1)
 
 
-def create_parser():
+def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser with hierarchical command structure."""
     parser = argparse.ArgumentParser(
         description="ComfyDock - Manage ComfyUI workspaces and environments",
@@ -105,7 +105,7 @@ def create_parser():
         '-e', '--env',
         help='Target environment (uses active if not specified)',
         dest='target_env'
-    ).completer = environment_completer
+    ).completer = environment_completer  # type: ignore[attr-defined]
     parser.add_argument(
         '-v', '--verbose',
         action='store_true',
@@ -124,7 +124,7 @@ def create_parser():
     return parser
 
 
-def _add_global_commands(subparsers):
+def _add_global_commands(subparsers: argparse._SubParsersAction) -> None:
     """Add global workspace-level commands."""
     global_cmds = GlobalCommands()
 
@@ -237,6 +237,14 @@ def _add_global_commands(subparsers):
     config_parser.add_argument("--show", action="store_true", help="Show current configuration")
     config_parser.set_defaults(func=global_cmds.config)
 
+    # logs - Show application logs
+    logs_parser = subparsers.add_parser("logs", help="Show application logs for debugging")
+    logs_parser.add_argument("-n", "--lines", type=int, default=200, help="Number of lines to show (default: 200)")
+    logs_parser.add_argument("--level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Filter by log level")
+    logs_parser.add_argument("--full", action="store_true", help="Show all logs (no line limit)")
+    logs_parser.add_argument("--workspace", action="store_true", help="Show workspace logs instead of environment logs")
+    logs_parser.set_defaults(func=global_cmds.logs)
+
     # Shell completion management
     completion_cmds = CompletionCommands()
     completion_parser = subparsers.add_parser("completion", help="Manage shell tab completion")
@@ -255,7 +263,7 @@ def _add_global_commands(subparsers):
     completion_status_parser.set_defaults(func=completion_cmds.status)
 
 
-def _add_env_commands(subparsers):
+def _add_env_commands(subparsers: argparse._SubParsersAction) -> None:
     """Add environment-specific commands."""
     env_cmds = EnvironmentCommands()
 
@@ -282,12 +290,12 @@ def _add_env_commands(subparsers):
 
     # use - Set active environment
     use_parser = subparsers.add_parser("use", help="Set active environment")
-    use_parser.add_argument("name", help="Environment name").completer = environment_completer
+    use_parser.add_argument("name", help="Environment name").completer = environment_completer  # type: ignore[attr-defined]
     use_parser.set_defaults(func=env_cmds.use)
 
     # delete - Delete environment
     delete_parser = subparsers.add_parser("delete", help="Delete environment")
-    delete_parser.add_argument("name", help="Environment name").completer = environment_completer
+    delete_parser.add_argument("name", help="Environment name").completer = environment_completer  # type: ignore[attr-defined]
     delete_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
     delete_parser.set_defaults(func=env_cmds.delete)
 
@@ -328,14 +336,6 @@ def _add_env_commands(subparsers):
     commit_parser.add_argument("--auto", action="store_true", help="Auto-resolve issues without interaction")
     commit_parser.add_argument("--allow-issues", action="store_true", help="Allow committing workflows with unresolved issues")
     commit_parser.set_defaults(func=env_cmds.commit)
-
-    # logs - Show application logs
-    logs_parser = subparsers.add_parser("logs", help="Show application logs for debugging")
-    logs_parser.add_argument("-n", "--lines", type=int, default=200, help="Number of lines to show (default: 200)")
-    logs_parser.add_argument("--level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Filter by log level")
-    logs_parser.add_argument("--full", action="store_true", help="Show all logs (no line limit)")
-    logs_parser.add_argument("--workspace", action="store_true", help="Show workspace logs instead of environment logs")
-    logs_parser.set_defaults(func=env_cmds.logs)
 
     # rollback - Revert changes
     rollback_parser = subparsers.add_parser("rollback", help="Rollback to a previous version or discard uncommitted changes")
@@ -440,7 +440,7 @@ def _add_env_commands(subparsers):
 
     # node remove
     node_remove_parser = node_subparsers.add_parser("remove", help="Remove custom node(s)")
-    node_remove_parser.add_argument("node_names", nargs="+", help="Node registry ID(s) or name(s)").completer = installed_node_completer
+    node_remove_parser.add_argument("node_names", nargs="+", help="Node registry ID(s) or name(s)").completer = installed_node_completer  # type: ignore[attr-defined]
     node_remove_parser.add_argument("--dev", action="store_true", help="Remove development node specifically")
     node_remove_parser.set_defaults(func=env_cmds.node_remove)
 
@@ -450,7 +450,7 @@ def _add_env_commands(subparsers):
 
     # node update
     node_update_parser = node_subparsers.add_parser("update", help="Update custom node")
-    node_update_parser.add_argument("node_name", help="Node identifier or name to update").completer = installed_node_completer
+    node_update_parser.add_argument("node_name", help="Node identifier or name to update").completer = installed_node_completer  # type: ignore[attr-defined]
     node_update_parser.add_argument("-y", "--yes", action="store_true", help="Auto-confirm updates (skip prompts)")
     node_update_parser.add_argument("--no-test", action="store_true", help="Don't test resolution")
     node_update_parser.set_defaults(func=env_cmds.node_update)
@@ -465,7 +465,7 @@ def _add_env_commands(subparsers):
 
     # workflow resolve
     workflow_resolve_parser = workflow_subparsers.add_parser("resolve", help="Resolve workflow dependencies (nodes & models)")
-    workflow_resolve_parser.add_argument("name", help="Workflow name to resolve").completer = workflow_completer
+    workflow_resolve_parser.add_argument("name", help="Workflow name to resolve").completer = workflow_completer  # type: ignore[attr-defined]
     workflow_resolve_parser.add_argument("--auto", action="store_true", help="Auto-resolve without interaction")
     workflow_resolve_parser.add_argument("--install", action="store_true", help="Auto-install missing nodes without prompting")
     workflow_resolve_parser.add_argument("--no-install", action="store_true", help="Skip node installation prompt")

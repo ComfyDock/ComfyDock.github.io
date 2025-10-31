@@ -21,9 +21,9 @@ from comfydock_core.models.workflow import (
 class InteractiveNodeStrategy(NodeResolutionStrategy):
     """Interactive node resolution with unified search."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize strategy (stateless - context passed per resolution)."""
-        self._last_choice = None  # Track last user choice for optional detection
+        self._last_choice: str | None = None  # Track last user choice for optional detection
 
     def _unified_choice_prompt(self, prompt_text: str, num_options: int, has_browse: bool = False) -> str:
         """Unified choice prompt with inline manual/skip/optional/refine options.
@@ -161,6 +161,8 @@ class InteractiveNodeStrategy(NodeResolutionStrategy):
                         continue
                 else:
                     # User made a choice (package, optional, manual, or skip)
+                    # Type narrowing: result is ResolvedNodePackage | None
+                    assert result is None or isinstance(result, ResolvedNodePackage)
                     return result
             else:
                 # No results found
@@ -232,8 +234,10 @@ class InteractiveNodeStrategy(NodeResolutionStrategy):
         elif choice == '0':
             self._last_choice = 'browse'
             selected = self._browse_all_packages(possible, context)
-            if selected and selected != "BACK":
-                return selected
+            if selected == "BACK":
+                return None
+            elif isinstance(selected, ResolvedNodePackage):
+                return self._create_resolved_from_match(node_type, selected)
             return None
         else:
             self._last_choice = 'select'
@@ -305,19 +309,19 @@ class InteractiveNodeStrategy(NodeResolutionStrategy):
     def _create_resolved_from_match(
         self,
         node_type: str,
-        match
+        match: ResolvedNodePackage
     ) -> ResolvedNodePackage:
         """Create ResolvedNodePackage from user-confirmed match.
 
         Args:
             node_type: The node type being resolved
-            match: Either a search result (with .score) or ResolvedNodePackage (with .match_confidence)
+            match: ResolvedNodePackage to update with user confirmation
 
         Returns:
             ResolvedNodePackage with match_type="user_confirmed"
         """
-        # Handle both search results and existing ResolvedNodePackage
-        confidence = getattr(match, 'score', None) or getattr(match, 'match_confidence', 1.0)
+        # Use existing confidence or default to 1.0
+        confidence: float = getattr(match, 'match_confidence', None) or 1.0
         versions = getattr(match, 'versions', [])
 
         return ResolvedNodePackage(
@@ -329,8 +333,18 @@ class InteractiveNodeStrategy(NodeResolutionStrategy):
             match_confidence=confidence
         )
 
-    def _browse_all_packages(self, results: list, context: "NodeResolutionContext"):
-        """Browse all matches with pagination."""
+    def _browse_all_packages(
+        self,
+        results: list[ResolvedNodePackage],
+        context: "NodeResolutionContext"
+    ) -> ResolvedNodePackage | str | None:
+        """Browse all matches with pagination.
+
+        Returns:
+            ResolvedNodePackage if user selects a package
+            "BACK" if user goes back
+            None if user quits
+        """
         page = 0
         page_size = 10
         total_pages = (len(results) + page_size - 1) // page_size

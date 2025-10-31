@@ -24,6 +24,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/comfydock_core"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/comfydock_core/py.typed" = "comfydock_core/py.typed"
+
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
