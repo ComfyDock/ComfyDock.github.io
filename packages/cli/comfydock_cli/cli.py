@@ -471,6 +471,38 @@ def _add_env_commands(subparsers: argparse._SubParsersAction) -> None:
     workflow_resolve_parser.add_argument("--no-install", action="store_true", help="Skip node installation prompt")
     workflow_resolve_parser.set_defaults(func=env_cmds.workflow_resolve)
 
+    # workflow model importance
+    workflow_importance_parser = workflow_subparsers.add_parser(
+        "model",
+        help="Manage workflow models"
+    )
+    workflow_model_subparsers = workflow_importance_parser.add_subparsers(
+        dest="model_command",
+        help="Model management commands"
+    )
+
+    importance_parser = workflow_model_subparsers.add_parser(
+        "importance",
+        help="Set model importance (required/flexible/optional)"
+    )
+    importance_parser.add_argument(
+        "workflow_name",
+        nargs="?",
+        help="Workflow name (interactive if omitted)"
+    ).completer = workflow_completer  # type: ignore[attr-defined]
+    importance_parser.add_argument(
+        "model_identifier",
+        nargs="?",
+        help="Model filename or hash (interactive if omitted)"
+    )
+    importance_parser.add_argument(
+        "importance",
+        nargs="?",
+        choices=["required", "flexible", "optional"],
+        help="Importance level"
+    )
+    importance_parser.set_defaults(func=env_cmds.workflow_model_importance)
+
     # Constraint management subcommands
     constraint_parser = subparsers.add_parser("constraint", help="Manage UV constraint dependencies")
     constraint_subparsers = constraint_parser.add_subparsers(dest="constraint_command", help="Constraint commands")

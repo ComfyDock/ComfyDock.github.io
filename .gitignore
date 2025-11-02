@@ -53,6 +53,7 @@ dev/test-environments/
 
 # Documentation build
 docs/site/
+docs/comfydock-docs/site/
 
 # Logs
 *.log

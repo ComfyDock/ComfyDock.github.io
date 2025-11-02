@@ -88,6 +88,10 @@ class GlobalCommands:
             # Handle models directory setup
             self._setup_models_directory(workspace, args)
 
+            # Show environment variable setup if custom path was used
+            if path:
+                self._show_workspace_env_setup(workspace.path)
+
             print("\nNext steps:")
             print("  1. Create an environment: cfd create <name>")
             print("  2. Add custom nodes: cfd -e <name> node add <node>")
@@ -95,6 +99,33 @@ class GlobalCommands:
         except Exception as e:
             print(f"✗ Failed to initialize workspace: {e}", file=sys.stderr)
             sys.exit(1)
+
+    def _show_workspace_env_setup(self, workspace_path: Path) -> None:
+        """Show instructions for setting COMFYDOCK_HOME for custom workspace location."""
+        import os
+
+        print("\n" + "="*70)
+        print("⚠️  CUSTOM WORKSPACE LOCATION")
+        print("="*70)
+        print(f"\nWorkspace created at: {workspace_path}")
+        print("\nTo use this workspace in future sessions, set COMFYDOCK_HOME:")
+
+        # Detect shell and suggest appropriate config file
+        shell = os.environ.get('SHELL', '')
+        if 'bash' in shell:
+            config_file = "~/.bashrc"
+        elif 'zsh' in shell:
+            config_file = "~/.zshrc"
+        elif 'fish' in shell:
+            config_file = "~/.config/fish/config.fish"
+        else:
+            config_file = "your shell profile"
+
+        print(f"\nAdd to {config_file}:")
+        print(f'  export COMFYDOCK_HOME="{workspace_path}"')
+        print("\nOr set temporarily in current session:")
+        print(f'  export COMFYDOCK_HOME="{workspace_path}"')
+        print("\n" + "="*70)
 
     def _setup_models_directory(self, workspace: Workspace, args: argparse.Namespace) -> None:
         """Handle interactive or automatic models directory setup during init.

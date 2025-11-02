@@ -2,6 +2,7 @@
 .PHONY: help install dev test lint format clean docker-build docker-up docker-down show-versions bump-major bump-package check-versions
 .PHONY: cec-setup cec-build cec-shell cec-test cec-scan cec-recreate cec-clean
 .PHONY: build-core build-cli build-all
+.PHONY: docs-serve docs-build docs-deploy docs-clean
 
 # Default target
 help:
@@ -39,6 +40,12 @@ help:
 	@echo "  make build-core   - Build comfydock_core package"
 	@echo "  make build-cli    - Build comfydock_cli package"
 	@echo "  make build-all    - Build all packages"
+	@echo ""
+	@echo "Documentation:"
+	@echo "  make docs-serve   - Serve docs locally at http://localhost:8000"
+	@echo "  make docs-build   - Build static documentation site"
+	@echo "  make docs-deploy  - Deploy docs to GitHub Pages"
+	@echo "  make docs-clean   - Clean built documentation files"
 
 # Install all packages in development mode
 install:
@@ -180,3 +187,24 @@ build-all:
 	uv build --package comfydock_cli --no-sources
 	@echo "✓ Built comfydock_cli"
 	@echo "✓ All packages built (see dist/)"
+
+# Documentation commands
+docs-serve:
+	@echo "Starting documentation server..."
+	@echo "Visit http://localhost:8000"
+	cd docs/comfydock-docs && mkdocs serve
+
+docs-build:
+	@echo "Building documentation..."
+	cd docs/comfydock-docs && mkdocs build
+	@echo "✓ Documentation built (see docs/comfydock-docs/site/)"
+
+docs-deploy:
+	@echo "Deploying documentation to GitHub Pages..."
+	cd docs/comfydock-docs && mkdocs gh-deploy
+	@echo "✓ Documentation deployed"
+
+docs-clean:
+	@echo "Cleaning documentation build artifacts..."
+	rm -rf docs/comfydock-docs/site/
+	@echo "✓ Documentation cleaned"
