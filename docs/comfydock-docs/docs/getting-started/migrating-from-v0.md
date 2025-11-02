@@ -77,10 +77,13 @@ For each Docker-based environment:
 5. **Add custom nodes**:
    ```bash
    # Add each node from your v0.x environment
-   cfd node add comfyui-manager
+   cfd node add comfyui-depthflow-nodes
    cfd node add comfyui-impact-pack
    # ... etc
    ```
+
+   !!! warning "Skip ComfyUI-Manager"
+       Don't install `comfyui-manager` in v1.x - ComfyDock replaces its functionality with `cfd node add`.
 
 6. **Load workflows**:
    ```bash
@@ -161,7 +164,7 @@ Here's a real-world migration example:
 **Old v0.x environment "production":**
 
 * ComfyUI v0.2.0
-* Custom nodes: ComfyUI-Manager, Impact-Pack, ControlNet-Aux
+* Custom nodes: Impact-Pack, ControlNet-Aux, Depthflow-Nodes
 * Models: SD1.5, Deliberate v2, various LoRAs
 * Workflows: 10 JSON files
 
@@ -178,7 +181,7 @@ cfd init ~/comfydock
 cfd create production --use
 
 # 4. Add custom nodes
-cfd node add comfyui-manager
+cfd node add comfyui-depthflow-nodes
 cfd node add comfyui-impact-pack
 cfd node add comfyui-controlnet-aux
 

@@ -296,6 +296,23 @@ ComfyDock will:
 * **Source tracking** — Remember where models came from (CivitAI, HuggingFace)
 * **Fast lookups** — SQLite database for quick queries
 
+### Model importance
+
+Mark models in workflows as required/flexible/optional:
+
+```bash
+# Required - workflow won't work without it
+cfd workflow model importance my-workflow checkpoint.safetensors required
+
+# Flexible - can substitute with similar models
+cfd workflow model importance my-workflow style-lora.safetensors flexible
+
+# Optional - nice to have but not critical
+cfd workflow model importance my-workflow detail-lora.safetensors optional
+```
+
+This helps when sharing workflows or importing on different machines. See [Workflow Model Importance](../user-guide/workflows/workflow-model-importance.md) for details.
+
 ## Node resolution
 
 ComfyDock resolves custom nodes through multiple sources:
@@ -306,7 +323,7 @@ The official registry of custom nodes:
 
 ```bash
 # Add by registry ID
-cfd node add comfyui-manager
+cfd node add comfyui-depthflow-nodes
 ```
 
 ComfyDock queries the registry for:
@@ -321,13 +338,13 @@ Direct from GitHub:
 
 ```bash
 # Latest commit
-cfd node add https://github.com/ltdrdata/ComfyUI-Manager
+cfd node add https://github.com/akatz-ai/ComfyUI-AKatz-Nodes
 
 # Specific version
-cfd node add https://github.com/ltdrdata/ComfyUI-Manager@v2.1.0
+cfd node add https://github.com/akatz-ai/ComfyUI-AKatz-Nodes@v1.0.0
 
 # Specific commit
-cfd node add https://github.com/ltdrdata/ComfyUI-Manager@abc123
+cfd node add https://github.com/akatz-ai/ComfyUI-AKatz-Nodes@abc123
 ```
 
 ### 3. Development nodes
@@ -356,9 +373,9 @@ Each custom node gets its own dependency group in pyproject.toml:
 
 ```toml
 [project.optional-dependencies]
-"node/comfyui-manager" = [
-    "GitPython>=3.1.0",
-    "packaging>=23.0"
+"node/comfyui-depthflow-nodes" = [
+    "opencv-python>=4.0.0",
+    "numpy>=1.24.0"
 ]
 
 "node/comfyui-impact-pack" = [
@@ -380,7 +397,7 @@ If two nodes require incompatible versions:
 ```bash
 # ComfyDock detects conflict
 ✗ Dependency conflict detected:
-  - comfyui-manager requires torch>=2.0,<2.1
+  - comfyui-depthflow-nodes requires torch>=2.0,<2.1
   - comfyui-video requires torch>=2.1
 
 Options:
@@ -392,7 +409,7 @@ Options:
 Use constraints to override:
 
 ```bash
-cfd constraint add "torch==2.1.0"
+cfd constraint add "torch==2.4.1"
 ```
 
 ## Python dependencies
@@ -439,7 +456,7 @@ cfd use my-project
 # Commands use active env by default
 cfd run
 cfd status
-cfd node add comfyui-manager
+cfd node add comfyui-depthflow-nodes
 
 # Or specify explicitly
 cfd -e testing run

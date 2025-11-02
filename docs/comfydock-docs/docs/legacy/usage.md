@@ -12,14 +12,14 @@ ComfyDock has two main sections:
 1. **Settings Panel** (top)
 2. **Environments Grid** (below)
 
-![Manager Layout Screenshot](assets/envManagerLayoutAnnotated.png)
+![Manager Layout Screenshot](../assets/envManagerLayoutAnnotated.png)
 
 ---
 
 ## **Updating User Settings**
 
 1. Open **Settings** tab.
-![Settings Tab](assets/userSettings.png)
+![Settings Tab](../assets/userSettings.png)
 2. Configure Defaults:
     - ComfyUI Path
     - Port
@@ -37,7 +37,7 @@ ComfyDock has two main sections:
 > </video>
 
 1. Click **Create Environment**.
-![Create Environment](assets/createEnvironmentDialog.png)
+![Create Environment](../assets/createEnvironmentDialog.png)
 2. Fill out fields:
     - **Name**: Any text (emojis allowed).
     - **Docker Image**: Pick a ComfyUI base image from Docker Hub, an image installed locally, or a custom image url using the dialog.
@@ -48,7 +48,7 @@ ComfyDock has two main sections:
         - If you don’t have ComfyUI already installed at the provided location, you will be prompted to install it after hitting “create”
         - If you provide a path to a directory containing multiple “ComfyUI” folders, the code will select the first directory to use with the environment.
 3. Select an **Environment Type** (Default, etc.).
-![Environment Type](assets/envTypesLatest.png)
+![Environment Type](../assets/envTypesLatest.png)
     - If default is selected, the environment will attempt to “mount” the models, output, and input directories from your existing ComfyUI installation into the environment.
     - Mounted directories can be read and written to by the environment, anything not mounted from the host machine will not be accessible by the environment.
     - You can see how changing the Environment Type directly affects the Mount Config by expanding the Advanced Settings tab.
@@ -61,7 +61,7 @@ ComfyDock has two main sections:
 
 ### **Browsing Docker Hub Images**
 
-![Docker Select Dockerhub](assets/dockerSelectBrowse.png)
+![Docker Select Dockerhub](../assets/dockerSelectBrowse.png)
 
 When you first open the Docker Image dialog, you will be presented with a list of image tags available on Docker Hub. These images are custom ComfyUI base images that I have created for this tool. You can see the dockerfile and workflow used to build these images [here](https://github.com/ComfyDock/ComfyDock-Docker). See the list of available images on [dockerhub](https://hub.docker.com/repository/docker/akatzai/comfydock-env/general).
 The tag format is as follows:
@@ -75,13 +75,13 @@ Images that you have already downloaded will be shown in the list with a green "
 
 ### **Using Local Images**
 
-![Docker Select Installed](assets/dockerSelectInstalled.png)
+![Docker Select Installed](../assets/dockerSelectInstalled.png)
 
 If you have a local image already downloaded, you can select it by tag in the “Installed” tab. This list will show all images you currently have available on your machine.
 
 ### **Using Custom Images**
 
-![Docker Select Custom](assets/dockerSelectCustom.png)
+![Docker Select Custom](../assets/dockerSelectCustom.png)
 
 If you have a custom image you want to use, you can specify it by tag in the “Custom" tab. This input expects a full Docker Hub image tag string:<br/>
 e.g. `akatzai/comfydock-env:v2.6.0-py3.12-cu12.1-ptstable`.
@@ -95,7 +95,7 @@ e.g. `akatzai/comfydock-env:v2.6.0-py3.12-cu12.1-ptstable`.
 
 The Mount Config panel now provides granular control over how host directories interact with container paths, with four configurable columns per row:
 
-![Mount Config Screenshot](assets/mountConfigUpdated.png)
+![Mount Config Screenshot](../assets/mountConfigUpdated.png)
 
 ### **Columns Explained**
 
@@ -150,7 +150,7 @@ The Mount Config panel now provides granular control over how host directories i
 
 ## **Advanced Options**
 
-![Advanced Options Screenshot](assets/advancedOptions.png)
+![Advanced Options Screenshot](../assets/advancedOptions.png)
 
 - **Runtime**: `NVIDIA` for GPU or `None` for CPU.
 - **Command**: Extra flags for the ComfyUI startup command, e.g. `--fast` or `--lowvram`.

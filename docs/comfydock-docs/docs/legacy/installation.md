@@ -195,7 +195,7 @@ comfydock dev exec
 1. Ensure Pinokio is running.
 2. Click the **ComfyDock** app on the home screen.
     - You should see the following menu:
-    - ![ComfyDock App](assets/pinokioMenu1.png)
+    - ![ComfyDock App](../assets/pinokioMenu1.png)
 3. Click **Install & Update** to begin setup.
 4. Make sure Docker Desktop is running and click **Start**.
    - Look for `Uvicorn running on http://0.0.0.0:5172`.

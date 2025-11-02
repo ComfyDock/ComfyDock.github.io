@@ -1,6 +1,6 @@
 # About the Author
 
-![Akatz AI](assets/akatz_logo_small.png){width="200"}
+![Akatz AI](../assets/akatz_logo_small.png){width="200"}
 
 Akatz AI:
 

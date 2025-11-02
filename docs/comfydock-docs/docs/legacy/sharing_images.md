@@ -80,7 +80,7 @@ Sharing your ComfyUI environment via a container registry like DockerHub makes i
 1. **Download the Image:**
     - Users can download the image directly from their Environment Manager interface via the Create Environment dialog:
         
-        ![Create Environment](assets/runSharedEnv.png)
+        ![Create Environment](../assets/runSharedEnv.png)
         
     - Users can also pull the image using the following command:
         

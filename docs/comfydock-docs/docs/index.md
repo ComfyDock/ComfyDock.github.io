@@ -71,10 +71,10 @@ ComfyDock solves these by treating your ComfyUI environments like code projectsâ
 
 ```bash
 # Install a custom node
-cfd node add comfyui-akatz-nodes
+cfd node add comfyui-depthflow-nodes
 
 # Commit your changes
-cfd commit -m "Added akatz nodes"
+cfd commit -m "Added depthflow nodes"
 
 # Share with your team
 cfd export my-workflow.tar.gz

@@ -2,7 +2,7 @@
 
 ## Environment Cards
 
-![Environment Card](assets/environmentCard1.png)
+![Environment Card](../assets/environmentCard1.png)
 
 Each environment is displayed as a card, showing:
 
@@ -25,12 +25,12 @@ Each environment is displayed as a card, showing:
 - **Activate:** Click the **Activate** button to run the environment.
     - You will know an environment is active if it has a green **Running** status, and spinning fan icon.
     
-    ![Active Environment](assets/environmentCard1Running.png)
+    ![Active Environment](../assets/environmentCard1Running.png)
     
     - Access the server by clicking the link next to the **Status** indicator.
     - Once an environment is running you will be able to monitor the internal ComfyUI logs by clicking on the “Logs” button, which open a dialog displaying the current state:
         
-    ![ComfyUI Logs](assets/logsDisplay.png)
+    ![ComfyUI Logs](../assets/logsDisplay.png)
 
 ---
 
@@ -45,11 +45,11 @@ You can use the duplicate functionality to create a copy of an environment. Moun
 
 - **Duplicate:** Use the **Duplicate** button to create a copy of an environment. Adjust settings as needed during duplication.
     
-    ![Duplicate Environment](assets/updatedDuplicate.png)
+    ![Duplicate Environment](../assets/updatedDuplicate.png)
     
 - Environment type by default is set to “Auto”, which keeps the same mount config as the original:
     
-    ![Duplicate Environment](assets/autoEnvTypes.png)
+    ![Duplicate Environment](../assets/autoEnvTypes.png)
     
 - You can further adjust the duplicate environment in the Advanced Options tab, these options are the same as when creating a new environment.
 
@@ -76,7 +76,7 @@ Click on **Settings** in the environment card to:
 - Change the environment’s folder location.
 - View detailed environment information (e.g., base image, mount points).
 
-![Environment Settings](assets/updatedEnvSettings.png)
+![Environment Settings](../assets/updatedEnvSettings.png)
 
 ---
 
@@ -84,7 +84,7 @@ Click on **Settings** in the environment card to:
 
 You can use folders to organize your environments. You can see which folder you are currently viewing via the dropdown in the top-left corner:
 
-![Folder Dropdown](assets/foldersDropdown.png)
+![Folder Dropdown](../assets/foldersDropdown.png)
 
 ### Default Folders
 
@@ -98,7 +98,7 @@ You can use folders to organize your environments. You can see which folder you 
 
 - You can create new folders by clicking on the “Add Folder” button next to the folder dropdown menu:
 
-![Add Folder](assets/addFolders.png)
+![Add Folder](../assets/addFolders.png)
 
 - Folder names must be unique
 - Folders will be added to the dropdown list in the order they were created
@@ -107,7 +107,7 @@ You can use folders to organize your environments. You can see which folder you 
 
 - You can change a folder’s name, or delete an empty folder by clicking on the “Settings” button right of a folder name in the dropdown menu.
 
-![Edit Folder](assets/editFolder.png)
+![Edit Folder](../assets/editFolder.png)
 
 - Click “Update” once you’ve made changes to save them.
 - Click “Delete Folder” if you’d like to delete a folder, folders can only be deleted if they contain no environments (you can move or delete existing environments until the folder is empty).
@@ -123,7 +123,7 @@ There are a couple of ways to add an environment to a folder:
     1. Duplicates will be added to the selected folder by default
     2. Duplicates in a Default Folder will have the “None” folder assigned.
 3. Manually set the environment’s folder via Environment Settings: 
-![Environment Settings Folder](assets/environmentSettingsFolder.png)
+![Environment Settings Folder](../assets/environmentSettingsFolder.png)
     1. You can manually specify which folder an environment should belong in with the **Folder** dropdown in settings. Click “Update” once selected to save the changes.
 ---
 

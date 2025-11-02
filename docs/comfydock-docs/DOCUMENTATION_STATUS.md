@@ -4,7 +4,7 @@
 
 This document tracks the status of the ComfyDock v1.0 documentation rewrite. The documentation has been reorganized to reflect the new UV-based architecture and follows an Anthropic-style tone similar to Claude Code docs.
 
-## Completed (Phase 1)
+## Completed (Phase 1) - UPDATED 2025-11-02
 
 ### Core Structure
 
@@ -14,13 +14,18 @@ This document tracks the status of the ComfyDock v1.0 documentation rewrite. The
 - ✅ Added Material for MkDocs theme with modern features
 - ✅ Created custom CSS (`stylesheets/extra.css`)
 
-### Getting Started Section (Complete)
+### Getting Started Section (Complete & Verified)
 
 - ✅ `index.md` - Main landing page with Anthropic-style overview
 - ✅ `getting-started/installation.md` - Complete installation guide
-- ✅ `getting-started/quickstart.md` - 5-minute quickstart tutorial
-- ✅ `getting-started/concepts.md` - Deep dive into core concepts
-- ✅ `getting-started/migrating-from-v0.md` - Migration guide for v0.x users
+- ✅ `getting-started/quickstart.md` - 5-minute quickstart tutorial (CORRECTED)
+- ✅ `getting-started/concepts.md` - Deep dive into core concepts (UPDATED)
+- ✅ `getting-started/migrating-from-v0.md` - Migration guide for v0.x users (UPDATED)
+
+### User Guide Section (Partial)
+
+- ✅ `user-guide/workspaces.md` - Complete workspace management guide (NEW)
+- ✅ `user-guide/workflows/workflow-model-importance.md` - Model importance documentation (NEW)
 
 ### Key Features
 
@@ -42,12 +47,39 @@ This document tracks the status of the ComfyDock v1.0 documentation rewrite. The
 
 ## In Progress / TODO
 
+## Changes Made (2025-11-02)
+
+### Accuracy Fixes
+
+1. **Status output corrected** - Updated quickstart.md to match actual CLI output (simplified format)
+2. **Commit log output corrected** - Updated to show actual compact format without table headers
+3. **Node examples updated** - Replaced all `comfyui-manager` examples with `comfyui-depthflow-nodes` or `comfyui-akatz-nodes`
+4. **Added ComfyUI-Manager warning** - Documented that ComfyDock replaces Manager functionality
+5. **Constraint example updated** - Changed torch version to match code help text (2.4.1)
+
+### New Documentation
+
+1. **Workspaces guide completed** - Full documentation for workspace management including:
+   - Initialization options
+   - Configuration commands (config, registry, logs)
+   - Registry management
+   - Logging and debugging
+   - Best practices
+
+2. **Workflow model importance** - New comprehensive guide for model importance feature:
+   - Interactive and non-interactive modes
+   - Importance levels (required/flexible/optional)
+   - Usage patterns and best practices
+   - Integration with commit/import/repair
+
+3. **Concepts updated** - Added model importance section to core concepts
+
 ### Phase 2: Core User Guide
 
 These sections are referenced in the nav but need content:
 
 **User Guide - Workspaces:**
-- [ ] `user-guide/workspaces.md` - Workspace management, configuration
+- ✅ `user-guide/workspaces.md` - Workspace management, configuration (COMPLETED)
 
 **User Guide - Environments:**
 - [ ] `user-guide/environments/creating-environments.md` - Detailed environment creation
@@ -66,6 +98,7 @@ These sections are referenced in the nav but need content:
 - [ ] `user-guide/models/adding-sources.md` - Adding download URLs to models
 
 **User Guide - Workflows:**
+- ✅ `user-guide/workflows/workflow-model-importance.md` - Model importance (COMPLETED)
 - [ ] `user-guide/workflows/workflow-resolution.md` - Resolving dependencies
 - [ ] `user-guide/workflows/workflow-tracking.md` - How workflows are tracked
 
@@ -229,8 +262,12 @@ Before marking Phase 1 complete:
 - [x] mkdocs.yml navigation structure correct
 - [x] Legacy docs moved and linked
 - [x] Custom CSS working
-- [x] Code examples tested
+- [x] Code examples tested and verified against actual CLI
+- [x] Output examples match actual command output
+- [x] All node examples use comfyui-depthflow-nodes or comfyui-akatz-nodes
+- [x] No references to comfyui-manager in examples
 - [x] Links between pages working
+- [x] Missing commands documented (config, registry, logs, workflow model importance)
 - [ ] Spell check all content
 - [ ] Technical review by maintainer
 

@@ -1,6 +1,6 @@
 
 
-![ComfyDock Logo](assets/comfy_env_manager-min.png){: style="height:350px;width:350px"}
+![ComfyDock Logo](../assets/comfy_env_manager-min.png){: style="height:350px;width:350px"}
 
 > If you find this guide helpful consider giving the 
 > [repo](https://github.com/ComfyDock/ComfyDock-Docs) a ⭐!

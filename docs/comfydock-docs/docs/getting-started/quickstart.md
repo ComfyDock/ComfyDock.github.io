@@ -96,17 +96,10 @@ cfd status
 **Output:**
 
 ```
-Environment: my-project
-ComfyUI: v0.2.2
-Python: 3.11
+Environment: my-project ✓
 
-📦 Custom Nodes (0):
-  No custom nodes installed
-
-📊 Workflows (0):
-  No workflows tracked
-
-Git Status: ✓ Clean (no uncommitted changes)
+✓ No workflows
+✓ No uncommitted changes
 ```
 
 ## Step 5: Add custom nodes
@@ -114,7 +107,7 @@ Git Status: ✓ Clean (no uncommitted changes)
 Let's add a custom node from the ComfyUI registry:
 
 ```bash
-cfd node add comfyui-manager
+cfd node add comfyui-depthflow-nodes
 ```
 
 This will:
@@ -127,11 +120,14 @@ This will:
 !!! tip "Adding nodes from GitHub"
     ```bash
     # Add by GitHub URL
-    cfd node add https://github.com/ltdrdata/ComfyUI-Manager
+    cfd node add https://github.com/akatz-ai/ComfyUI-AKatz-Nodes
 
     # Add specific version/branch
-    cfd node add comfyui-manager@v2.1.0
+    cfd node add comfyui-depthflow-nodes@main
     ```
+
+!!! warning "Avoid ComfyUI-Manager"
+    ComfyDock replaces ComfyUI-Manager's functionality. Don't install `comfyui-manager` - use `cfd node add` instead.
 
 **Try adding more nodes:**
 
@@ -146,7 +142,7 @@ cfd node add comfyui-controlnet-aux
 Save your environment's current state:
 
 ```bash
-cfd commit -m "Initial setup with ComfyUI Manager"
+cfd commit -m "Added depthflow nodes"
 ```
 
 This creates a git commit in the `.cec/` directory tracking:
@@ -165,10 +161,19 @@ cfd commit log
 **Output:**
 
 ```
-Version  Timestamp                  Message
--------  -------------------------  ----------------------------
-v1       2025-11-02 10:30:15 PST    Initial setup with ComfyUI Manager
+Version history for environment 'my-project':
+
+v1: Added depthflow nodes
+
+Use 'cfd rollback <version>' to restore to a specific version
 ```
+
+!!! tip "Verbose mode"
+    ```bash
+    cfd commit log --verbose
+    ```
+
+    Shows timestamps and full commit hashes.
 
 ## Step 7: Experiment safely
 
@@ -244,7 +249,7 @@ cfd use my-project
 
 ```bash
 # Update to latest version
-cfd node update comfyui-manager
+cfd node update comfyui-depthflow-nodes
 
 # View installed nodes
 cfd node list
@@ -295,7 +300,7 @@ Here are the most important commands for daily use:
 | `cfd list` | List all environments | `cfd list` |
 | `cfd run` | Start ComfyUI | `cfd run` |
 | `cfd status` | Show environment status | `cfd status` |
-| `cfd node add` | Add custom node | `cfd node add comfyui-manager` |
+| `cfd node add` | Add custom node | `cfd node add comfyui-depthflow-nodes` |
 | `cfd commit` | Save current state | `cfd commit -m "message"` |
 | `cfd rollback` | Revert to previous state | `cfd rollback v1` |
 | `cfd export` | Export environment | `cfd export my-pack.tar.gz` |
