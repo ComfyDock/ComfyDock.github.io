@@ -1,0 +1,78 @@
+/* ComfyDock Documentation Custom Styles */
+
+/* Card grid styling for better layout */
+.grid.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.grid.cards > * {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  padding: 1rem;
+  transition: box-shadow 0.2s;
+}
+
+.grid.cards > *:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Code block improvements */
+.highlight pre {
+  border-radius: 0.2rem;
+  padding: 1rem;
+}
+
+/* Admonition styling tweaks */
+.admonition {
+  border-radius: 0.2rem;
+  margin: 1.5rem 0;
+}
+
+/* Command output styling */
+code.language-bash::before,
+code.language-powershell::before,
+code.language-cmd::before {
+  opacity: 0.6;
+}
+
+/* Table improvements */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+table th {
+  background-color: var(--md-primary-fg-color--light);
+  color: var(--md-primary-bg-color);
+  font-weight: 600;
+}
+
+/* Navigation improvements */
+.md-tabs {
+  background-color: var(--md-primary-fg-color);
+}
+
+/* Improve readability of inline code */
+code {
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.2rem;
+  background-color: var(--md-code-bg-color);
+}
+
+/* Better spacing for lists */
+li {
+  margin: 0.3rem 0;
+}
+
+/* Improve blockquote styling */
+blockquote {
+  border-left: 4px solid var(--md-accent-fg-color);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  opacity: 0.9;
+}
