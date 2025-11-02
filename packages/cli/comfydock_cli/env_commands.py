@@ -1626,6 +1626,143 @@ class EnvironmentCommands:
         if workflows.has_changes:
             print("\nRun 'cfd commit' to save current state")
 
+    @with_env_logging("workflow model importance", get_env_name=lambda self, args: self._get_env(args).name)
+    def workflow_model_importance(self, args: argparse.Namespace, logger=None) -> None:
+        """Update model importance (criticality) for workflow models."""
+        env = self._get_env(args)
+
+        # Determine workflow name (direct or interactive)
+        if hasattr(args, 'workflow_name') and args.workflow_name:
+            workflow_name = args.workflow_name
+        else:
+            # Interactive: select workflow
+            workflow_name = self._select_workflow_interactive(env)
+            if not workflow_name:
+                print("✗ No workflow selected")
+                return
+
+        # Get workflow models
+        models = env.pyproject.workflows.get_workflow_models(workflow_name)
+        if not models:
+            print(f"✗ No models found in workflow '{workflow_name}'")
+            return
+
+        # Determine model (direct or interactive)
+        if hasattr(args, 'model_identifier') and args.model_identifier:
+            # Direct mode: update single model
+            model_identifier = args.model_identifier
+            new_importance = args.importance
+
+            success = env.workflow_manager.update_model_criticality(
+                workflow_name=workflow_name,
+                model_identifier=model_identifier,
+                new_criticality=new_importance
+            )
+
+            if success:
+                print(f"✓ Updated '{model_identifier}' importance to: {new_importance}")
+            else:
+                print(f"✗ Model '{model_identifier}' not found in workflow '{workflow_name}'")
+                sys.exit(1)
+        else:
+            # Interactive: loop over all models
+            print(f"\n📋 Setting model importance for workflow: {workflow_name}")
+            print(f"   Found {len(models)} model(s)\n")
+
+            updated_count = 0
+            for model in models:
+                current_importance = model.criticality
+                display_name = model.filename
+                if model.hash:
+                    display_name += f" ({model.hash[:8]}...)"
+
+                print(f"\nModel: {display_name}")
+                print(f"  Current: {current_importance}")
+                print(f"  Options: [r]equired, [f]lexible, [o]ptional, [s]kip")
+
+                # Prompt for new importance
+                try:
+                    choice = input("  Choice: ").strip().lower()
+                except (KeyboardInterrupt, EOFError):
+                    print("\n✗ Cancelled")
+                    return
+
+                # Map choice to importance level
+                importance_map = {
+                    'r': 'required',
+                    'f': 'flexible',
+                    'o': 'optional',
+                    's': None  # Skip
+                }
+
+                new_importance = importance_map.get(choice)
+                if new_importance is None:
+                    if choice == 's':
+                        print("  → Skipped")
+                        continue
+                    else:
+                        print(f"  → Invalid choice, skipping")
+                        continue
+
+                # Update model importance
+                identifier = model.hash if model.hash else model.filename
+                success = env.workflow_manager.update_model_criticality(
+                    workflow_name=workflow_name,
+                    model_identifier=identifier,
+                    new_criticality=new_importance
+                )
+
+                if success:
+                    print(f"  ✓ Updated to: {new_importance}")
+                    updated_count += 1
+                else:
+                    print(f"  ✗ Failed to update")
+
+            print(f"\n✓ Updated {updated_count}/{len(models)} model(s)")
+
+    def _select_workflow_interactive(self, env) -> str | None:
+        """Interactive workflow selection from available workflows.
+
+        Returns:
+            Selected workflow name or None if cancelled
+        """
+        status = env.workflow_manager.get_workflow_sync_status()
+        all_workflows = status.new + status.modified + status.synced
+
+        if not all_workflows:
+            print("✗ No workflows found")
+            return None
+
+        print("\n📋 Available workflows:")
+        for i, name in enumerate(all_workflows, 1):
+            # Show sync state
+            if name in status.new:
+                state = "new"
+            elif name in status.modified:
+                state = "modified"
+            else:
+                state = "synced"
+            print(f"  {i}. {name} ({state})")
+
+        print()
+        try:
+            choice = input("Select workflow (number or name): ").strip()
+        except (KeyboardInterrupt, EOFError):
+            return None
+
+        # Try to parse as number
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(all_workflows):
+                return all_workflows[idx]
+        except ValueError:
+            # Try as name
+            if choice in all_workflows:
+                return choice
+
+        print(f"✗ Invalid selection: {choice}")
+        return None
+
     @with_env_logging("workflow resolve", get_env_name=lambda self, args: self._get_env(args).name)
     def workflow_resolve(self, args: argparse.Namespace, logger=None) -> None:
         """Resolve workflow dependencies interactively."""
