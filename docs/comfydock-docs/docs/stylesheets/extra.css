@@ -76,3 +76,102 @@ blockquote {
   font-style: italic;
   opacity: 0.9;
 }
+
+/* Title wrapper to position button inline with h1 */
+.md-title-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.md-title-wrapper h1 {
+  margin: 0;
+  flex: 1;
+}
+
+/* Copy Markdown Button */
+.md-copy-markdown-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.375rem;
+  color: var(--md-default-fg-color);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.md-copy-markdown-button:hover {
+  background: var(--md-default-fg-color--lightest);
+  border-color: var(--md-default-fg-color--light);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.md-copy-markdown-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.md-copy-markdown-button svg {
+  flex-shrink: 0;
+}
+
+.md-copy-markdown-button .md-button-label {
+  line-height: 1;
+}
+
+/* Copy notification toast */
+.md-copy-notification {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  padding: 0.8rem 1.2rem;
+  background: var(--md-accent-fg-color);
+  color: var(--md-accent-bg-color);
+  border-radius: 0.3rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 0.9rem;
+  font-weight: 500;
+  z-index: 1000;
+  opacity: 0;
+  transform: translateY(1rem);
+  transition: all 0.3s ease;
+}
+
+.md-copy-notification.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.md-copy-notification.error {
+  background: #d32f2f;
+  color: white;
+}
+
+/* Mobile responsive - stack vertically */
+@media screen and (max-width: 76.1875em) {
+  .md-title-wrapper {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .md-copy-markdown-button .md-button-label {
+    display: none;
+  }
+
+  .md-copy-markdown-button {
+    padding: 0.5rem;
+  }
+}
