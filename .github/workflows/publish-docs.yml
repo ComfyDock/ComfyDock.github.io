@@ -1,0 +1,47 @@
+name: Publish Documentation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.x"
+
+    - name: Install MkDocs dependencies
+      run: |
+        pip install mkdocs mkdocs-material
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git remote add pages "https://${{ secrets.DOCS_PUBLISH_TOKEN }}@github.com/ComfyDock/ComfyDock.github.io.git"
+
+    - name: Deploy documentation
+      working-directory: docs/comfydock-docs
+      run: |
+        mkdocs gh-deploy \
+          --force \
+          --remote-name pages \
+          --remote-branch main
+
+    - name: Deployment summary
+      run: |
+        echo "✅ Documentation deployed to https://comfydock.com"
+        echo "📝 Built from: docs/comfydock-docs/"
+        echo "🚀 Pushed to: ComfyDock.github.io:main"

@@ -1,80 +1,94 @@
-# Publishing Workflows
+# GitHub Actions Workflows
 
-This directory contains GitHub Actions workflows for publishing ComfyDock packages to PyPI.
-
-## Prerequisites
-
-### GitHub Environment Setup
-
-Create a `pypi` environment in your repository:
-
-1. Go to Settings → Environments → New environment
-2. Name: `pypi`
-3. (Optional) Add protection rules:
-   - Required reviewers for manual approval
-   - Deployment branch restrictions
-
-### PyPI Trusted Publishing Setup
-
-Configure Trusted Publishing on PyPI:
-
-1. Go to https://pypi.org/manage/account/publishing/
-2. Add a new publisher for each package:
-   - **PyPI Project Name**: `comfydock_core` (or `comfydock_cli`)
-   - **Owner**: `ComfyDock`
-   - **Repository name**: `ComfyDock`
-   - **Workflow name**: `publish-core.yml` (or `publish-cli.yml`)
-   - **Environment name**: `pypi`
+This directory contains workflows for publishing ComfyDock packages and documentation.
 
 ## Workflows
 
-### `publish-core.yml`
-Builds and publishes `comfydock_core` package to PyPI.
+### Package Publishing
 
-**Usage:**
-1. Bump version: `make bump-package PACKAGE=core VERSION=1.0.1`
-2. Commit and push changes
-3. Go to Actions → "Publish Core Package" → Run workflow
+- **`publish-core.yml`** - Publishes `comfydock-core` to PyPI
+- **`publish-cli.yml`** - Publishes `comfydock-cli` to PyPI
 
-### `publish-cli.yml`
-Builds and publishes `comfydock_cli` package to PyPI.
+Both use manual triggers (`workflow_dispatch`) and trusted publishing via PyPI.
 
-**Usage:**
-1. Bump version: `make bump-package PACKAGE=cli VERSION=1.0.1`
-2. Commit and push changes
-3. Go to Actions → "Publish CLI Package" → Run workflow
+### Documentation Publishing
 
-## Publishing Order
+- **`publish-docs.yml`** - Deploys documentation to https://comfydock.com
 
-**Important:** If both packages have interdependent changes:
+**Trigger:** Manual via GitHub Actions UI
 
-1. **First:** Publish `comfydock_core`
-2. **Wait:** ~2 minutes for PyPI to index the new version
-3. **Then:** Publish `comfydock_cli`
+**What it does:**
+1. Builds MkDocs site from `docs/comfydock-docs/`
+2. Pushes built site to `ComfyDock/ComfyDock.github.io:main`
+3. GitHub Pages serves the site at `comfydock.com`
 
-The CLI package depends on `comfydock_core` from PyPI, so core must be published first.
+**Setup required:**
+See "Required Secrets" section below.
 
-## Local Testing
+## Required Secrets
 
-Test builds locally before publishing:
+### For Package Publishing
+No secrets needed - uses PyPI trusted publishing with OIDC.
 
+### For Documentation Publishing
+
+**`DOCS_PUBLISH_TOKEN`** - Personal Access Token with write access to `ComfyDock/ComfyDock.github.io`
+
+**To create:**
+1. Go to https://github.com/settings/tokens
+2. Create new token (classic)
+3. Select scopes: `repo` (full control)
+4. Copy token
+5. Add to repository secrets at https://github.com/ComfyDock/comfydock/settings/secrets/actions
+6. Name: `DOCS_PUBLISH_TOKEN`
+7. Value: (paste token)
+
+**Note:** Token must belong to a user with write access to the `ComfyDock.github.io` repository.
+
+## Running Workflows
+
+### Via GitHub UI
+1. Go to **Actions** tab in repository
+2. Select workflow from left sidebar
+3. Click **Run workflow** button
+4. Select branch (usually `dev` or `main`)
+5. Click **Run workflow**
+
+### Via GitHub CLI
 ```bash
-# Build core package
-make build-core
+# Publish core package
+gh workflow run publish-core.yml
 
-# Build CLI package
-make build-cli
+# Publish CLI package
+gh workflow run publish-cli.yml
 
-# Build both
-make build-all
-
-# Inspect built packages
-ls -lh dist/
+# Publish documentation
+gh workflow run publish-docs.yml
 ```
 
-## Security
+## Workflow Status
 
-- Workflows use **Trusted Publishing** (no API tokens required)
-- Actions use stable version tags (@v4, @v5)
-- Minimal permissions (read-only by default)
-- Credentials are not persisted after checkout
+Check workflow runs:
+```bash
+gh run list --workflow=publish-docs.yml
+gh run view <run-id>
+```
+
+## Troubleshooting
+
+### Documentation deployment fails with "Permission denied"
+- Check that `DOCS_PUBLISH_TOKEN` secret exists
+- Verify token hasn't expired
+- Ensure token has `repo` scope
+- Confirm token owner has write access to `ComfyDock.github.io`
+
+### Package publishing fails
+- Check PyPI trusted publishing is configured for the package
+- Verify package version hasn't been published already
+- Check workflow logs for specific error
+
+### Documentation not updating on comfydock.com
+- Wait 1-2 minutes for GitHub Pages to rebuild
+- Check `ComfyDock.github.io` repository for new commits
+- Verify CNAME file exists in deployed site
+- Check GitHub Pages settings in `ComfyDock.github.io` repository
