@@ -749,7 +749,17 @@ class EnvironmentCommands:
 
         print(f"Custom nodes in '{env.name}':")
         for node in nodes:
-            print(f"  • {node.registry_id or node.name} ({node.source})")
+            # Format version display based on source type
+            version_suffix = ""
+            if node.version:
+                if node.source == "git":
+                    version_suffix = f" @ {node.version[:8]}"
+                elif node.source == "registry":
+                    version_suffix = f" v{node.version}"
+                elif node.source == "development":
+                    version_suffix = " (dev)"
+
+            print(f"  • {node.registry_id or node.name} ({node.source}){version_suffix}")
 
     @with_env_logging("env node update")
     def node_update(self, args: argparse.Namespace, logger=None) -> None:
