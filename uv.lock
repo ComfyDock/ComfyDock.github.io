@@ -301,7 +301,7 @@ wheels = [
 
 [[package]]
 name = "comfydock"
-version = "1.0.4"
+version = "1.0.5"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -326,7 +326,7 @@ dev = [
 
 [[package]]
 name = "comfydock-cli"
-version = "1.0.4"
+version = "1.0.5"
 source = { editable = "packages/cli" }
 dependencies = [
     { name = "argcomplete" },
