@@ -341,7 +341,7 @@ requires-dist = [
 
 [[package]]
 name = "comfydock-core"
-version = "1.0.4"
+version = "1.0.5"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "aiohttp" },
