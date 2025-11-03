@@ -1597,12 +1597,35 @@ class Environment:
             if callbacks:
                 callbacks.on_phase("configure_pytorch", f"Configuring PyTorch backend: {self.torch_backend}")
 
+            # Strip imported PyTorch config BEFORE venv creation to avoid platform conflicts
+            from ..constants import PYTORCH_CORE_PACKAGES
+
+            logger.info("Stripping imported PyTorch configuration...")
+            config = self.pyproject.load()
+            if "tool" in config and "uv" in config["tool"]:
+                # Remove PyTorch indexes
+                indexes = config["tool"]["uv"].get("index", [])
+                if isinstance(indexes, list):
+                    config["tool"]["uv"]["index"] = [
+                        idx for idx in indexes
+                        if not any(p in idx.get("name", "").lower() for p in ["pytorch-", "torch-"])
+                    ]
+
+                # Remove PyTorch sources
+                sources = config.get("tool", {}).get("uv", {}).get("sources", {})
+                for pkg in PYTORCH_CORE_PACKAGES:
+                    sources.pop(pkg, None)
+
+                self.pyproject.save(config)
+
+            # Remove PyTorch constraints
+            for pkg in PYTORCH_CORE_PACKAGES:
+                self.pyproject.uv_config.remove_constraint(pkg)
+
             logger.info(f"Creating venv with Python {python_version}")
-            # Create empty venv (doesn't install project dependencies)
             self.uv_manager.create_venv(self.venv_path, python_version=python_version, seed=True)
 
             logger.info(f"Installing PyTorch with backend: {self.torch_backend}")
-            # Install PyTorch with specified backend
             self.uv_manager.install_packages(
                 packages=["torch", "torchvision", "torchaudio"],
                 python=self.uv_manager.python_executable,
@@ -1610,40 +1633,19 @@ class Environment:
                 verbose=True
             )
 
-            # Update constraints and index configuration with new versions
-            from ..constants import PYTORCH_CORE_PACKAGES
+            # Detect installed backend and configure pyproject
             from ..utils.pytorch import extract_backend_from_version, get_pytorch_index_url
 
-            # Get first package version to extract backend
             first_version = extract_pip_show_package_version(
                 self.uv_manager.show_package("torch", self.uv_manager.python_executable)
             )
 
             if first_version:
-                # Extract backend and configure index
                 backend = extract_backend_from_version(first_version)
                 logger.info(f"Detected PyTorch backend from installed version: {backend}")
 
                 if backend:
-                    # Remove old PyTorch indexes/sources
-                    config = self.pyproject.load()
-                    if "tool" in config and "uv" in config["tool"]:
-                        # Remove old PyTorch indexes
-                        indexes = config["tool"]["uv"].get("index", [])
-                        if isinstance(indexes, list):
-                            config["tool"]["uv"]["index"] = [
-                                idx for idx in indexes
-                                if not any(p in idx.get("name", "").lower() for p in ["pytorch-", "torch-"])
-                            ]
-
-                        # Remove old PyTorch sources
-                        sources = config.get("tool", {}).get("uv", {}).get("sources", {})
-                        for pkg in PYTORCH_CORE_PACKAGES:
-                            sources.pop(pkg, None)
-
-                        self.pyproject.save(config)
-
-                    # Configure new index (works for any backend)
+                    # Add new index for detected backend
                     index_name = f"pytorch-{backend}"
                     self.pyproject.uv_config.add_index(
                         name=index_name,
@@ -1651,23 +1653,20 @@ class Environment:
                         explicit=True
                     )
 
-                    # Add sources
+                    # Add sources pointing to new index
                     for pkg in PYTORCH_CORE_PACKAGES:
                         self.pyproject.uv_config.add_source(pkg, {"index": index_name})
 
                     logger.info(f"Configured PyTorch index: {index_name}")
 
-            # Update constraints
+            # Add constraints for installed versions
             for pkg in PYTORCH_CORE_PACKAGES:
                 version = extract_pip_show_package_version(
                     self.uv_manager.show_package(pkg, self.uv_manager.python_executable)
                 )
                 if version:
-                    # Remove old constraint if exists
-                    self.pyproject.uv_config.remove_constraint(pkg)
-                    # Add new constraint
                     self.pyproject.uv_config.add_constraint(f"{pkg}=={version}")
-                    logger.info(f"Updated constraint: {pkg}=={version}")
+                    logger.info(f"Added constraint: {pkg}=={version}")
 
         # Phase 2: Install dependencies (will skip torch if already installed)
         if callbacks:
