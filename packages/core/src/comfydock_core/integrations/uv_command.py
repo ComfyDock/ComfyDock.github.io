@@ -58,15 +58,33 @@ class UVCommand:
         self._base_env = self._setup_base_environment()
 
     def _check_uv_installed(self, binary_path: Path | None) -> str:
+        # Explicit path takes priority
         if binary_path and binary_path.is_file():
             return str(binary_path)
 
+        # Try UV from Python package (installed with comfydock)
+        try:
+            from uv import find_uv_bin
+            binary = find_uv_bin()
+            logger.debug(f"Using UV from package: {binary}")
+            return binary
+        except ImportError:
+            logger.debug("UV package not found in current environment")
+        except FileNotFoundError as e:
+            logger.warning(f"UV package found but binary missing: {e}")
+
+        # Fallback to system UV
         binary = shutil.which("uv")
         if binary is None:
             raise UVNotInstalledError(
-                "uv is not installed. Please install uv first: "
-                "curl -LsSf https://astral.sh/uv/install.sh | sh"
+                "uv is not installed. Install comfydock with: pip install comfydock-cli"
             )
+
+        logger.warning(
+            f"Using system UV from PATH: {binary}. "
+            f"This may cause version compatibility issues. "
+            f"Recommended: pip install --force-reinstall comfydock-cli"
+        )
         return binary
 
     def _setup_base_environment(self) -> dict[str, str]:
