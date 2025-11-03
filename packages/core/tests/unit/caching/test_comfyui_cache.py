@@ -85,8 +85,8 @@ class TestComfyUICacheManager:
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = ComfyUICacheManager(cache_base_path=Path(tmpdir))
 
-            # Create fake ComfyUI directory
-            comfyui_dir = Path(tmpdir) / "ComfyUI"
+            # Create fake ComfyUI directory (use different name to avoid case-insensitive FS collision)
+            comfyui_dir = Path(tmpdir) / "test_comfyui"
             comfyui_dir.mkdir()
             (comfyui_dir / "main.py").write_text("# ComfyUI")
 
@@ -112,8 +112,8 @@ class TestComfyUICacheManager:
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = ComfyUICacheManager(cache_base_path=Path(tmpdir))
 
-            # Create fake ComfyUI with .git
-            comfyui_dir = Path(tmpdir) / "ComfyUI"
+            # Create fake ComfyUI with .git (use different name to avoid case-insensitive FS collision)
+            comfyui_dir = Path(tmpdir) / "test_comfyui"
             comfyui_dir.mkdir()
             (comfyui_dir / "main.py").write_text("# ComfyUI")
             git_dir = comfyui_dir / ".git"
@@ -150,8 +150,8 @@ class TestComfyUICacheManager:
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = ComfyUICacheManager(cache_base_path=Path(tmpdir))
 
-            # Cache a version
-            comfyui_dir = Path(tmpdir) / "ComfyUI"
+            # Cache a version (use different name to avoid case-insensitive FS collision)
+            comfyui_dir = Path(tmpdir) / "test_comfyui"
             comfyui_dir.mkdir()
             (comfyui_dir / "main.py").write_text("# ComfyUI")
 
@@ -175,8 +175,8 @@ class TestComfyUICacheManager:
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = ComfyUICacheManager(cache_base_path=Path(tmpdir))
 
-            # Cache with spec
-            comfyui_dir = Path(tmpdir) / "ComfyUI"
+            # Cache with spec (use different name to avoid case-insensitive FS collision)
+            comfyui_dir = Path(tmpdir) / "test_comfyui"
             comfyui_dir.mkdir()
             (comfyui_dir / "main.py").write_text("# ComfyUI")
 
