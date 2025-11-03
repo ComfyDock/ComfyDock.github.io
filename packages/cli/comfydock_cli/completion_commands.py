@@ -11,12 +11,23 @@ class CompletionCommands:
 
     COMMANDS = ['cfd']
     COMPLETION_COMMENT = "# ComfyDock tab completion"
-    COMPLETION_LINE = 'eval "$(register-python-argcomplete cfd)"'
+    ZSH_INIT_CHECK = 'if ! command -v compdef &> /dev/null; then'
 
     @classmethod
     def _completion_lines(cls):
         """Generate completion lines for all command aliases."""
         return [f'eval "$(register-python-argcomplete {cmd})"' for cmd in cls.COMMANDS]
+
+    @staticmethod
+    def _zsh_compinit_block():
+        """Generate zsh compinit initialization block."""
+        return [
+            "# Initialize zsh completion system if not already loaded",
+            "if ! command -v compdef &> /dev/null; then",
+            "    autoload -Uz compinit",
+            "    compinit",
+            "fi",
+        ]
 
     @staticmethod
     def _detect_shell():
@@ -63,10 +74,10 @@ class CompletionCommands:
             return False
 
         content = config_file.read_text()
-        return all(line in content for line in cls._completion_lines())
+        return cls.COMPLETION_COMMENT in content and all(line in content for line in cls._completion_lines())
 
     @classmethod
-    def _add_completion_to_config(cls, config_file):
+    def _add_completion_to_config(cls, shell, config_file):
         """Add completion lines to shell config file."""
         # Ensure file exists
         config_file.parent.mkdir(parents=True, exist_ok=True)
@@ -80,6 +91,13 @@ class CompletionCommands:
             content += '\n'
 
         content += f'\n{cls.COMPLETION_COMMENT}\n'
+
+        # Add zsh compinit initialization if needed
+        if shell == 'zsh':
+            for line in cls._zsh_compinit_block():
+                content += f'{line}\n'
+            content += '\n'
+
         for line in cls._completion_lines():
             content += f'{line}\n'
 
@@ -94,17 +112,32 @@ class CompletionCommands:
 
         lines = config_file.read_text().splitlines(keepends=True)
         new_lines = []
-        in_completion_block = False
+        in_block = False
 
         for line in lines:
             # Start of completion block
             if cls.COMPLETION_COMMENT in line:
-                in_completion_block = True
+                in_block = True
                 continue
-            # Skip completion lines
-            if in_completion_block and any(comp_line in line for comp_line in cls._completion_lines()):
-                in_completion_block = False  # Exit block after completion line
-                continue
+
+            # Inside block - skip all lines until we find a non-completion line
+            if in_block:
+                # Check if this is part of our block (init, completion, or empty lines)
+                stripped = line.strip()
+                is_our_line = (
+                    not stripped  # empty line
+                    or '# Initialize zsh completion system' in line  # our specific comment
+                    or cls.ZSH_INIT_CHECK in line  # zsh init check
+                    or 'autoload -Uz compinit' in line
+                    or stripped == 'compinit'
+                    or stripped == 'fi'
+                    or any(comp in line for comp in cls._completion_lines())
+                )
+                if is_our_line:
+                    continue
+                else:
+                    # Non-completion line found, exit block
+                    in_block = False
 
             new_lines.append(line)
 
@@ -146,7 +179,7 @@ class CompletionCommands:
 
         # Install completion
         try:
-            self._add_completion_to_config(config_file)
+            self._add_completion_to_config(shell, config_file)
             print(f"\n✓ Tab completion installed successfully!")
             print(f"\nAdded to: {config_file}")
             print(f"\nTo activate in current shell, run:")

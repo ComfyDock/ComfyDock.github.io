@@ -76,25 +76,48 @@ class TestCompletionCommands:
         finally:
             config_file.unlink()
 
-    def test_add_completion_to_config(self):
-        """Test adding completion to config file."""
+    def test_add_completion_to_config_bash(self):
+        """Test adding completion to bash config file."""
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
             config_file = Path(f.name)
             f.write("# Existing content\nexport PATH=/foo\n")
 
         try:
-            # Add completion
-            CompletionCommands._add_completion_to_config(config_file)
+            # Add completion for bash
+            CompletionCommands._add_completion_to_config('bash', config_file)
 
             # Verify it was added
             content = config_file.read_text()
             assert CompletionCommands.COMPLETION_COMMENT in content
-            assert CompletionCommands.COMPLETION_LINE in content
+            assert 'eval "$(register-python-argcomplete cfd)"' in content
 
-            # Check it was added at the end
-            lines = content.splitlines()
-            assert CompletionCommands.COMPLETION_COMMENT in lines[-2]
-            assert CompletionCommands.COMPLETION_LINE in lines[-1]
+            # Verify no zsh-specific initialization
+            assert 'compinit' not in content
+
+            # Verify original content is preserved
+            assert "export PATH=/foo" in content
+        finally:
+            config_file.unlink()
+
+    def test_add_completion_to_config_zsh(self):
+        """Test adding completion to zsh config file with compinit initialization."""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+            config_file = Path(f.name)
+            f.write("# Existing content\nexport PATH=/foo\n")
+
+        try:
+            # Add completion for zsh
+            CompletionCommands._add_completion_to_config('zsh', config_file)
+
+            # Verify it was added
+            content = config_file.read_text()
+            assert CompletionCommands.COMPLETION_COMMENT in content
+            assert 'eval "$(register-python-argcomplete cfd)"' in content
+
+            # Verify zsh initialization block
+            assert 'compinit' in content
+            assert 'autoload -Uz compinit' in content
+            assert 'command -v compdef' in content
 
             # Verify original content is preserved
             assert "export PATH=/foo" in content
@@ -107,25 +130,25 @@ class TestCompletionCommands:
 
         try:
             # Add completion to new file
-            CompletionCommands._add_completion_to_config(config_file)
+            CompletionCommands._add_completion_to_config('bash', config_file)
 
             # Verify it was created and populated
             assert config_file.exists()
             content = config_file.read_text()
             assert CompletionCommands.COMPLETION_COMMENT in content
-            assert CompletionCommands.COMPLETION_LINE in content
+            assert 'eval "$(register-python-argcomplete cfd)"' in content
         finally:
             if config_file.exists():
                 config_file.unlink()
 
-    def test_remove_completion_from_config(self):
-        """Test removing completion from config file."""
+    def test_remove_completion_from_config_bash(self):
+        """Test removing completion from bash config file."""
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
             config_file = Path(f.name)
             f.write(
                 "# Before\n"
                 f"{CompletionCommands.COMPLETION_COMMENT}\n"
-                f"{CompletionCommands.COMPLETION_LINE}\n"
+                'eval "$(register-python-argcomplete cfd)"\n'
                 "# After\n"
             )
 
@@ -136,7 +159,41 @@ class TestCompletionCommands:
             # Verify it was removed
             content = config_file.read_text()
             assert CompletionCommands.COMPLETION_COMMENT not in content
-            assert CompletionCommands.COMPLETION_LINE not in content
+            assert 'register-python-argcomplete' not in content
+
+            # Verify other content is preserved
+            assert "# Before" in content
+            assert "# After" in content
+        finally:
+            config_file.unlink()
+
+    def test_remove_completion_from_config_zsh(self):
+        """Test removing completion with zsh init block from config file."""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+            config_file = Path(f.name)
+            f.write(
+                "# Before\n"
+                f"{CompletionCommands.COMPLETION_COMMENT}\n"
+                "# Initialize zsh completion system if not already loaded\n"
+                "if ! command -v compdef &> /dev/null; then\n"
+                "    autoload -Uz compinit\n"
+                "    compinit\n"
+                "fi\n"
+                "\n"
+                'eval "$(register-python-argcomplete cfd)"\n'
+                "# After\n"
+            )
+
+        try:
+            # Remove completion
+            CompletionCommands._remove_completion_from_config(config_file)
+
+            # Verify everything was removed
+            content = config_file.read_text()
+            assert CompletionCommands.COMPLETION_COMMENT not in content
+            assert 'register-python-argcomplete' not in content
+            assert 'compinit' not in content
+            assert 'compdef' not in content
 
             # Verify other content is preserved
             assert "# Before" in content
@@ -154,7 +211,7 @@ class TestCompletionCommands:
             assert not CompletionCommands._is_completion_installed(config_file)
 
             # Add completion
-            CompletionCommands._add_completion_to_config(config_file)
+            CompletionCommands._add_completion_to_config('bash', config_file)
 
             # Now it should be installed
             assert CompletionCommands._is_completion_installed(config_file)
@@ -168,13 +225,13 @@ class TestCompletionCommands:
 
         try:
             # Add completion twice
-            CompletionCommands._add_completion_to_config(config_file)
+            CompletionCommands._add_completion_to_config('bash', config_file)
             first_content = config_file.read_text()
 
-            CompletionCommands._add_completion_to_config(config_file)
+            CompletionCommands._add_completion_to_config('bash', config_file)
             second_content = config_file.read_text()
 
             # Content should have doubled (not idempotent by design, install command checks first)
-            assert second_content.count(CompletionCommands.COMPLETION_LINE) == 2
+            assert second_content.count('eval "$(register-python-argcomplete cfd)"') == 2
         finally:
             config_file.unlink()
