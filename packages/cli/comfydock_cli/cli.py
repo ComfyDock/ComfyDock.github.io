@@ -444,6 +444,12 @@ def _add_env_commands(subparsers: argparse._SubParsersAction) -> None:
     node_remove_parser.add_argument("--dev", action="store_true", help="Remove development node specifically")
     node_remove_parser.set_defaults(func=env_cmds.node_remove)
 
+    # node prune
+    node_prune_parser = node_subparsers.add_parser("prune", help="Remove unused custom nodes")
+    node_prune_parser.add_argument("--exclude", nargs="+", metavar="PACKAGE", help="Package IDs to keep even if unused")
+    node_prune_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompt")
+    node_prune_parser.set_defaults(func=env_cmds.node_prune)
+
     # node list
     node_list_parser = node_subparsers.add_parser("list", help="List custom nodes")
     node_list_parser.set_defaults(func=env_cmds.node_list)

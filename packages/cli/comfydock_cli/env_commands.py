@@ -736,6 +736,75 @@ class EnvironmentCommands:
 
         print(f"\nRun 'comfydock -e {env.name} env status' to review changes")
 
+    @with_env_logging("env node prune")
+    def node_prune(self, args: argparse.Namespace, logger=None) -> None:
+        """Remove unused custom nodes from environment."""
+        env = self._get_env(args)
+
+        # Get unused nodes
+        exclude = args.exclude if hasattr(args, 'exclude') and args.exclude else None
+        try:
+            unused = env.get_unused_nodes(exclude=exclude)
+        except Exception as e:
+            if logger:
+                logger.error(f"Failed to get unused nodes: {e}", exc_info=True)
+            print(f"✗ Failed to get unused nodes: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        if not unused:
+            print("✓ No unused nodes found")
+            return
+
+        # Display table
+        print(f"\nFound {len(unused)} unused node(s):\n")
+        for node in unused:
+            node_id = node.registry_id or node.name
+            print(f"  • {node_id}")
+
+        # Confirm unless --yes flag
+        if not args.yes:
+            try:
+                confirm = input(f"\nRemove {len(unused)} node(s)? [y/N]: ")
+                if confirm.lower() != 'y':
+                    print("Cancelled")
+                    return
+            except (EOFError, KeyboardInterrupt):
+                print("\nCancelled")
+                return
+
+        # Remove with progress
+        print(f"\n🗑 Pruning {len(unused)} unused nodes...")
+
+        def on_node_start(node_id, idx, total):
+            print(f"  [{idx}/{total}] Removing {node_id}...", end=" ", flush=True)
+
+        def on_node_complete(node_id, success, error):
+            if success:
+                print("✓")
+            else:
+                print(f"✗ ({error})")
+
+        from comfydock_core.models.workflow import NodeInstallCallbacks
+        callbacks = NodeInstallCallbacks(
+            on_node_start=on_node_start,
+            on_node_complete=on_node_complete
+        )
+
+        try:
+            success_count, failed = env.prune_unused_nodes(exclude=exclude, callbacks=callbacks)
+        except Exception as e:
+            if logger:
+                logger.error(f"Prune failed: {e}", exc_info=True)
+            print(f"\n✗ Prune failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"\n✓ Removed {success_count} node(s)")
+        if failed:
+            print(f"✗ Failed to remove {len(failed)} node(s):")
+            for node_id, error in failed:
+                print(f"  • {node_id}: {error}")
+            sys.exit(1)
+
     @with_env_logging("env node list")
     def node_list(self, args: argparse.Namespace) -> None:
         """List custom nodes in the environment."""
