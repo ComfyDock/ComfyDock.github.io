@@ -632,9 +632,19 @@ class EnvironmentCommands:
         else:
             print(f"📦 Adding node: {node_name}")
 
+        # Create confirmation strategy for dev node replacement
+        from comfydock_core.strategies.confirmation import InteractiveConfirmStrategy
+        confirmation_strategy = InteractiveConfirmStrategy()
+
         # Directly add the node
         try:
-            node_info = env.add_node(node_name, is_development=args.dev, no_test=args.no_test, force=args.force)
+            node_info = env.add_node(
+                node_name,
+                is_development=args.dev,
+                no_test=args.no_test,
+                force=args.force,
+                confirmation_strategy=confirmation_strategy
+            )
         except CDRegistryDataError as e:
             # Registry data unavailable
             formatted = NodeErrorFormatter.format_registry_error(e)
@@ -736,6 +746,75 @@ class EnvironmentCommands:
 
         print(f"\nRun 'comfydock -e {env.name} env status' to review changes")
 
+    @with_env_logging("env node prune")
+    def node_prune(self, args: argparse.Namespace, logger=None) -> None:
+        """Remove unused custom nodes from environment."""
+        env = self._get_env(args)
+
+        # Get unused nodes
+        exclude = args.exclude if hasattr(args, 'exclude') and args.exclude else None
+        try:
+            unused = env.get_unused_nodes(exclude=exclude)
+        except Exception as e:
+            if logger:
+                logger.error(f"Failed to get unused nodes: {e}", exc_info=True)
+            print(f"✗ Failed to get unused nodes: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        if not unused:
+            print("✓ No unused nodes found")
+            return
+
+        # Display table
+        print(f"\nFound {len(unused)} unused node(s):\n")
+        for node in unused:
+            node_id = node.registry_id or node.name
+            print(f"  • {node_id}")
+
+        # Confirm unless --yes flag
+        if not args.yes:
+            try:
+                confirm = input(f"\nRemove {len(unused)} node(s)? [y/N]: ")
+                if confirm.lower() != 'y':
+                    print("Cancelled")
+                    return
+            except (EOFError, KeyboardInterrupt):
+                print("\nCancelled")
+                return
+
+        # Remove with progress
+        print(f"\n🗑 Pruning {len(unused)} unused nodes...")
+
+        def on_node_start(node_id, idx, total):
+            print(f"  [{idx}/{total}] Removing {node_id}...", end=" ", flush=True)
+
+        def on_node_complete(node_id, success, error):
+            if success:
+                print("✓")
+            else:
+                print(f"✗ ({error})")
+
+        from comfydock_core.models.workflow import NodeInstallCallbacks
+        callbacks = NodeInstallCallbacks(
+            on_node_start=on_node_start,
+            on_node_complete=on_node_complete
+        )
+
+        try:
+            success_count, failed = env.prune_unused_nodes(exclude=exclude, callbacks=callbacks)
+        except Exception as e:
+            if logger:
+                logger.error(f"Prune failed: {e}", exc_info=True)
+            print(f"\n✗ Prune failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"\n✓ Removed {success_count} node(s)")
+        if failed:
+            print(f"✗ Failed to remove {len(failed)} node(s):")
+            for node_id, error in failed:
+                print(f"  • {node_id}: {error}")
+            sys.exit(1)
+
     @with_env_logging("env node list")
     def node_list(self, args: argparse.Namespace) -> None:
         """List custom nodes in the environment."""
@@ -796,7 +875,7 @@ class EnvironmentCommands:
                         for dep in result.requirements_removed:
                             print(f"    - {dep}")
 
-                print("\nRun 'comfydock status' to review changes")
+                print("\nRun 'cfd status' to review changes")
             else:
                 print(f"ℹ️  {result.message}")
 
@@ -1225,15 +1304,15 @@ class EnvironmentCommands:
             if args.target:
                 print(f"\nEnvironment is now at version {args.target}")
                 print("• Run 'cfd commit -m \"message\"' to save any new changes")
-                print("• Run 'comfydock log' to see version history")
+                print("• Run 'cfd commit log' to see version history")
             else:
                 print("\nUncommitted changes have been discarded")
                 print("• Environment is now clean and matches the last commit")
-                print("• Run 'comfydock log' to see version history")
+                print("• Run 'cfd commit log' to see version history")
 
         except ValueError as e:
             print(f"✗ {e}", file=sys.stderr)
-            print("\nTip: Run 'comfydock log' to see available versions")
+            print("\nTip: Run 'cfd commit log' to see available versions")
             sys.exit(1)
         except CDEnvironmentError as e:
             print(f"✗ {e}", file=sys.stderr)
@@ -1339,8 +1418,8 @@ class EnvironmentCommands:
             print()
             print("💡 Options:")
             print("  • Commit: cfd commit -m 'message'")
-            print("  • Discard: comfydock rollback")
-            print("  • Force: comfydock pull --force")
+            print("  • Discard: cfd rollback")
+            print("  • Force: cfd pull origin --force")
             sys.exit(1)
 
         # Check remote exists

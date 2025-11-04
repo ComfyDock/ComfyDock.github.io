@@ -688,7 +688,7 @@ class GlobalCommands:
             if not models:
                 print("📦 All indexed models:")
                 print("   No models found")
-                print("   Run 'comfydock model index dir <path>' to set your models directory")
+                print("   Run 'cfd model index dir <path>' to set your models directory")
                 return
 
             # Get stats for header
@@ -880,7 +880,7 @@ class GlobalCommands:
 
             if not info['exists']:
                 print("✗ No registry data cached")
-                print("   Run 'comfydock index registry update' to fetch")
+                print("   Run 'cfd index registry update' to fetch")
                 return
 
             print("📦 Registry Cache Status:")
@@ -941,7 +941,7 @@ class GlobalCommands:
             self.workspace.set_models_directory(directory_path, progress=progress)
 
             print(f"\n✓ Models directory set successfully: {directory_path}")
-            print("   Use 'comfydock model index sync' to rescan when models change")
+            print("   Use 'cfd model index sync' to rescan when models change")
 
         except Exception as e:
             logger.error(f"Failed to set models directory '{directory_path}': {e}")
@@ -961,7 +961,7 @@ class GlobalCommands:
 
             if result is None:
                 print("✗ No models directory configured")
-                print("   Run 'comfydock model index dir <path>' to set your models directory")
+                print("   Run 'cfd model index dir <path>' to set your models directory")
                 return
 
             # Progress callback already handled display
@@ -991,7 +991,7 @@ class GlobalCommands:
                 print(f"   Models Directory: {exists} {models_dir}")
             else:
                 print("   Models Directory: Not configured")
-                print("   Run 'comfydock model index dir <path>' to set your models directory")
+                print("   Run 'cfd model index dir <path>' to set your models directory")
                 return
 
             total_models = stats.get('total_models', 0)
@@ -1191,7 +1191,7 @@ class GlobalCommands:
 
         if added_count > 0:
             print("\nYour environment is now more shareable!")
-            print("  Run 'comfydock export' to bundle and distribute")
+            print("  Run 'cfd export' to bundle and distribute")
 
     # === Config Management ===
 

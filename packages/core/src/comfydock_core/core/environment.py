@@ -593,15 +593,29 @@ class Environment:
         nodes_dict = self.pyproject.nodes.get_existing()
         return list(nodes_dict.values())
 
-    def add_node(self, identifier: str, is_development: bool = False, no_test: bool = False, force: bool = False) -> NodeInfo:
+    def add_node(
+        self,
+        identifier: str,
+        is_development: bool = False,
+        no_test: bool = False,
+        force: bool = False,
+        confirmation_strategy: 'ConfirmationStrategy | None' = None
+    ) -> NodeInfo:
         """Add a custom node to the environment.
+
+        Args:
+            identifier: Registry ID or GitHub URL (supports @version)
+            is_development: Track as development node
+            no_test: Skip dependency resolution testing
+            force: Force replacement of existing nodes
+            confirmation_strategy: Strategy for confirming replacements
 
         Raises:
             CDNodeNotFoundError: If node not found
             CDNodeConflictError: If node has dependency conflicts
             CDEnvironmentError: If node with same name already exists
         """
-        return self.node_manager.add_node(identifier, is_development, no_test, force)
+        return self.node_manager.add_node(identifier, is_development, no_test, force, confirmation_strategy)
 
     def install_nodes_with_progress(
         self,
@@ -829,6 +843,75 @@ class Environment:
         logger.debug(f"Uninstalled nodes: {uninstalled_ids}")
 
         return uninstalled_ids
+
+    def get_unused_nodes(self, exclude: list[str] | None = None) -> list[NodeInfo]:
+        """Get installed nodes not referenced by any workflow.
+
+        Uses the same auto-resolution flow as status command to ensure we capture
+        all nodes actually needed by workflows, including those from custom_node_map.
+
+        Args:
+            exclude: Optional list of package IDs to exclude from pruning
+
+        Returns:
+            List of NodeInfo for unused nodes that can be safely removed
+
+        Example:
+            >>> unused = env.get_unused_nodes()
+            >>> # [NodeInfo(registry_id='old-node'), ...]
+            >>> # Or with exclusions:
+            >>> unused = env.get_unused_nodes(exclude=['keep-this-node'])
+        """
+        # Get workflow status (triggers auto-resolution with caching)
+        workflow_status = self.workflow_manager.get_workflow_status()
+
+        # Aggregate packages from all workflows
+        all_needed_packages = set()
+        for workflow_analysis in workflow_status.analyzed_workflows:
+            for resolved_node in workflow_analysis.resolution.nodes_resolved:
+                # Only count non-optional nodes with actual package IDs
+                if resolved_node.package_id and not resolved_node.is_optional:
+                    all_needed_packages.add(resolved_node.package_id)
+
+        logger.debug(f"Packages needed by workflows: {all_needed_packages}")
+
+        # Get installed nodes
+        installed_nodes = self.pyproject.nodes.get_existing()
+        installed_node_ids = set(installed_nodes.keys())
+        logger.debug(f"Installed nodes: {installed_node_ids}")
+
+        # Calculate unused = installed - needed
+        unused_ids = installed_node_ids - all_needed_packages
+
+        # Apply exclusions
+        if exclude:
+            unused_ids -= set(exclude)
+            logger.debug(f"After exclusions: {unused_ids}")
+
+        return [installed_nodes[nid] for nid in unused_ids]
+
+    def prune_unused_nodes(
+        self,
+        exclude: list[str] | None = None,
+        callbacks: NodeInstallCallbacks | None = None
+    ) -> tuple[int, list[tuple[str, str]]]:
+        """Remove unused nodes from environment.
+
+        Args:
+            exclude: Package IDs to keep even if unused
+            callbacks: Progress callbacks
+
+        Returns:
+            Tuple of (success_count, failed_removals)
+        """
+        unused = self.get_unused_nodes(exclude=exclude)
+
+        if not unused:
+            return (0, [])
+
+        # Use existing batch removal
+        node_ids = [node.registry_id or node.name for node in unused]
+        return self.remove_nodes_with_progress(node_ids, callbacks)
 
     def has_committable_changes(self) -> bool:
         """Check if there are any committable changes (workflows OR git).

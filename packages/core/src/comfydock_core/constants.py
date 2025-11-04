@@ -68,11 +68,9 @@ DEFAULT_REGISTRY_URL = "https://api.comfy.org"
 DEFAULT_GITHUB_URL = "https://github.com"
 GITHUB_API_BASE = "https://api.github.com"
 
-# TODO: Update to actual GitHub repository when created
 GITHUB_NODE_MAPPINGS_URL = "https://raw.githubusercontent.com/ComfyDock/ComfyDock-Registry-Data/main/data/node_mappings.json"
 
-# TODO: Update to 24 hours in actual release
-MAX_REGISTRY_DATA_AGE_HOURS = 2400
+MAX_REGISTRY_DATA_AGE_HOURS = 24
 
 # PyTorch core packages
 PYTORCH_CORE_PACKAGES = ["torch", "torchvision", "torchaudio"]

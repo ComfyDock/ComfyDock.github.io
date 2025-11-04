@@ -63,6 +63,7 @@ class NodeAction:
         'remove_node',
         'add_node_dev',
         'add_node_force',
+        'add_node_version',
         'rename_directory',
         'update_node'
     ]
@@ -85,7 +86,9 @@ class NodeConflictContext:
         'directory_exists_non_git',
         'directory_exists_no_remote',
         'same_repo_exists',
-        'different_repo_exists'
+        'different_repo_exists',
+        'dev_node_replacement',
+        'user_cancelled'
     ]
 
     node_name: str
