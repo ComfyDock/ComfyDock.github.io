@@ -875,7 +875,7 @@ class EnvironmentCommands:
                         for dep in result.requirements_removed:
                             print(f"    - {dep}")
 
-                print("\nRun 'comfydock status' to review changes")
+                print("\nRun 'cfd status' to review changes")
             else:
                 print(f"ℹ️  {result.message}")
 
@@ -1304,15 +1304,15 @@ class EnvironmentCommands:
             if args.target:
                 print(f"\nEnvironment is now at version {args.target}")
                 print("• Run 'cfd commit -m \"message\"' to save any new changes")
-                print("• Run 'comfydock log' to see version history")
+                print("• Run 'cfd commit log' to see version history")
             else:
                 print("\nUncommitted changes have been discarded")
                 print("• Environment is now clean and matches the last commit")
-                print("• Run 'comfydock log' to see version history")
+                print("• Run 'cfd commit log' to see version history")
 
         except ValueError as e:
             print(f"✗ {e}", file=sys.stderr)
-            print("\nTip: Run 'comfydock log' to see available versions")
+            print("\nTip: Run 'cfd commit log' to see available versions")
             sys.exit(1)
         except CDEnvironmentError as e:
             print(f"✗ {e}", file=sys.stderr)
@@ -1418,8 +1418,8 @@ class EnvironmentCommands:
             print()
             print("💡 Options:")
             print("  • Commit: cfd commit -m 'message'")
-            print("  • Discard: comfydock rollback")
-            print("  • Force: comfydock pull --force")
+            print("  • Discard: cfd rollback")
+            print("  • Force: cfd pull origin --force")
             sys.exit(1)
 
         # Check remote exists
