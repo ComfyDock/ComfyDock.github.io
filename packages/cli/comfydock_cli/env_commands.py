@@ -632,9 +632,19 @@ class EnvironmentCommands:
         else:
             print(f"📦 Adding node: {node_name}")
 
+        # Create confirmation strategy for dev node replacement
+        from comfydock_core.strategies.confirmation import InteractiveConfirmStrategy
+        confirmation_strategy = InteractiveConfirmStrategy()
+
         # Directly add the node
         try:
-            node_info = env.add_node(node_name, is_development=args.dev, no_test=args.no_test, force=args.force)
+            node_info = env.add_node(
+                node_name,
+                is_development=args.dev,
+                no_test=args.no_test,
+                force=args.force,
+                confirmation_strategy=confirmation_strategy
+            )
         except CDRegistryDataError as e:
             # Registry data unavailable
             formatted = NodeErrorFormatter.format_registry_error(e)

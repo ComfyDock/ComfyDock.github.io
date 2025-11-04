@@ -121,13 +121,16 @@ class NodeManager:
         is_development: bool = False,
         no_test: bool = False,
         force: bool = False,
+        confirmation_strategy: 'ConfirmationStrategy | None' = None,
     ) -> NodeInfo:
         """Add a custom node to the environment.
 
         Args:
-            identifier: Registry ID or GitHub URL of the node
+            identifier: Registry ID or GitHub URL of the node (supports @version)
             is_development: If the node is a development node
             no_test: Skip testing the node
+            force: Force replacement of existing nodes
+            confirmation_strategy: Strategy for confirming replacements
 
         Raises:
             CDNodeNotFoundError: If node not found
@@ -143,6 +146,7 @@ class NodeManager:
         # Check for existing installation by registry ID (if GitHub URL provided)
         registry_id = None
         github_url = None
+        user_specified_version = '@' in identifier  # Track if user explicitly specified a version
 
         if is_github_url(identifier):
             github_url = identifier
@@ -150,25 +154,16 @@ class NodeManager:
             if resolved := self.node_repository.resolve_github_url(identifier):
                 registry_id = resolved.id
                 logger.info(f"Resolved GitHub URL to registry ID: {registry_id}")
-
-                # Check if already installed by registry ID, if so use existing info
-                if existing_info := self._get_existing_node_by_registry_id(registry_id):
-                    return NodeInfo(
-                        name=existing_info.get('name', registry_id),
-                        registry_id=registry_id,
-                        version=existing_info.get('version'),
-                        repository=existing_info.get('repository'),
-                        source=existing_info.get('source', 'unknown')
-                    )
             else:
                 # Not in registry - fall through to direct git installation
                 # This allows installation of any GitHub repo, not just registered ones
                 logger.info(f"GitHub URL not in registry, will install as pure git node: {identifier}")
         else:
-            # Check for existing installation by registry ID
-            registry_id = identifier
+            # Parse base identifier (strip version if present)
+            base_identifier = identifier.split('@')[0] if '@' in identifier else identifier
+            registry_id = base_identifier
 
-        # Get node info from lookup service
+        # Get node info from lookup service (this parses @version)
         node_info = self.node_lookup.get_node(identifier)
 
         # Enhance with dual-source information if available
@@ -176,6 +171,85 @@ class NodeManager:
             node_info.registry_id = registry_id
             node_info.repository = github_url
             logger.info(f"Enhanced node info with dual sources: registry_id={registry_id}, github_url={github_url}")
+
+        # Check for existing installation and handle version replacement
+        existing_entry = self._find_node_by_name(node_info.name)
+        if existing_entry:
+            existing_identifier, existing_node = existing_entry
+
+            # If user didn't specify a version, error (don't auto-upgrade to latest)
+            if not user_specified_version:
+                raise CDNodeConflictError(
+                    f"Node '{node_info.name}' is already installed (version {existing_node.version})",
+                    context=NodeConflictContext(
+                        conflict_type='already_tracked',
+                        node_name=node_info.name,
+                        existing_identifier=existing_identifier,
+                        is_development=(existing_node.version == 'dev'),
+                        suggested_actions=[
+                            NodeAction(
+                                action_type='update_node',
+                                node_identifier=existing_identifier,
+                                description="Update to latest version"
+                            ),
+                            NodeAction(
+                                action_type='add_node_version',
+                                node_identifier=f"{existing_identifier}@<version>",
+                                description="Install specific version"
+                            )
+                        ]
+                    )
+                )
+
+            # Check if same version
+            if existing_node.version == node_info.version:
+                raise CDNodeConflictError(
+                    f"Node '{node_info.name}' version {node_info.version} is already installed",
+                    context=NodeConflictContext(
+                        conflict_type='already_tracked',
+                        node_name=node_info.name,
+                        existing_identifier=existing_identifier,
+                        is_development=(existing_node.version == 'dev')
+                    )
+                )
+
+            # Different version - handle replacement
+            if existing_node.source == 'development':
+                # Dev node replacement requires confirmation unless forced
+                if not force:
+                    if confirmation_strategy is None:
+                        raise CDNodeConflictError(
+                            f"Cannot replace development node '{node_info.name}' without confirmation. "
+                            f"Use --force to replace or provide confirmation strategy.",
+                            context=NodeConflictContext(
+                                conflict_type='dev_node_replacement',
+                                node_name=node_info.name,
+                                existing_identifier=existing_identifier,
+                                is_development=True
+                            )
+                        )
+
+                    # Use strategy to confirm (with fallbacks for None versions)
+                    current_ver = existing_node.version or 'unknown'
+                    new_ver = node_info.version or 'unknown'
+                    confirmed = confirmation_strategy.confirm_replace_dev_node(
+                        node_info.name, current_ver, new_ver
+                    )
+
+                    if not confirmed:
+                        raise CDNodeConflictError(
+                            f"User declined replacement of development node '{node_info.name}'",
+                            context=NodeConflictContext(
+                                conflict_type='user_cancelled',
+                                node_name=node_info.name,
+                                existing_identifier=existing_identifier,
+                                is_development=True
+                            )
+                        )
+
+            # Remove existing node (for both dev and regular nodes after confirmation)
+            logger.info(f"Replacing {node_info.name} {existing_node.version} → {node_info.version}")
+            self.remove_node(existing_identifier)
 
         # Check for filesystem conflicts before proceeding
         if not force:

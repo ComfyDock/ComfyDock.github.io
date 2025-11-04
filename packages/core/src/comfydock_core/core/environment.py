@@ -593,15 +593,29 @@ class Environment:
         nodes_dict = self.pyproject.nodes.get_existing()
         return list(nodes_dict.values())
 
-    def add_node(self, identifier: str, is_development: bool = False, no_test: bool = False, force: bool = False) -> NodeInfo:
+    def add_node(
+        self,
+        identifier: str,
+        is_development: bool = False,
+        no_test: bool = False,
+        force: bool = False,
+        confirmation_strategy: 'ConfirmationStrategy | None' = None
+    ) -> NodeInfo:
         """Add a custom node to the environment.
+
+        Args:
+            identifier: Registry ID or GitHub URL (supports @version)
+            is_development: Track as development node
+            no_test: Skip dependency resolution testing
+            force: Force replacement of existing nodes
+            confirmation_strategy: Strategy for confirming replacements
 
         Raises:
             CDNodeNotFoundError: If node not found
             CDNodeConflictError: If node has dependency conflicts
             CDEnvironmentError: If node with same name already exists
         """
-        return self.node_manager.add_node(identifier, is_development, no_test, force)
+        return self.node_manager.add_node(identifier, is_development, no_test, force, confirmation_strategy)
 
     def install_nodes_with_progress(
         self,

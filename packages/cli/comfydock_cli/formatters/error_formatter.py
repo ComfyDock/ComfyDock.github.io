@@ -36,6 +36,9 @@ class NodeErrorFormatter:
         elif action.action_type == 'add_node_force':
             return f"cfd node add {action.node_identifier} --force"
 
+        elif action.action_type == 'add_node_version':
+            return f"cfd node add {action.node_identifier}"
+
         elif action.action_type == 'rename_directory':
             return f"mv custom_nodes/{action.directory_name} custom_nodes/{action.new_name}"
 

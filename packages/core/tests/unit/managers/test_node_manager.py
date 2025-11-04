@@ -105,6 +105,9 @@ class TestNodeManager:
         mock_node_lookup.download_to_cache.return_value = cache_dir
         mock_node_lookup.scan_requirements.return_value = []
 
+        # Mock get_existing to return empty dict (no existing nodes)
+        mock_pyproject.nodes.get_existing.return_value = {}
+
         node_manager = NodeManager(
             mock_pyproject, Mock(), mock_node_lookup, Mock(), custom_nodes_dir, Mock()
         )
