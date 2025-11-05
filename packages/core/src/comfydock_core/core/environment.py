@@ -799,6 +799,12 @@ class Environment:
         if result.has_download_intents:
             result.download_results = self._execute_pending_downloads(result, download_callbacks)
 
+            # After successful downloads, update workflow JSON with resolved paths
+            # Re-resolve to get fresh model data (cached, so minimal cost)
+            if result.download_results and any(dr.success for dr in result.download_results):
+                _, fresh_result = self.workflow_manager.analyze_and_resolve_workflow(name)
+                self.workflow_manager.update_workflow_model_paths(fresh_result)
+
         return result
 
     def get_uninstalled_nodes(self, workflow_name: str | None = None) -> list[str]:
