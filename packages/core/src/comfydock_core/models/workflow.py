@@ -9,6 +9,7 @@ from ..services.model_downloader import ModelDownloader
 from ..models.node_mapping import (
     GlobalNodePackage,
 )
+from ..utils.uuid import is_uuid
 
 if TYPE_CHECKING:
     from .shared import ModelWithLocation, NodeInfo
@@ -172,6 +173,9 @@ class Workflow:
     config: dict[str, Any] = field(default_factory=dict)
     extra: dict[str, Any] = field(default_factory=dict)
 
+    # Subgraph reconstruction metadata (private)
+    _subgraph_metadata: dict[str, dict[str, Any]] = field(default_factory=dict, repr=False)
+
     def __repr__(self) -> str:
         """Concise representation showing node count and types."""
         node_count = len(self.nodes)
@@ -186,18 +190,104 @@ class Workflow:
 
     @classmethod
     def from_json(cls, data: dict) -> Workflow:
-        """Parse from ComfyUI workflow JSON."""
-        # Handle nodes (convert list to dict)
+        """Parse from ComfyUI workflow JSON.
+
+        Supports subgraphs (ComfyUI v1.24.3+): nodes inside subgraphs are extracted
+        and flattened, while UUID-based subgraph references are filtered out.
+
+        Stores metadata needed to reconstruct original structure in to_json().
+        """
+        # Build set of subgraph IDs for filtering UUID references
+        subgraph_ids = set()
+        if 'definitions' in data and 'subgraphs' in data['definitions']:
+            subgraph_ids = {sg['id'] for sg in data['definitions']['subgraphs']}
+
+        nodes = {}
+        subgraph_metadata = {}
+
+        # Parse top-level nodes (skip subgraph references but remember them)
+        top_level_uuid_refs = []
         if isinstance(data.get('nodes'), list):
-            nodes = {str(node['id']): WorkflowNode.from_dict(node) for node in data['nodes']}
+            for node in data['nodes']:
+                node_type = node.get('type') or node.get('class_type') or ''
+                if node_type in subgraph_ids or is_uuid(node_type):
+                    # Store UUID reference node for reconstruction
+                    top_level_uuid_refs.append(node)
+                else:
+                    nodes[str(node['id'])] = WorkflowNode.from_dict(node)
         else:
-            nodes = {k: WorkflowNode.from_dict(v) for k, v in data.get('nodes', {}).items()}
+            for k, v in data.get('nodes', {}).items():
+                node_type = v.get('type') or v.get('class_type') or ''
+                if node_type in subgraph_ids or is_uuid(node_type):
+                    top_level_uuid_refs.append(v)
+                else:
+                    nodes[k] = WorkflowNode.from_dict(v)
+
+        # Parse subgraph nodes (flatten all subgraphs) + capture ALL metadata for lossless round-trip
+        if 'definitions' in data and 'subgraphs' in data['definitions']:
+            for subgraph in data['definitions']['subgraphs']:
+                subgraph_id = subgraph['id']
+
+                # Capture complete subgraph structure for round-trip preservation
+                # Required for ComfyUI Zod schema compliance
+                subgraph_metadata[subgraph_id] = {
+                    # Core identity
+                    'name': subgraph.get('name', ''),
+
+                    # Schema-required fields
+                    'version': subgraph.get('version', 1),
+                    'revision': subgraph.get('revision', 0),
+                    'state': subgraph.get('state', {}),
+                    'config': subgraph.get('config', {}),
+
+                    # I/O structure
+                    'inputNode': subgraph.get('inputNode'),
+                    'outputNode': subgraph.get('outputNode'),
+                    'inputs': subgraph.get('inputs', []),
+                    'outputs': subgraph.get('outputs', []),
+                    'widgets': subgraph.get('widgets', []),
+
+                    # Graph structure (nodes/links handled separately)
+                    'links': subgraph.get('links', []),
+                    'groups': subgraph.get('groups', []),
+
+                    # Optional metadata
+                    'extra': subgraph.get('extra', {}),
+
+                    # Internal tracking (not serialized as-is)
+                    'node_ids': [],  # Will be populated below
+                    'uuid_refs': []  # Nested subgraph references within this subgraph
+                }
+
+                for node in subgraph.get('nodes', []):
+                    node_type = node.get('type') or node.get('class_type') or ''
+                    node_id = str(node.get('id', 'unknown'))
+
+                    # Check if this is a nested subgraph reference
+                    if node_type in subgraph_ids or is_uuid(node_type):
+                        # Store nested UUID reference for reconstruction
+                        subgraph_metadata[subgraph_id]['uuid_refs'].append(node)
+                    else:
+                        # Real node - flatten it
+                        scoped_id = f"{subgraph_id}:{node_id}"
+                        nodes[scoped_id] = WorkflowNode.from_dict(node, subgraph_id=subgraph_id)
+                        subgraph_metadata[subgraph_id]['node_ids'].append(scoped_id)
 
         # Parse links from arrays
         links = [Link.from_array(link) for link in data.get('links', [])]
 
         # Parse groups (if present)
         groups = [Group(**group) for group in data.get('groups', [])]
+
+        # Store top-level UUID refs in metadata for reconstruction
+        if top_level_uuid_refs:
+            for ref in top_level_uuid_refs:
+                sg_id = ref.get('type')
+                if sg_id in subgraph_metadata:
+                    subgraph_metadata[sg_id]['top_level_ref'] = ref
+
+        # DO NOT store definitions in extra - we'll reconstruct it in to_json()
+        extra = data.get('extra', {}).copy()
 
         return cls(
             nodes=nodes,
@@ -209,23 +299,93 @@ class Workflow:
             last_link_id=data.get('last_link_id'),
             version=data.get('version'),
             config=data.get('config', {}),
-            extra=data.get('extra', {})
+            extra=extra,
+            _subgraph_metadata=subgraph_metadata
         )
 
     def to_json(self) -> dict:
-        """Convert back to ComfyUI workflow format."""
-        return {
+        """Convert back to ComfyUI workflow format.
+
+        Reconstructs original structure with subgraphs if metadata is present.
+        """
+        # Separate nodes by origin
+        top_level_nodes = []
+        subgraph_nodes_by_id = {}
+
+        for scoped_id, node in self.nodes.items():
+            if node.subgraph_id is None:
+                # Top-level node
+                top_level_nodes.append(node.to_dict())
+            else:
+                # Subgraph node - restore original ID
+                if node.subgraph_id not in subgraph_nodes_by_id:
+                    subgraph_nodes_by_id[node.subgraph_id] = []
+
+                # Extract original node ID from scoped ID (format: "subgraph-uuid:10")
+                original_id = scoped_id.split(':', 1)[1] if ':' in scoped_id else scoped_id
+                node_dict = node.to_dict()
+                node_dict['id'] = int(original_id) if original_id.isdigit() else original_id
+                subgraph_nodes_by_id[node.subgraph_id].append(node_dict)
+
+        # Build result
+        result = {
             'id': self.id,
             'revision': self.revision,
             'last_node_id': self.last_node_id,
             'last_link_id': self.last_link_id,
-            'nodes': [node.to_dict() for node in self.nodes.values()],
             'links': [link.to_array() for link in self.links],
             'groups': [asdict(group) for group in self.groups],
             'config': self.config,
-            'extra': self.extra,
             'version': self.version
         }
+
+        # Reconstruct subgraphs if metadata exists
+        if self._subgraph_metadata:
+            definitions = {'subgraphs': []}
+
+            for sg_id, metadata in self._subgraph_metadata.items():
+                # Get nodes for this subgraph
+                sg_nodes = subgraph_nodes_by_id.get(sg_id, [])
+
+                # Add nested UUID references back
+                if metadata.get('uuid_refs'):
+                    sg_nodes.extend(metadata['uuid_refs'])
+
+                # Reconstruct complete subgraph structure with all fields
+                subgraph_dict = {
+                    'id': sg_id,
+                    'version': metadata.get('version', 1),
+                    'state': metadata.get('state', {}),
+                    'revision': metadata.get('revision', 0),
+                    'config': metadata.get('config', {}),
+                    'name': metadata.get('name', ''),
+                    'inputNode': metadata.get('inputNode'),
+                    'outputNode': metadata.get('outputNode'),
+                    'inputs': metadata.get('inputs', []),
+                    'outputs': metadata.get('outputs', []),
+                    'widgets': metadata.get('widgets', []),
+                    'nodes': sg_nodes,
+                    'groups': metadata.get('groups', []),
+                    'links': metadata.get('links', []),
+                    'extra': metadata.get('extra', {})
+                }
+                definitions['subgraphs'].append(subgraph_dict)
+
+            # Add definitions to top level
+            result['definitions'] = definitions
+
+            # Add top-level UUID reference nodes
+            for sg_id, metadata in self._subgraph_metadata.items():
+                if 'top_level_ref' in metadata:
+                    top_level_nodes.append(metadata['top_level_ref'])
+
+        # Add nodes to result
+        result['nodes'] = top_level_nodes
+
+        # Add extra (without definitions, since it's at top level now)
+        result['extra'] = self.extra
+
+        return result
 
 @dataclass
 class NodeInput:
@@ -310,6 +470,9 @@ class WorkflowNode:
     # Extended properties
     properties: dict[str, Any] = field(default_factory=dict)
 
+    # Subgraph context (for nodes inside subgraphs)
+    subgraph_id: str | None = None
+
     def __repr__(self) -> str:
         """Concise representation showing only id and type."""
         return f"WorkflowNode(id={self.id!r}, type={self.type!r})"
@@ -340,8 +503,13 @@ class WorkflowNode:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> WorkflowNode:
-        """Parse from workflow node dict."""
+    def from_dict(cls, data: dict, subgraph_id: str | None = None) -> WorkflowNode:
+        """Parse from workflow node dict.
+
+        Args:
+            data: Node data dict from workflow JSON
+            subgraph_id: Optional subgraph ID if node is inside a subgraph
+        """
         # Parse inputs
         inputs = []
         raw_inputs = data.get('inputs', [])
@@ -400,7 +568,8 @@ class WorkflowNode:
             bgcolor=data.get('bgcolor'),
             inputs=inputs,
             outputs=outputs,
-            properties=data.get('properties', {})
+            properties=data.get('properties', {}),
+            subgraph_id=subgraph_id
         )
 
     def to_dict(self) -> dict[str, Any]:
