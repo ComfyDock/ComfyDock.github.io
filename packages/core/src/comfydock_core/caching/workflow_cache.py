@@ -28,7 +28,12 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-SCHEMA_VERSION = 2
+# Bump when DB schema OR resolution format changes
+# Breaking changes requiring version bump:
+# - Database: Add/remove/rename columns
+# - Resolution: Change node ID format (e.g., subgraph scoping), WorkflowNodeWidgetRef structure, etc.
+# Migration: Wipes cache and rebuilds (cache is ephemeral)
+SCHEMA_VERSION = 3  # Bumped for subgraph node ID scoping (breaking resolution format change)
 
 
 class CachedWorkflowAnalysis:

@@ -49,9 +49,10 @@ class WorkflowDependencyParser:
             missing_nodes: list[WorkflowNode] = []
 
             # Analyze and resolve models and nodes
-            for node_info in nodes_data.values():
+            # Iterate over items() to preserve scoped IDs for subgraph nodes
+            for node_id, node_info in nodes_data.items():
                 node_classification = NodeClassifier.classify_single_node(node_info)
-                model_refs = self._extract_model_node_refs(node_info)
+                model_refs = self._extract_model_node_refs(node_id, node_info)
                 
                 found_models.extend(model_refs)
                 
@@ -79,8 +80,13 @@ class WorkflowDependencyParser:
             logger.error(f"Failed to analyze workflow dependencies: {e}")
             return WorkflowDependencies(workflow_name=self.workflow_name)
 
-    def _extract_model_node_refs(self, node_info: WorkflowNode) -> List["WorkflowNodeWidgetRef"]:
-        """Extract possible model references from a single node"""
+    def _extract_model_node_refs(self, node_id: str, node_info: WorkflowNode) -> List["WorkflowNodeWidgetRef"]:
+        """Extract possible model references from a single node.
+
+        Args:
+            node_id: Scoped node ID from workflow.nodes dict key (e.g., "uuid:12" for subgraph nodes)
+            node_info: WorkflowNode object containing node data
+        """
 
         refs = []
 
@@ -90,14 +96,14 @@ class WorkflowDependencyParser:
             widgets = node_info.widgets_values or []
             if len(widgets) > 0 and widgets[0]:
                 refs.append(WorkflowNodeWidgetRef(
-                    node_id=node_info.id,
+                    node_id=node_id,  # Use scoped ID from dict key
                     node_type=node_info.type,
                     widget_index=0,
                     widget_value=widgets[0]
                 ))
             if len(widgets) > 1 and widgets[1]:
                 refs.append(WorkflowNodeWidgetRef(
-                    node_id=node_info.id,
+                    node_id=node_id,  # Use scoped ID from dict key
                     node_type=node_info.type,
                     widget_index=1,
                     widget_value=widgets[1]
@@ -109,7 +115,7 @@ class WorkflowDependencyParser:
             widgets = node_info.widgets_values or []
             if widget_idx < len(widgets) and widgets[widget_idx]:
                 refs.append(WorkflowNodeWidgetRef(
-                    node_id=node_info.id,
+                    node_id=node_id,  # Use scoped ID from dict key
                     node_type=node_info.type,
                     widget_index=widget_idx,
                     widget_value=widgets[widget_idx]
@@ -121,7 +127,7 @@ class WorkflowDependencyParser:
             for idx, value in enumerate(widgets):
                 if self._looks_like_model(value):
                     refs.append(WorkflowNodeWidgetRef(
-                        node_id=node_info.id,
+                        node_id=node_id,  # Use scoped ID from dict key
                         node_type=node_info.type,
                         widget_index=idx,
                         widget_value=value

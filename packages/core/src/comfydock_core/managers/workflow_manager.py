@@ -207,9 +207,9 @@ class WorkflowManager:
         # Progressive write to workflow
         self.pyproject.workflows.add_workflow_model(workflow_name, manifest_model)
 
-        # Update workflow JSON
-        if model and self.model_resolver.model_config.is_model_loader_node(model_ref.node_type):
-            self._update_single_workflow_node_path(workflow_name, model_ref, model)
+        # NOTE: Workflow JSON path update moved to batch operation at end of fix_resolution()
+        # Progressive JSON updates fail when cache has stale node IDs (node lookup mismatch)
+        # Batch update is more efficient and ensures consistent node IDs within same parse session
 
     def _update_single_workflow_node_path(
         self,
@@ -1007,8 +1007,8 @@ class WorkflowManager:
                     logger.error(f"Failed to resolve {model_ref.widget_value}: {e}")
                     remaining_models_unresolved.append(model_ref)
 
-        # Return updated result
-        return ResolutionResult(
+        # Build updated result
+        result = ResolutionResult(
             workflow_name=workflow_name,
             nodes_resolved=nodes_to_add,
             nodes_unresolved=remaining_nodes_unresolved,
@@ -1017,6 +1017,13 @@ class WorkflowManager:
             models_unresolved=remaining_models_unresolved,
             models_ambiguous=remaining_models_ambiguous,
         )
+
+        # Batch update workflow JSON with all resolved model paths
+        # This ensures all model paths are synced after interactive resolution
+        # Uses consistent node IDs from same parse session (no cache mismatch issues)
+        self.update_workflow_model_paths(result)
+
+        return result
 
     def apply_resolution(
         self,

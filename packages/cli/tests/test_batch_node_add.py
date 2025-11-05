@@ -39,13 +39,15 @@ class TestBatchNodeAdd:
         with patch('builtins.print') as mock_print:
             cmd.node_add(args)
 
-        # Verify single node flow was used
-        mock_env.add_node.assert_called_once_with(
-            "test-node",
-            is_development=False,
-            no_test=False,
-            force=False
-        )
+        # Verify single node flow was used (add_node called, not batch)
+        mock_env.add_node.assert_called_once()
+        call_kwargs = mock_env.add_node.call_args.kwargs
+
+        # Verify essential parameters
+        assert mock_env.add_node.call_args.args[0] == "test-node"
+        assert call_kwargs['is_development'] is False
+        assert call_kwargs['no_test'] is False
+        assert call_kwargs['force'] is False
 
         # Verify install_nodes_with_progress was NOT called
         mock_env.install_nodes_with_progress.assert_not_called()
