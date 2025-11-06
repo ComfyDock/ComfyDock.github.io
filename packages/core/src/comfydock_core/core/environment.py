@@ -328,8 +328,15 @@ class Environment:
 
         Installs dependencies in phases:
         1. Base dependencies ([project.dependencies])
-        2. Optional groups (prefix: optional-*) - skip on failure
+        2. Optional groups (prefix: optional-*) - skip on failure, retry without failing group
         3. Required groups (node dependencies) - fail on error
+
+        If optional groups fail to build, we iteratively:
+        - Parse the error to identify the failing group
+        - Remove that group from pyproject.toml
+        - Delete uv.lock to force re-resolution
+        - Retry the sync
+        - Continue until success or max retries
 
         Args:
             result: SyncResult to populate with outcomes
@@ -337,13 +344,59 @@ class Environment:
             callbacks: Optional callbacks for progress reporting
         """
         from ..models.exceptions import UVCommandError
+        from ..utils.uv_error_handler import parse_failed_dependency_group
 
-        # Phase 1: Install base dependencies
+        # Phase 1: Install base dependencies with iterative optional group removal
+        MAX_RETRIES = 10  # Prevent infinite loops
+        attempts = 0
+
         logger.info("Installing base dependencies...")
-        self.uv_manager.sync_project(dry_run=dry_run)
-        result.packages_synced = True
 
-        # Get all dependency groups
+        while attempts < MAX_RETRIES:
+            try:
+                self.uv_manager.sync_project(dry_run=dry_run, no_default_groups=True)
+                result.packages_synced = True
+                break  # Success - exit loop
+
+            except UVCommandError as e:
+                failed_group = parse_failed_dependency_group(e.stderr or "")
+
+                if failed_group and failed_group.startswith('optional-'):
+                    attempts += 1
+                    logger.warning(
+                        f"Build failed for optional group '{failed_group}' (attempt {attempts}/{MAX_RETRIES}), "
+                        "removing and retrying..."
+                    )
+
+                    # Remove the problematic group
+                    try:
+                        self.pyproject.dependencies.remove_group(failed_group)
+                    except ValueError:
+                        pass  # Group already gone
+
+                    # Delete lockfile to force re-resolution
+                    lockfile = self.cec_path / "uv.lock"
+                    if lockfile.exists():
+                        lockfile.unlink()
+                        logger.debug("Deleted uv.lock to force re-resolution")
+
+                    result.dependency_groups_failed.append((failed_group, "Build failed (incompatible platform)"))
+
+                    if callbacks:
+                        callbacks.on_dependency_group_complete(failed_group, success=False, error="Build failed - removed")
+
+                    if attempts >= MAX_RETRIES:
+                        raise RuntimeError(
+                            f"Failed to install base dependencies after {MAX_RETRIES} attempts. "
+                            f"Removed groups: {[g for g, _ in result.dependency_groups_failed]}"
+                        )
+
+                    # Loop continues for retry
+                else:
+                    # Not an optional group failure - fail immediately
+                    raise
+
+        # Get all dependency groups (may have changed after removal)
         dep_groups = self.pyproject.dependencies.get_groups()
 
         if not dep_groups:
@@ -1842,10 +1895,16 @@ class Environment:
                     self.pyproject.uv_config.add_constraint(f"{pkg}=={version}")
                     logger.info(f"Added constraint: {pkg}=={version}")
 
-        # Phase 2: Install dependencies (will skip torch if already installed)
+        # Phase 2: Install dependencies progressively (graceful optional group handling)
         if callbacks:
             callbacks.on_phase("install_deps", "Installing dependencies...")
-        self.uv_manager.sync_project(verbose=False)
+
+        dep_result = SyncResult()
+        self._sync_dependencies_progressive(dep_result, dry_run=False, callbacks=callbacks)
+
+        # If progressive sync failed on base or required groups, abort import
+        if not dep_result.success:
+            raise RuntimeError(f"Dependency installation failed: {'; '.join(dep_result.errors)}")
 
         # Phase 3: Setup git repository
         # For git imports: .git already exists with remote, just ensure gitignore
