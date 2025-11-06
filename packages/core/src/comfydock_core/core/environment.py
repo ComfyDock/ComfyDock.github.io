@@ -1135,7 +1135,11 @@ class Environment:
         self,
         packages: list[str] | None = None,
         requirements_file: Path | None = None,
-        upgrade: bool = False
+        upgrade: bool = False,
+        group: str | None = None,
+        dev: bool = False,
+        editable: bool = False,
+        bounds: str | None = None
     ) -> str:
         """Add Python dependencies to the environment.
 
@@ -1145,6 +1149,10 @@ class Environment:
             packages: List of package specifications (e.g., ['requests>=2.0.0', 'pillow'])
             requirements_file: Path to requirements.txt file to add packages from
             upgrade: Whether to upgrade existing packages
+            group: Dependency group name (e.g., 'optional-cuda')
+            dev: Add to dev dependencies
+            editable: Install as editable (for local development)
+            bounds: Version specifier style ('lower', 'major', 'minor', 'exact')
 
         Returns:
             UV command output
@@ -1159,7 +1167,11 @@ class Environment:
         return self.uv_manager.add_dependency(
             packages=packages,
             requirements_file=requirements_file,
-            upgrade=upgrade
+            upgrade=upgrade,
+            group=group,
+            dev=dev,
+            editable=editable,
+            bounds=bounds
         )
 
     def remove_dependencies(self, packages: list[str]) -> dict:

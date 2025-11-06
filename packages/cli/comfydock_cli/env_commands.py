@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import argparse
-
+import os
+import subprocess
 import sys
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
@@ -992,7 +993,11 @@ class EnvironmentCommands:
             env.add_dependencies(
                 packages=args.packages or None,
                 requirements_file=requirements_file,
-                upgrade=args.upgrade
+                upgrade=args.upgrade,
+                group=getattr(args, 'group', None),
+                dev=getattr(args, 'dev', False),
+                editable=getattr(args, 'editable', False),
+                bounds=getattr(args, 'bounds', None)
             )
         except UVCommandError as e:
             if logger:
@@ -1053,6 +1058,33 @@ class EnvironmentCommands:
                 print(f"  • {pkg}")
 
         print(f"\nRun 'cfd -e {env.name} status' to review changes")
+
+    @with_env_logging("env py uv")
+    def py_uv(self, args: argparse.Namespace, logger=None) -> None:
+        """Direct UV command passthrough for advanced users."""
+        env = self._get_env(args)
+
+        if not args.uv_args:
+            # Show helpful usage message
+            print("Usage: cfd py uv <uv-command> [uv-args...]")
+            print("Example: cfd py uv add --group optional-cuda sageattention")
+            print("\nThis is direct UV access. See 'uv --help' for options.")
+            sys.exit(1)
+
+        # Build UV command with environment context
+        cmd = [env.uv_manager.uv._binary] + args.uv_args
+
+        # Execute with environment context (cwd and env vars)
+        result = subprocess.run(
+            cmd,
+            cwd=env.cec_path,
+            env={
+                **os.environ,
+                "UV_PROJECT_ENVIRONMENT": str(env.venv_path),
+                "UV_CACHE_DIR": str(env.workspace_paths.cache / "uv_cache"),
+            }
+        )
+        sys.exit(result.returncode)
 
     @with_env_logging("env py list")
     def py_list(self, args: argparse.Namespace) -> None:

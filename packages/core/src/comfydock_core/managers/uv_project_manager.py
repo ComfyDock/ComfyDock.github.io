@@ -67,6 +67,10 @@ class UVProjectManager:
         packages: list[str] | None = None,
         requirements_file: Path | None = None,
         upgrade: bool = False,
+        group: str | None = None,
+        dev: bool = False,
+        editable: bool = False,
+        bounds: str | None = None,
         **flags
     ) -> str:
         """Add one or more dependencies to the project.
@@ -76,6 +80,10 @@ class UVProjectManager:
             packages: List of packages to add
             requirements_file: Path to requirements file
             upgrade: Whether to upgrade existing packages
+            group: Dependency group name (e.g., 'optional-cuda')
+            dev: Add to dev dependencies
+            editable: Install as editable (for local development)
+            bounds: Version specifier style ('lower', 'major', 'minor', 'exact')
             **flags: Additional UV flags
 
         Returns:
@@ -97,6 +105,10 @@ class UVProjectManager:
             packages=pkg_list,
             requirements_file=requirements_file,
             upgrade=upgrade,
+            group=group,
+            dev=dev,
+            editable=editable,
+            bounds=bounds,
             **flags
         )
         return result.stdout

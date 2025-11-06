@@ -536,6 +536,11 @@ def _add_env_commands(subparsers: argparse._SubParsersAction) -> None:
     py_add_parser.add_argument("packages", nargs="*", help="Package specifications (e.g., requests>=2.0.0)")
     py_add_parser.add_argument("-r", "--requirements", type=Path, help="Add packages from requirements.txt file")
     py_add_parser.add_argument("--upgrade", action="store_true", help="Upgrade existing packages")
+    # Tier 2: Power-user flags
+    py_add_parser.add_argument("--group", help="Add to dependency group (e.g., optional-cuda)")
+    py_add_parser.add_argument("--dev", action="store_true", help="Add to dev dependencies")
+    py_add_parser.add_argument("--editable", action="store_true", help="Install as editable (for local development)")
+    py_add_parser.add_argument("--bounds", choices=["lower", "major", "minor", "exact"], help="Version specifier style")
     py_add_parser.set_defaults(func=env_cmds.py_add)
 
     # py remove
@@ -547,6 +552,19 @@ def _add_env_commands(subparsers: argparse._SubParsersAction) -> None:
     py_list_parser = py_subparsers.add_parser("list", help="List project dependencies")
     py_list_parser.add_argument("--all", action="store_true", help="Show all dependencies including dependency groups")
     py_list_parser.set_defaults(func=env_cmds.py_list)
+
+    # py uv - Direct UV passthrough for advanced users
+    py_uv_parser = py_subparsers.add_parser(
+        "uv",
+        help="Direct UV passthrough (advanced)",
+        add_help=False  # Don't interfere with UV's --help
+    )
+    py_uv_parser.add_argument(
+        "uv_args",
+        nargs=argparse.REMAINDER,  # Capture everything after 'uv'
+        help="UV command and arguments (e.g., 'add --group optional-cuda sageattention')"
+    )
+    py_uv_parser.set_defaults(func=env_cmds.py_uv)
 
 if __name__ == "__main__":
     main()

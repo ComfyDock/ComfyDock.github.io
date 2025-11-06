@@ -1,4 +1,5 @@
 """Unit tests for py add/remove/list commands."""
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 from argparse import Namespace
 
@@ -39,7 +40,11 @@ class TestPyAdd:
         mock_env.add_dependencies.assert_called_once_with(
             packages=["requests"],
             requirements_file=None,
-            upgrade=False
+            upgrade=False,
+            group=None,
+            dev=False,
+            editable=False,
+            bounds=None
         )
 
     @patch('comfydock_cli.env_commands.get_workspace_or_exit')
@@ -64,7 +69,11 @@ class TestPyAdd:
         mock_env.add_dependencies.assert_called_once_with(
             packages=["requests", "pillow", "tqdm"],
             requirements_file=None,
-            upgrade=False
+            upgrade=False,
+            group=None,
+            dev=False,
+            editable=False,
+            bounds=None
         )
 
     @patch('comfydock_cli.env_commands.get_workspace_or_exit')
@@ -89,7 +98,11 @@ class TestPyAdd:
         mock_env.add_dependencies.assert_called_once_with(
             packages=["requests"],
             requirements_file=None,
-            upgrade=True
+            upgrade=True,
+            group=None,
+            dev=False,
+            editable=False,
+            bounds=None
         )
 
     @patch('comfydock_cli.env_commands.get_workspace_or_exit')
@@ -146,7 +159,11 @@ class TestPyAdd:
         mock_env.add_dependencies.assert_called_once_with(
             packages=None,
             requirements_file=reqs_file.resolve(),
-            upgrade=False
+            upgrade=False,
+            group=None,
+            dev=False,
+            editable=False,
+            bounds=None
         )
 
     @patch('comfydock_cli.env_commands.get_workspace_or_exit')
@@ -177,7 +194,11 @@ class TestPyAdd:
         mock_env.add_dependencies.assert_called_once_with(
             packages=None,
             requirements_file=reqs_file.resolve(),
-            upgrade=True
+            upgrade=True,
+            group=None,
+            dev=False,
+            editable=False,
+            bounds=None
         )
 
     @patch('comfydock_cli.env_commands.get_workspace_or_exit')
@@ -378,6 +399,328 @@ class TestPyRemove:
         printed = ' '.join(str(call) for call in mock_print.call_args_list)
         assert "Skipped" in printed
         assert "nonexistent" in printed
+
+
+class TestPyAddTier2Flags:
+    """Test 'cfd py add' with Tier 2 power-user flags."""
+
+    @patch('comfydock_cli.env_commands.get_workspace_or_exit')
+    def test_add_with_group_flag(self, mock_workspace):
+        """Should pass group flag to add_dependencies for optional dependencies."""
+        mock_env = MagicMock()
+        mock_workspace.return_value.get_active_environment.return_value = mock_env
+        mock_env.name = "test-env"
+        mock_env.add_dependencies.return_value = "Added to group optional-cuda"
+
+        cmd = EnvironmentCommands()
+        args = Namespace(
+            packages=["sageattention"],
+            requirements=None,
+            upgrade=False,
+            group="optional-cuda",
+            dev=False,
+            editable=False,
+            bounds=None,
+            target_env=None
+        )
+
+        with patch('builtins.print'):
+            cmd.py_add(args)
+
+        mock_env.add_dependencies.assert_called_once_with(
+            packages=["sageattention"],
+            requirements_file=None,
+            upgrade=False,
+            group="optional-cuda",
+            dev=False,
+            editable=False,
+            bounds=None
+        )
+
+    @patch('comfydock_cli.env_commands.get_workspace_or_exit')
+    def test_add_with_dev_flag(self, mock_workspace):
+        """Should pass dev=True for development dependencies."""
+        mock_env = MagicMock()
+        mock_workspace.return_value.get_active_environment.return_value = mock_env
+        mock_env.name = "test-env"
+        mock_env.add_dependencies.return_value = "Added to dev dependencies"
+
+        cmd = EnvironmentCommands()
+        args = Namespace(
+            packages=["pytest", "black"],
+            requirements=None,
+            upgrade=False,
+            group=None,
+            dev=True,
+            editable=False,
+            bounds=None,
+            target_env=None
+        )
+
+        with patch('builtins.print'):
+            cmd.py_add(args)
+
+        mock_env.add_dependencies.assert_called_once_with(
+            packages=["pytest", "black"],
+            requirements_file=None,
+            upgrade=False,
+            group=None,
+            dev=True,
+            editable=False,
+            bounds=None
+        )
+
+    @patch('comfydock_cli.env_commands.get_workspace_or_exit')
+    def test_add_with_editable_flag(self, mock_workspace):
+        """Should pass editable=True for local package development."""
+        mock_env = MagicMock()
+        mock_workspace.return_value.get_active_environment.return_value = mock_env
+        mock_env.name = "test-env"
+        mock_env.add_dependencies.return_value = "Added as editable"
+
+        cmd = EnvironmentCommands()
+        args = Namespace(
+            packages=["/path/to/mypackage"],
+            requirements=None,
+            upgrade=False,
+            group=None,
+            dev=False,
+            editable=True,
+            bounds=None,
+            target_env=None
+        )
+
+        with patch('builtins.print'):
+            cmd.py_add(args)
+
+        mock_env.add_dependencies.assert_called_once_with(
+            packages=["/path/to/mypackage"],
+            requirements_file=None,
+            upgrade=False,
+            group=None,
+            dev=False,
+            editable=True,
+            bounds=None
+        )
+
+    @patch('comfydock_cli.env_commands.get_workspace_or_exit')
+    def test_add_with_bounds_flag(self, mock_workspace):
+        """Should pass bounds for version specifier style control."""
+        mock_env = MagicMock()
+        mock_workspace.return_value.get_active_environment.return_value = mock_env
+        mock_env.name = "test-env"
+        mock_env.add_dependencies.return_value = "Added with exact bounds"
+
+        cmd = EnvironmentCommands()
+        args = Namespace(
+            packages=["torch==2.4.1"],
+            requirements=None,
+            upgrade=False,
+            group=None,
+            dev=False,
+            editable=False,
+            bounds="exact",
+            target_env=None
+        )
+
+        with patch('builtins.print'):
+            cmd.py_add(args)
+
+        mock_env.add_dependencies.assert_called_once_with(
+            packages=["torch==2.4.1"],
+            requirements_file=None,
+            upgrade=False,
+            group=None,
+            dev=False,
+            editable=False,
+            bounds="exact"
+        )
+
+    @patch('comfydock_cli.env_commands.get_workspace_or_exit')
+    def test_add_with_combined_flags(self, mock_workspace):
+        """Should support combining multiple Tier 2 flags."""
+        mock_env = MagicMock()
+        mock_workspace.return_value.get_active_environment.return_value = mock_env
+        mock_env.name = "test-env"
+        mock_env.add_dependencies.return_value = "Added with multiple flags"
+
+        cmd = EnvironmentCommands()
+        args = Namespace(
+            packages=["mypackage"],
+            requirements=None,
+            upgrade=True,
+            group="optional-features",
+            dev=False,
+            editable=True,
+            bounds="minor",
+            target_env=None
+        )
+
+        with patch('builtins.print'):
+            cmd.py_add(args)
+
+        mock_env.add_dependencies.assert_called_once_with(
+            packages=["mypackage"],
+            requirements_file=None,
+            upgrade=True,
+            group="optional-features",
+            dev=False,
+            editable=True,
+            bounds="minor"
+        )
+
+
+class TestPyUvPassthrough:
+    """Test 'cfd py uv' UV passthrough for advanced users."""
+
+    @patch('comfydock_cli.env_commands.get_workspace_or_exit')
+    @patch('comfydock_cli.env_commands.subprocess.run')
+    def test_uv_passthrough_basic_command(self, mock_subprocess, mock_workspace):
+        """Should execute UV command with environment context."""
+        mock_env = MagicMock()
+        mock_workspace.return_value.get_active_environment.return_value = mock_env
+        mock_env.name = "test-env"
+        mock_env.cec_path = Path("/workspace/test-env/.cec")
+        mock_env.venv_path = Path("/workspace/test-env/ComfyUI/.venv")
+        mock_env.workspace_paths.cache = Path("/workspace/cache")
+        mock_env.uv_manager.uv._binary = "/usr/bin/uv"
+
+        # Mock subprocess to return success
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_subprocess.return_value = mock_result
+
+        cmd = EnvironmentCommands()
+        args = Namespace(
+            uv_args=["add", "--group", "optional-cuda", "sageattention"],
+            target_env=None
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd.py_uv(args)
+
+        # Should exit with UV's return code
+        assert exc_info.value.code == 0
+
+        # Should call subprocess with correct command
+        mock_subprocess.assert_called_once()
+        call_args = mock_subprocess.call_args
+        assert call_args[0][0] == ["/usr/bin/uv", "add", "--group", "optional-cuda", "sageattention"]
+
+    @patch('comfydock_cli.env_commands.get_workspace_or_exit')
+    @patch('comfydock_cli.env_commands.subprocess.run')
+    def test_uv_passthrough_sets_environment_vars(self, mock_subprocess, mock_workspace):
+        """Should set UV environment variables for context."""
+        mock_env = MagicMock()
+        mock_workspace.return_value.get_active_environment.return_value = mock_env
+        mock_env.name = "test-env"
+        mock_env.cec_path = Path("/workspace/test-env/.cec")
+        mock_env.venv_path = Path("/workspace/test-env/ComfyUI/.venv")
+        mock_env.workspace_paths.cache = Path("/workspace/cache")
+        mock_env.uv_manager.uv._binary = "/usr/bin/uv"
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_subprocess.return_value = mock_result
+
+        cmd = EnvironmentCommands()
+        args = Namespace(
+            uv_args=["sync", "--frozen"],
+            target_env=None
+        )
+
+        with pytest.raises(SystemExit):
+            cmd.py_uv(args)
+
+        # Check environment variables were set
+        call_args = mock_subprocess.call_args
+        env_vars = call_args[1]['env']
+        assert env_vars["UV_PROJECT_ENVIRONMENT"] == str(Path("/workspace/test-env/ComfyUI/.venv"))
+        assert env_vars["UV_CACHE_DIR"] == str(Path("/workspace/cache/uv_cache"))
+
+    @patch('comfydock_cli.env_commands.get_workspace_or_exit')
+    @patch('comfydock_cli.env_commands.subprocess.run')
+    def test_uv_passthrough_sets_working_directory(self, mock_subprocess, mock_workspace):
+        """Should execute UV in .cec directory."""
+        mock_env = MagicMock()
+        mock_workspace.return_value.get_active_environment.return_value = mock_env
+        mock_env.name = "test-env"
+        mock_env.cec_path = Path("/workspace/test-env/.cec")
+        mock_env.venv_path = Path("/workspace/test-env/ComfyUI/.venv")
+        mock_env.workspace_paths.cache = Path("/workspace/cache")
+        mock_env.uv_manager.uv._binary = "/usr/bin/uv"
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_subprocess.return_value = mock_result
+
+        cmd = EnvironmentCommands()
+        args = Namespace(
+            uv_args=["lock"],
+            target_env=None
+        )
+
+        with pytest.raises(SystemExit):
+            cmd.py_uv(args)
+
+        # Check working directory
+        call_args = mock_subprocess.call_args
+        assert call_args[1]['cwd'] == Path("/workspace/test-env/.cec")
+
+    @patch('comfydock_cli.env_commands.get_workspace_or_exit')
+    def test_uv_passthrough_empty_args_shows_help(self, mock_workspace):
+        """Should show usage message when no UV args provided."""
+        mock_env = MagicMock()
+        mock_workspace.return_value.get_active_environment.return_value = mock_env
+        mock_env.name = "test-env"
+
+        cmd = EnvironmentCommands()
+        args = Namespace(
+            uv_args=[],
+            target_env=None
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch('builtins.print') as mock_print:
+                cmd.py_uv(args)
+
+        # Should exit with error
+        assert exc_info.value.code == 1
+
+        # Should print usage message
+        printed = ' '.join(str(call) for call in mock_print.call_args_list)
+        assert "Usage" in printed or "usage" in printed.lower()
+        assert "uv" in printed.lower()
+
+    @patch('comfydock_cli.env_commands.get_workspace_or_exit')
+    @patch('comfydock_cli.env_commands.subprocess.run')
+    def test_uv_passthrough_propagates_exit_code(self, mock_subprocess, mock_workspace):
+        """Should exit with UV's error code on failure."""
+        mock_env = MagicMock()
+        mock_workspace.return_value.get_active_environment.return_value = mock_env
+        mock_env.name = "test-env"
+        mock_env.cec_path = Path("/workspace/test-env/.cec")
+        mock_env.venv_path = Path("/workspace/test-env/ComfyUI/.venv")
+        mock_env.workspace_paths.cache = Path("/workspace/cache")
+        mock_env.uv_manager.uv._binary = "/usr/bin/uv"
+
+        # Mock subprocess to return failure
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_subprocess.return_value = mock_result
+
+        cmd = EnvironmentCommands()
+        args = Namespace(
+            uv_args=["add", "nonexistent-package"],
+            target_env=None
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch('builtins.print'):
+                cmd.py_uv(args)
+
+        # Should exit with UV's return code
+        assert exc_info.value.code == 1
 
 
 class TestPyList:
