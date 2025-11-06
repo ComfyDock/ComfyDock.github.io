@@ -127,6 +127,7 @@ class UVCommand:
             'bounds': '--bounds',
             'prerelease': '--prerelease',
             'all_groups': '--all-groups',
+            'no_default_groups': '--no-default-groups',
             'seed': '--seed',
             'upgrade': '--upgrade',
             'no_install_project': '--no-install-project',
@@ -143,6 +144,10 @@ class UVCommand:
             if flag:
                 if isinstance(value, bool):
                     cmd.append(flag)
+                elif isinstance(value, list):
+                    # Handle list values that need multiple flags (e.g., --group x --group y)
+                    for item in value:
+                        cmd.extend([flag, str(item)])
                 else:
                     cmd.extend([flag, str(value)])
 

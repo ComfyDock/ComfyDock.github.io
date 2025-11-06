@@ -785,9 +785,19 @@ class WorkflowManager:
             for ref in manifest_model.nodes:
                 previous_resolutions[ref] = manifest_model
 
+        # Get global models table for download intent creation
+        global_models_dict = {}
+        try:
+            all_global_models = self.pyproject_manager.models.get_all()
+            for model_hash, model in all_global_models.items():
+                global_models_dict[model_hash] = model
+        except Exception as e:
+            logger.warning(f"Failed to load global models table: {e}")
+
         model_context = ModelResolutionContext(
             workflow_name=workflow_name,
             previous_resolutions=previous_resolutions,
+            global_models=global_models_dict,
             auto_select_ambiguous=True # TODO: Make configurable
         )
 
@@ -956,9 +966,19 @@ class WorkflowManager:
             remaining_models_ambiguous = list(resolution.models_ambiguous)
             remaining_models_unresolved = list(resolution.models_unresolved)
         else:
+            # Get global models table for download intent creation
+            global_models_dict = {}
+            try:
+                all_global_models = self.pyproject_manager.models.get_all()
+                for model_hash, model in all_global_models.items():
+                    global_models_dict[model_hash] = model
+            except Exception as e:
+                logger.warning(f"Failed to load global models table: {e}")
+
             # Build context with search function and downloader
             model_context = ModelResolutionContext(
                 workflow_name=workflow_name,
+                global_models=global_models_dict,
                 search_fn=self.search_models,
                 downloader=self.downloader,
                 auto_select_ambiguous=True  # TODO: Make configurable

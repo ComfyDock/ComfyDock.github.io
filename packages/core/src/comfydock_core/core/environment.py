@@ -327,9 +327,15 @@ class Environment:
         """Install dependencies progressively with graceful optional group handling.
 
         Installs dependencies in phases:
-        1. Base dependencies ([project.dependencies])
-        2. Optional groups (prefix: optional-*) - skip on failure
-        3. Required groups (node dependencies) - fail on error
+        1. Base dependencies + all groups together with iterative optional group removal on failure
+        2. Track which optional groups failed and were removed
+
+        If optional groups fail to build, we iteratively:
+        - Parse the error to identify the failing group
+        - Remove that group from pyproject.toml
+        - Delete uv.lock to force re-resolution
+        - Retry the sync with all remaining groups
+        - Continue until success or max retries
 
         Args:
             result: SyncResult to populate with outcomes
@@ -337,56 +343,73 @@ class Environment:
             callbacks: Optional callbacks for progress reporting
         """
         from ..models.exceptions import UVCommandError
+        from ..utils.uv_error_handler import parse_failed_dependency_group
 
-        # Phase 1: Install base dependencies
-        logger.info("Installing base dependencies...")
-        self.uv_manager.sync_project(dry_run=dry_run)
-        result.packages_synced = True
+        # Phase 1: Install base dependencies + all groups with iterative optional group removal
+        attempts = 0
 
-        # Get all dependency groups
-        dep_groups = self.pyproject.dependencies.get_groups()
+        from ..constants import MAX_OPT_GROUP_RETRIES
 
-        if not dep_groups:
-            logger.debug("No dependency groups to install")
-            return
+        logger.info("Installing dependencies with all groups...")
 
-        # Separate optional and required groups
-        optional_groups = [name for name in dep_groups.keys() if name.startswith('optional-')]
-        required_groups = [name for name in dep_groups.keys() if not name.startswith('optional-')]
-
-        # Phase 2: Install optional groups (graceful fallback)
-        for group_name in optional_groups:
-            logger.info(f"Installing optional group: {group_name}")
-            if callbacks:
-                callbacks.on_dependency_group_start(group_name, is_optional=True)
-
+        while attempts < MAX_OPT_GROUP_RETRIES:
             try:
-                self.uv_manager.sync_project(group=group_name, dry_run=dry_run)
-                result.dependency_groups_installed.append(group_name)
-                logger.debug(f"Successfully installed optional group: {group_name}")
-                if callbacks:
-                    callbacks.on_dependency_group_complete(group_name, success=True)
+                # Get all dependency groups (may have changed after removal in previous iterations)
+                dep_groups = self.pyproject.dependencies.get_groups()
+
+                if dep_groups:
+                    # Install base + all groups together using multiple --group flags
+                    group_list = list(dep_groups.keys())
+                    logger.debug(f"Syncing with groups: {group_list}")
+                    self.uv_manager.sync_project(group=group_list, dry_run=dry_run)
+
+                    # Track successful installations (no per-group callbacks since installed as batch)
+                    result.dependency_groups_installed.extend(group_list)
+                else:
+                    # No groups - just sync base dependencies
+                    logger.debug("No dependency groups, syncing base only")
+                    self.uv_manager.sync_project(dry_run=dry_run, no_default_groups=True)
+
+                result.packages_synced = True
+                break  # Success - exit loop
+
             except UVCommandError as e:
-                # Optional group failed - log and continue
-                error_msg = str(e.stderr or e).strip()
-                logger.warning(f"Optional group '{group_name}' failed to install: {error_msg}")
-                result.dependency_groups_failed.append((group_name, error_msg))
-                if callbacks:
-                    callbacks.on_dependency_group_complete(group_name, success=False, error=error_msg)
-                # Don't mark overall sync as failed for optional groups
+                failed_group = parse_failed_dependency_group(e.stderr or "")
 
-        # Phase 3: Install required groups (must succeed)
-        for group_name in required_groups:
-            logger.info(f"Installing required group: {group_name}")
-            if callbacks:
-                callbacks.on_dependency_group_start(group_name, is_optional=False)
+                if failed_group and failed_group.startswith('optional-'):
+                    attempts += 1
+                    logger.warning(
+                        f"Build failed for optional group '{failed_group}' (attempt {attempts}/{MAX_OPT_GROUP_RETRIES}), "
+                        "removing and retrying..."
+                    )
 
-            # No try-except here - let it raise on failure
-            self.uv_manager.sync_project(group=group_name, dry_run=dry_run)
-            result.dependency_groups_installed.append(group_name)
-            logger.debug(f"Successfully installed required group: {group_name}")
-            if callbacks:
-                callbacks.on_dependency_group_complete(group_name, success=True)
+                    # Remove the problematic group
+                    try:
+                        self.pyproject.dependencies.remove_group(failed_group)
+                    except ValueError:
+                        pass  # Group already gone
+
+                    # Delete lockfile to force re-resolution
+                    lockfile = self.cec_path / "uv.lock"
+                    if lockfile.exists():
+                        lockfile.unlink()
+                        logger.debug("Deleted uv.lock to force re-resolution")
+
+                    result.dependency_groups_failed.append((failed_group, "Build failed (incompatible platform)"))
+
+                    if callbacks:
+                        callbacks.on_dependency_group_complete(failed_group, success=False, error="Build failed - removed")
+
+                    if attempts >= MAX_OPT_GROUP_RETRIES:
+                        raise RuntimeError(
+                            f"Failed to install dependencies after {MAX_OPT_GROUP_RETRIES} attempts. "
+                            f"Removed groups: {[g for g, _ in result.dependency_groups_failed]}"
+                        )
+
+                    # Loop continues for retry with remaining groups
+                else:
+                    # Not an optional group failure - fail immediately
+                    raise
 
     def pull_and_repair(
         self,
@@ -1624,21 +1647,12 @@ class Environment:
                         # Model exists - no download needed
                         continue
 
-                # Model missing - check strategy
-                if strategy == "skip":
-                    # Convert to optional unresolved (no download intent)
-                    models[idx].status = "unresolved"
-                    models[idx].criticality = "optional"
-                    models[idx].hash = None
-                    models_modified = True
-                    continue
-
-                # Convert to download intent
+                # Model missing - prepare download intent with sources
                 # Read sources from global table
                 if model.hash:
                     global_model = self.pyproject.models.get_by_hash(model.hash)
                     if global_model and global_model.sources:
-                        # Revert to download intent
+                        # Preserve download intent with sources for later resolution
                         models[idx].status = "unresolved"
                         models[idx].sources = global_model.sources
                         models[idx].relative_path = global_model.relative_path
@@ -1675,12 +1689,11 @@ class Environment:
         Assumes .cec directory is already populated (from tarball or git).
 
         Phases:
-            1. Clone/restore ComfyUI from cache
-            2. Install dependencies (uv sync)
-            3. Initialize git repository
-            4. Copy workflows to ComfyUI user directory
-            5. Sync custom nodes
-            6. Prepare and resolve models based on strategy
+            1. Clone/restore ComfyUI from cache and configure PyTorch
+            2. Initialize git repository
+            3. Copy workflows to ComfyUI user directory
+            4. Sync dependencies, custom nodes, and workflows (via sync())
+            5. Prepare and resolve models based on strategy
 
         Args:
             model_strategy: "all", "required", or "skip"
@@ -1842,12 +1855,7 @@ class Environment:
                     self.pyproject.uv_config.add_constraint(f"{pkg}=={version}")
                     logger.info(f"Added constraint: {pkg}=={version}")
 
-        # Phase 2: Install dependencies (will skip torch if already installed)
-        if callbacks:
-            callbacks.on_phase("install_deps", "Installing dependencies...")
-        self.uv_manager.sync_project(verbose=False)
-
-        # Phase 3: Setup git repository
+        # Phase 2: Setup git repository
         # For git imports: .git already exists with remote, just ensure gitignore
         # For tarball imports: .git doesn't exist, initialize fresh repo
         git_existed = (self.cec_path / ".git").exists()
@@ -1866,7 +1874,7 @@ class Environment:
             logger.info("Initializing new git repository")
             self.git_manager.initialize_environment_repo("Imported environment")
 
-        # Phase 4: Copy workflows
+        # Phase 3: Copy workflows
         if callbacks:
             callbacks.on_phase("copy_workflows", "Setting up workflows...")
 
@@ -1880,9 +1888,10 @@ class Environment:
                 if callbacks:
                     callbacks.on_workflow_copied(workflow_file.name)
 
-        # Phase 5: Sync custom nodes
+        # Phase 4: Sync dependencies, custom nodes, and workflows
+        # This single sync() call handles all dependency installation, node syncing, and workflow restoration
         if callbacks:
-            callbacks.on_phase("sync_nodes", "Syncing custom nodes...")
+            callbacks.on_phase("sync_environment", "Syncing dependencies and custom nodes...")
 
         try:
             # During import, don't remove ComfyUI builtins (fresh clone has example files)
@@ -1897,13 +1906,16 @@ class Environment:
             if callbacks:
                 callbacks.on_error(f"Node sync failed: {e}")
 
-        # Phase 6: Prepare and resolve models
+        # Phase 5: Prepare and resolve models
         if callbacks:
             callbacks.on_phase("resolve_models", f"Resolving workflows ({model_strategy} strategy)...")
 
-        workflows_to_resolve = []
-        if model_strategy != "skip":
-            workflows_to_resolve = self.prepare_import_with_model_strategy(model_strategy)
+        # Always prepare models to copy sources from global table, even for "skip"
+        # This ensures download intents are preserved for later resolution
+        workflows_with_intents = self.prepare_import_with_model_strategy(model_strategy)
+
+        # Only auto-resolve if not "skip" strategy
+        workflows_to_resolve = [] if model_strategy == "skip" else workflows_with_intents
 
         # Resolve workflows with download intents
         from ..strategies.auto import AutoModelStrategy, AutoNodeStrategy

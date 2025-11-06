@@ -72,6 +72,9 @@ GITHUB_NODE_MAPPINGS_URL = "https://raw.githubusercontent.com/ComfyDock/ComfyDoc
 
 MAX_REGISTRY_DATA_AGE_HOURS = 24
 
+# Prevent infinite loops for optional group removal
+MAX_OPT_GROUP_RETRIES = 10  
+
 # PyTorch core packages
 PYTORCH_CORE_PACKAGES = ["torch", "torchvision", "torchaudio"]
 

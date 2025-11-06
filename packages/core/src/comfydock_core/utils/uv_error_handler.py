@@ -1,9 +1,36 @@
 """Utilities for handling and formatting UV command errors."""
 
 import logging
+import re
 from typing import Optional
 
 from ..models.exceptions import UVCommandError
+
+
+def parse_failed_dependency_group(stderr: str) -> Optional[str]:
+    """Parse UV error to extract the dependency group that caused build failure.
+
+    UV includes helpful context in build errors:
+    "help: `package` (vX.Y.Z) was included because
+           `project-name:group-name` (vX.Y.Z) depends on `package>=X.Y.Z`"
+
+    Args:
+        stderr: UV command stderr output
+
+    Returns:
+        Group name if found (e.g., "optional-sageattn"), None otherwise
+    """
+    if not stderr:
+        return None
+
+    # Pattern matches: `project-name:group-name` in the "was included because" line
+    pattern = r"was included because\s+`[^:]+:([^`]+)`"
+    match = re.search(pattern, stderr)
+
+    if match:
+        return match.group(1)
+
+    return None
 
 
 def extract_uv_error_hint(stderr: str) -> Optional[str]:
