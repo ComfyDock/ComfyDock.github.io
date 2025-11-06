@@ -1647,21 +1647,12 @@ class Environment:
                         # Model exists - no download needed
                         continue
 
-                # Model missing - check strategy
-                if strategy == "skip":
-                    # Convert to optional unresolved (no download intent)
-                    models[idx].status = "unresolved"
-                    models[idx].criticality = "optional"
-                    models[idx].hash = None
-                    models_modified = True
-                    continue
-
-                # Convert to download intent
+                # Model missing - prepare download intent with sources
                 # Read sources from global table
                 if model.hash:
                     global_model = self.pyproject.models.get_by_hash(model.hash)
                     if global_model and global_model.sources:
-                        # Revert to download intent
+                        # Preserve download intent with sources for later resolution
                         models[idx].status = "unresolved"
                         models[idx].sources = global_model.sources
                         models[idx].relative_path = global_model.relative_path
@@ -1919,9 +1910,12 @@ class Environment:
         if callbacks:
             callbacks.on_phase("resolve_models", f"Resolving workflows ({model_strategy} strategy)...")
 
-        workflows_to_resolve = []
-        if model_strategy != "skip":
-            workflows_to_resolve = self.prepare_import_with_model_strategy(model_strategy)
+        # Always prepare models to copy sources from global table, even for "skip"
+        # This ensures download intents are preserved for later resolution
+        workflows_with_intents = self.prepare_import_with_model_strategy(model_strategy)
+
+        # Only auto-resolve if not "skip" strategy
+        workflows_to_resolve = [] if model_strategy == "skip" else workflows_with_intents
 
         # Resolve workflows with download intents
         from ..strategies.auto import AutoModelStrategy, AutoNodeStrategy

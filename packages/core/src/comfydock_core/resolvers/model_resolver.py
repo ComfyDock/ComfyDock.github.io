@@ -218,7 +218,25 @@ class ModelResolver:
             resolved_model = self.model_repository.get_model(manifest_model.hash)
 
             if not resolved_model:
-                logger.warning(f"Model {manifest_model.hash} in previous resolutions but not found in repository")
+                # Model was previously resolved but doesn't exist locally
+                # Check global models table for download sources (fallback path)
+                global_model = context.global_models.get(manifest_model.hash)
+                if global_model and global_model.sources:
+                    # Create download intent from global models table
+                    from pathlib import Path
+                    logger.info(f"Creating download intent for {manifest_model.filename} from global models table")
+                    return ResolvedModel(
+                        workflow=workflow_name,
+                        reference=widget_ref,
+                        match_type="download_intent",
+                        resolved_model=None,
+                        model_source=global_model.sources[0],
+                        target_path=Path(global_model.relative_path) if global_model.relative_path else None,
+                        is_optional=False,
+                        match_confidence=1.0,
+                    )
+
+                logger.warning(f"Model {manifest_model.hash} in previous resolutions but not found in repository or global models")
                 return None
 
             return ResolvedModel(

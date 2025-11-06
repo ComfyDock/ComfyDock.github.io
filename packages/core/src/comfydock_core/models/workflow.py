@@ -110,6 +110,9 @@ class ModelResolutionContext:
     # Changed from dict[WorkflowNodeWidgetRef, str] to support download intent detection
     previous_resolutions: dict[WorkflowNodeWidgetRef, Any] = field(default_factory=dict)  # TYPE_CHECKING: ManifestWorkflowModel
 
+    # Global models table: hash → ManifestGlobalModel (for download intent creation)
+    global_models: dict[str, Any] = field(default_factory=dict)  # TYPE_CHECKING: ManifestGlobalModel
+
     # Search function for fuzzy matching (injected by workflow_manager)
     # Signature: (search_term: str, node_type: str | None, limit: int) -> list[ScoredMatch]
     search_fn: Callable | None = None
