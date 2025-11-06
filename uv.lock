@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 
 [manifest]
@@ -302,7 +302,7 @@ wheels = [
 
 [[package]]
 name = "comfydock"
-version = "1.0.6"
+version = "1.0.7"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -327,7 +327,7 @@ dev = [
 
 [[package]]
 name = "comfydock-cli"
-version = "1.0.6"
+version = "1.0.7"
 source = { editable = "packages/cli" }
 dependencies = [
     { name = "argcomplete" },
@@ -342,7 +342,7 @@ requires-dist = [
 
 [[package]]
 name = "comfydock-core"
-version = "1.0.6"
+version = "1.0.7"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "aiohttp" },

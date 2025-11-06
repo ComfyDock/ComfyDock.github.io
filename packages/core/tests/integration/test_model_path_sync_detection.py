@@ -205,3 +205,99 @@ class TestModelPathSyncDetection:
         assert len(flagged_models) == 1, "Should have exactly 1 flagged model"
         assert "wrong.safetensors" in flagged_models[0].reference.widget_value, \
             "wrong.safetensors should be the flagged model"
+
+    def test_duplicate_models_with_same_hash_should_not_need_sync(self, test_env, test_workspace):
+        """Test that duplicate models (same hash, different paths) don't trigger false path sync warnings.
+
+        Bug scenario:
+        1. Same model file exists at two paths (duplicates or hard links)
+           - models/loras/Wan21_CausVid_14B_T2V_lora_rank_1.safetensors
+           - models/loras/WAN/Wan21_CausVid_14B_T2V_lora_rank32.safetensors
+        2. Both files have IDENTICAL hash (they're the same file)
+        3. Workflow references one of the paths
+        4. Model index finds both locations
+        5. System should NOT flag as needing sync because current path is valid
+
+        This test documents the bug where the system:
+        - Always picks first location from index
+        - Does string path comparison instead of hash validation
+        - Incorrectly suggests "syncing" to a different path for the same file
+        """
+        # ARRANGE: Create same model at TWO different paths (simulate duplicates)
+        import shutil
+
+        # Create first model file
+        workspace_models_path = test_workspace.paths.root / "models"
+        loras_path = workspace_models_path / "loras"
+        loras_path.mkdir(parents=True, exist_ok=True)
+        source_path = loras_path / "lora_rank_1.safetensors"
+
+        # Write content (use real content that will hash consistently)
+        test_content = b"TEST_LORA_MODEL" * 1000  # Consistent content
+        source_path.write_bytes(test_content)
+
+        # Index the first file
+        test_workspace.sync_model_directory()
+
+        # Get the actual hash from the repository
+        results_before = test_env.model_repository.find_by_filename("lora_rank_1.safetensors")
+        assert len(results_before) == 1, "Should find the original file"
+        model_hash = results_before[0].hash
+
+        # Copy the SAME file to a subdirectory with DIFFERENT filename
+        # This matches the real scenario where the same model has different names
+        subdir_path = loras_path / "WAN"
+        subdir_path.mkdir(parents=True, exist_ok=True)
+        dest_path = subdir_path / "Wan21_CausVid_14B_T2V_lora_rank32.safetensors"
+        shutil.copy2(source_path, dest_path)
+
+        # Re-index to pick up the duplicate
+        test_workspace.sync_model_directory()
+
+        # Verify both files have same hash
+        results = test_env.model_repository.find_model_by_hash(model_hash)
+        assert len(results) == 2, f"Should find 2 locations with same hash {model_hash}, found {len(results)}"
+
+        # Create workflow using the original path
+        # Workflow was SAVED by user with this path
+        workflow = (
+            WorkflowBuilder()
+            .add_lora_loader("lora_rank_1.safetensors")
+            .build()
+        )
+        simulate_comfyui_save_workflow(test_env, "duplicate_test", workflow)
+
+        # ACT 1: Run RESOLVE to update the workflow with resolved paths
+        # This is where the bug occurs - it picks first location
+        from comfydock_core.strategies.auto import AutoModelStrategy
+        test_env.resolve_workflow(
+            name="duplicate_test",
+            model_strategy=AutoModelStrategy()
+        )
+
+        # ACT 2: Get workflow status AFTER resolve
+        # This should show the resolved path
+        workflow_status = test_env.workflow_manager.get_workflow_status()
+        test_wf = next(
+            (wf for wf in workflow_status.analyzed_workflows if wf.name == "duplicate_test"),
+            None
+        )
+
+        # ASSERT: Check what path was chosen
+        assert test_wf is not None
+        assert len(test_wf.resolution.models_resolved) == 1, \
+            "Model should be resolved"
+
+        resolved_model = test_wf.resolution.models_resolved[0]
+
+        # ASSERT: needs_path_sync should be FALSE
+        # The workflow path points to a valid file with the correct hash
+        # Even though the "resolved" path is different, both have the SAME hash
+        assert resolved_model.needs_path_sync is False, \
+            f"BUG: needs_path_sync={resolved_model.needs_path_sync} but both paths have same hash {model_hash}!\n" \
+            f"  Workflow path: {resolved_model.reference.widget_value}\n" \
+            f"  Resolved path: {resolved_model.resolved_model.relative_path}\n" \
+            f"  These are duplicates - no sync needed!"
+
+        assert test_wf.models_needing_path_sync_count == 0, \
+            f"Should have 0 models needing sync, found {test_wf.models_needing_path_sync_count}"

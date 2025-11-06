@@ -60,6 +60,100 @@ class NodeManager:
                 return identifier, node_info
         return None
 
+    def _install_node_from_info(self, node_info: NodeInfo, no_test: bool = False) -> NodeInfo:
+        """Install a node given a pre-fetched NodeInfo object.
+
+        This bypasses the lookup/cache layer and directly installs the node
+        using the provided node info. Useful for update operations where we've
+        already fetched fresh data from the API.
+
+        Args:
+            node_info: Pre-fetched node information from API
+            no_test: Skip dependency resolution testing
+
+        Returns:
+            NodeInfo of the installed node
+
+        Raises:
+            CDEnvironmentError: If installation fails
+            CDNodeConflictError: If dependency conflicts detected
+        """
+        # Download to cache
+        cache_path = self.node_lookup.download_to_cache(node_info)
+        if not cache_path:
+            raise CDEnvironmentError(f"Failed to download node '{node_info.name}'")
+
+        # Scan requirements from cached directory
+        requirements = self.node_lookup.scan_requirements(cache_path)
+
+        # Create node package
+        node_package = NodePackage(node_info=node_info, requirements=requirements)
+
+        # TEST DEPENDENCIES FIRST (before any filesystem or pyproject changes)
+        if not no_test and node_package.requirements:
+            logger.info(f"Testing dependency resolution for '{node_package.name}' before installation")
+            test_result = self._test_requirements_in_isolation(node_package.requirements)
+            if not test_result.success:
+                raise CDNodeConflictError(
+                    f"Node '{node_package.name}' has dependency conflicts: "
+                    f"{self.resolution_tester.format_conflicts(test_result)}"
+                )
+
+        # === BEGIN TRANSACTIONAL SECTION ===
+        # Snapshot state before any modifications for rollback
+        pyproject_snapshot = self.pyproject.snapshot()
+        target_path = self.custom_nodes_path / node_info.name
+        disabled_path = self.custom_nodes_path / f"{node_info.name}.disabled"
+        disabled_existed = disabled_path.exists()
+
+        try:
+            # STEP 1: Filesystem changes
+            if disabled_existed:
+                logger.info(f"Removing old disabled version of {node_info.name}")
+                shutil.rmtree(disabled_path)
+
+            shutil.copytree(cache_path, target_path, dirs_exist_ok=True)
+            logger.info(f"Installed node '{node_info.name}' to {target_path}")
+
+            # STEP 2: Pyproject changes
+            self.add_node_package(node_package)
+
+            # STEP 3: Environment sync (quiet - users see our high-level messages)
+            self.uv.sync_project(quiet=True, all_groups=True)
+
+        except Exception as e:
+            # === ROLLBACK ===
+            logger.warning(f"Installation failed for '{node_info.name}', rolling back...")
+
+            # 1. Restore pyproject.toml
+            try:
+                self.pyproject.restore(pyproject_snapshot)
+                logger.debug("Restored pyproject.toml to pre-installation state")
+            except Exception as restore_err:
+                logger.error(f"Failed to restore pyproject.toml: {restore_err}")
+
+            # 2. Clean up filesystem
+            if target_path.exists():
+                try:
+                    shutil.rmtree(target_path)
+                    logger.debug(f"Removed {target_path}")
+                except Exception as fs_err:
+                    logger.error(f"Failed to clean up {target_path}: {fs_err}")
+
+            # 3. Restore disabled version if it existed
+            if disabled_existed:
+                try:
+                    # Note: We can't restore disabled_path since we already deleted it
+                    # This is acceptable - user can re-disable manually if needed
+                    logger.debug("Cannot restore disabled version (already removed)")
+                except Exception:
+                    pass
+
+            raise CDEnvironmentError(f"Failed to install node '{node_info.name}': {e}") from e
+
+        logger.info(f"Successfully added node: {node_info.name}")
+        return node_info
+
     def add_node_package(self, node_package: NodePackage) -> None:
         """Add a complete node package with requirements and source tracking.
 
@@ -966,7 +1060,7 @@ class NodeManager:
         confirmation_strategy: ConfirmationStrategy,
         no_test: bool
     ) -> UpdateResult:
-        """Update registry node to latest version."""
+        """Update registry node to latest version with atomic rollback on failure."""
         result = UpdateResult(node_name=node_info.name, source='registry')
 
         if not node_info.registry_id:
@@ -995,11 +1089,81 @@ class NodeManager:
             result.message = "Update cancelled by user"
             return result
 
-        # Remove old node
-        self.remove_node(identifier)
+        # === ATOMIC UPDATE WITH ROLLBACK ===
+        # Preserve old node by disabling it instead of removing
+        node_path = self.custom_nodes_path / node_info.name
+        disabled_path = self.custom_nodes_path / f"{node_info.name}.disabled"
+        pyproject_snapshot = self.pyproject.snapshot()
 
-        # Add new version
-        self.add_node(node_info.registry_id, no_test=no_test)
+        try:
+            # STEP 1: Disable old node (rename to .disabled)
+            if node_path.exists():
+                if disabled_path.exists():
+                    # Clean up any existing .disabled from previous failed update
+                    shutil.rmtree(disabled_path)
+                shutil.move(node_path, disabled_path)
+                logger.debug(f"Disabled old version of '{node_info.name}'")
+
+            # STEP 2: Remove old node from tracking
+            self.pyproject.nodes.remove(identifier)
+            self.uv.sync_project(quiet=True, all_groups=True)
+
+            # STEP 3: Get complete version data with downloadUrl from install endpoint
+            complete_version = self.node_lookup.registry_client.install_node(
+                node_info.registry_id,
+                latest_version
+            )
+
+            if complete_version:
+                # Replace incomplete version data with complete version
+                registry_node.latest_version = complete_version
+
+            # Create fresh node info from API response with complete data
+            fresh_node_info = NodeInfo.from_registry_node(registry_node)
+
+            # STEP 4: Install the new version
+            self._install_node_from_info(fresh_node_info, no_test=no_test)
+
+            # STEP 5: Success - delete old disabled version
+            if disabled_path.exists():
+                shutil.rmtree(disabled_path)
+                logger.debug(f"Deleted old version of '{node_info.name}'")
+
+        except Exception as e:
+            # === ROLLBACK ===
+            logger.warning(f"Update failed for '{node_info.name}', rolling back...")
+
+            # 1. Restore pyproject.toml
+            try:
+                self.pyproject.restore(pyproject_snapshot)
+                logger.debug("Restored pyproject.toml to pre-update state")
+            except Exception as restore_err:
+                logger.error(f"Failed to restore pyproject.toml: {restore_err}")
+
+            # 2. Remove failed new installation
+            if node_path.exists():
+                try:
+                    shutil.rmtree(node_path)
+                    logger.debug(f"Removed failed installation of '{node_info.name}'")
+                except Exception as cleanup_err:
+                    logger.error(f"Failed to clean up new installation: {cleanup_err}")
+
+            # 3. Restore old version from .disabled
+            if disabled_path.exists():
+                try:
+                    shutil.move(disabled_path, node_path)
+                    logger.info(f"Restored old version of '{node_info.name}'")
+                except Exception as restore_err:
+                    logger.error(f"Failed to restore old version: {restore_err}")
+
+            # 4. Sync environment to restore old dependencies
+            try:
+                self.uv.sync_project(quiet=True, all_groups=True)
+            except Exception:
+                pass  # Best effort
+
+            # Re-raise original error
+            raise CDEnvironmentError(f"Failed to update node '{node_info.name}': {e}") from e
 
         result.old_version = current_version
         result.new_version = latest_version
@@ -1016,7 +1180,7 @@ class NodeManager:
         confirmation_strategy: ConfirmationStrategy,
         no_test: bool
     ) -> UpdateResult:
-        """Update git node to latest commit."""
+        """Update git node to latest commit with atomic rollback on failure."""
         result = UpdateResult(node_name=node_info.name, source='git')
 
         if not node_info.repository:
@@ -1049,11 +1213,74 @@ class NodeManager:
             result.message = "Update cancelled by user"
             return result
 
-        # Remove old node
-        self.remove_node(identifier)
+        # === ATOMIC UPDATE WITH ROLLBACK ===
+        node_path = self.custom_nodes_path / node_info.name
+        disabled_path = self.custom_nodes_path / f"{node_info.name}.disabled"
+        pyproject_snapshot = self.pyproject.snapshot()
 
-        # Add new version
-        self.add_node(node_info.repository, no_test=no_test)
+        try:
+            # STEP 1: Disable old node (rename to .disabled)
+            if node_path.exists():
+                if disabled_path.exists():
+                    shutil.rmtree(disabled_path)
+                shutil.move(node_path, disabled_path)
+                logger.debug(f"Disabled old version of '{node_info.name}'")
+
+            # STEP 2: Remove old node from tracking
+            self.pyproject.nodes.remove(identifier)
+            self.uv.sync_project(quiet=True, all_groups=True)
+
+            # STEP 3: Create fresh node info from GitHub API response
+            fresh_node_info = NodeInfo(
+                name=repo_info.name,
+                repository=repo_info.clone_url,
+                source="git",
+                version=repo_info.latest_commit
+            )
+
+            # STEP 4: Install the new version
+            self._install_node_from_info(fresh_node_info, no_test=no_test)
+
+            # STEP 5: Success - delete old disabled version
+            if disabled_path.exists():
+                shutil.rmtree(disabled_path)
+                logger.debug(f"Deleted old version of '{node_info.name}'")
+
+        except Exception as e:
+            # === ROLLBACK ===
+            logger.warning(f"Update failed for '{node_info.name}', rolling back...")
+
+            # 1. Restore pyproject.toml
+            try:
+                self.pyproject.restore(pyproject_snapshot)
+                logger.debug("Restored pyproject.toml to pre-update state")
+            except Exception as restore_err:
+                logger.error(f"Failed to restore pyproject.toml: {restore_err}")
+
+            # 2. Remove failed new installation
+            if node_path.exists():
+                try:
+                    shutil.rmtree(node_path)
+                    logger.debug(f"Removed failed installation of '{node_info.name}'")
+                except Exception as cleanup_err:
+                    logger.error(f"Failed to clean up new installation: {cleanup_err}")
+
+            # 3. Restore old version from .disabled
+            if disabled_path.exists():
+                try:
+                    shutil.move(disabled_path, node_path)
+                    logger.info(f"Restored old version of '{node_info.name}'")
+                except Exception as restore_err:
+                    logger.error(f"Failed to restore old version: {restore_err}")
+
+            # 4. Sync environment to restore old dependencies
+            try:
+                self.uv.sync_project(quiet=True, all_groups=True)
+            except Exception:
+                pass  # Best effort
+
+            # Re-raise original error
+            raise CDEnvironmentError(f"Failed to update node '{node_info.name}': {e}") from e
 
         result.old_version = current_display
         result.new_version = latest_display

@@ -1364,7 +1364,30 @@ class WorkflowManager:
         # Normalize current path for comparison (handles Windows backslashes)
         current_path = ref.widget_value.replace('\\', '/')
 
-        # Return True if paths differ
+        # If paths differ, check if current path exists with same hash (duplicate models)
+        if current_path != expected_path:
+            # Try to find the current path in model repository
+            # For builtin loaders, we need to reconstruct the full path
+            all_models = self.model_repository.get_all_models()
+
+            # Try exact match with current path
+            current_matches = self.model_resolver._try_exact_match(current_path, all_models)
+
+            # If not found, try reconstructing the path (for builtin loaders)
+            if not current_matches and self.model_resolver.model_config.is_model_loader_node(ref.node_type):
+                reconstructed_paths = self.model_resolver.model_config.reconstruct_model_path(
+                    ref.node_type, current_path
+                )
+                for path in reconstructed_paths:
+                    current_matches = self.model_resolver._try_exact_match(path, all_models)
+                    if current_matches:
+                        break
+
+            # If current path exists and has same hash as resolved model, no sync needed
+            if current_matches and current_matches[0].hash == model.hash:
+                return False
+
+        # Return True if paths differ and current path is invalid or has different hash
         return current_path != expected_path
 
     def _strip_base_directory_for_node(self, node_type: str, relative_path: str) -> str:

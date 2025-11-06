@@ -124,6 +124,7 @@ class UVCommand:
             'dev': '--dev',
             'group': '--group',
             'editable': '--editable',
+            'bounds': '--bounds',
             'prerelease': '--prerelease',
             'all_groups': '--all-groups',
             'seed': '--seed',

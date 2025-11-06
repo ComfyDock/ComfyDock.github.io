@@ -28,8 +28,9 @@ nav:
       - Managing Models: user-guide/models/managing-models.md
       - Adding Sources: user-guide/models/adding-sources.md
     - Workflows:
-      - Workflow Resolution: user-guide/workflows/workflow-resolution.md
       - Workflow Tracking: user-guide/workflows/workflow-tracking.md
+      - Workflow Resolution: user-guide/workflows/workflow-resolution.md
+      - Model Importance: user-guide/workflows/workflow-model-importance.md
     - Python Dependencies:
       - Py Commands: user-guide/python-dependencies/py-commands.md
       - Constraints: user-guide/python-dependencies/constraints.md

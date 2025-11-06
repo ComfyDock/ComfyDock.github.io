@@ -36,7 +36,11 @@ class TestAddDependencies:
         mock_env.uv_manager.add_dependency.assert_called_once_with(
             packages=["requests"],
             requirements_file=None,
-            upgrade=False
+            upgrade=False,
+            group=None,
+            dev=False,
+            editable=False,
+            bounds=None
         )
         assert result == "Added: requests"
 
@@ -50,7 +54,11 @@ class TestAddDependencies:
         mock_env.uv_manager.add_dependency.assert_called_once_with(
             packages=packages,
             requirements_file=None,
-            upgrade=False
+            upgrade=False,
+            group=None,
+            dev=False,
+            editable=False,
+            bounds=None
         )
         assert result == "Added: 3 packages"
 
@@ -63,7 +71,11 @@ class TestAddDependencies:
         mock_env.uv_manager.add_dependency.assert_called_once_with(
             packages=["requests"],
             requirements_file=None,
-            upgrade=True
+            upgrade=True,
+            group=None,
+            dev=False,
+            editable=False,
+            bounds=None
         )
         assert result == "Upgraded: requests"
 

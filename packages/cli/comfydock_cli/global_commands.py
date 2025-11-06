@@ -446,6 +446,8 @@ class GlobalCommands:
         class CLIImportCallbacks(ImportCallbacks):
             def __init__(self):
                 self.manifest = None
+                self.dep_group_successes = []
+                self.dep_group_failures = []
 
             def on_phase(self, phase: str, description: str):
                 # Add emojis based on phase
@@ -453,6 +455,7 @@ class GlobalCommands:
                     "clone_repo": "📥",
                     "clone_comfyui": "🔧",
                     "restore_comfyui": "🔧",
+                    "configure_pytorch": "🔧",
                     "install_deps": "🔧",
                     "init_git": "🔧",
                     "copy_workflows": "📝",
@@ -466,7 +469,7 @@ class GlobalCommands:
                 elif phase in ["clone_comfyui", "restore_comfyui"]:
                     print("\n🔧 Initializing environment...")
                     print(f"   {description}")
-                elif phase in ["install_deps", "init_git"]:
+                elif phase in ["install_deps", "init_git", "configure_pytorch"]:
                     print(f"   {description}")
                 elif phase == "copy_workflows":
                     print("\n📝 Setting up workflows...")
@@ -477,6 +480,20 @@ class GlobalCommands:
                 else:
                     emoji = emoji_map.get(phase, "")
                     print(f"\n{emoji} {description}" if emoji else f"\n{description}")
+
+            def on_dependency_group_start(self, group_name: str, is_optional: bool):
+                """Show which dependency group is being installed."""
+                optional_marker = " (optional)" if is_optional else ""
+                print(f"      Installing {group_name}{optional_marker}...", end="", flush=True)
+
+            def on_dependency_group_complete(self, group_name: str, success: bool, error: str | None = None):
+                """Mark group as succeeded or failed."""
+                if success:
+                    print(" ✓")
+                    self.dep_group_successes.append(group_name)
+                else:
+                    print(" ✗")
+                    self.dep_group_failures.append((group_name, error or "Unknown error"))
 
             def on_workflow_copied(self, workflow_name: str):
                 print(f"   Copied: {workflow_name}")
@@ -507,6 +524,8 @@ class GlobalCommands:
                 print("\nIf you see 401 Unauthorized errors, add your Civitai API key:")
                 print("   comfydock config --civitai-key <your-token>")
 
+        callbacks_instance = CLIImportCallbacks()
+
         try:
             if is_git:
                 env = self.workspace.import_from_git(
@@ -514,7 +533,7 @@ class GlobalCommands:
                     name=env_name,
                     model_strategy=strategy,
                     branch=getattr(args, 'branch', None),
-                    callbacks=CLIImportCallbacks(),
+                    callbacks=callbacks_instance,
                     torch_backend=args.torch_backend,
                 )
             else:
@@ -522,12 +541,21 @@ class GlobalCommands:
                     tarball_path=Path(args.path),
                     name=env_name,
                     model_strategy=strategy,
-                    callbacks=CLIImportCallbacks(),
+                    callbacks=callbacks_instance,
                     torch_backend=args.torch_backend,
                 )
 
             print(f"\n✅ Import complete: {env.name}")
-            print("   Environment ready to use!")
+
+            # Show dependency group summary if any failed
+            if callbacks_instance.dep_group_failures:
+                print("\n⚠️  Some optional dependency groups failed to install:")
+                for group_name, error in callbacks_instance.dep_group_failures:
+                    print(f"   ✗ {group_name}")
+                print("\nSome functionality may be degraded or some nodes may not work properly.")
+                print("The environment will still function with reduced capabilities.")
+            else:
+                print("   Environment ready to use!")
 
             # Set as active if --use flag provided
             if hasattr(args, 'use') and args.use:
