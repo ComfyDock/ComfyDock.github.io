@@ -7,6 +7,8 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from packages.core.src.comfydock_core.constants import MAX_OPT_GROUP_RETRIES
+
 from ..analyzers.status_scanner import StatusScanner
 from ..factories.uv_factory import create_uv_for_environment
 from ..logging.logging_config import get_logger
@@ -347,12 +349,11 @@ class Environment:
         from ..utils.uv_error_handler import parse_failed_dependency_group
 
         # Phase 1: Install base dependencies with iterative optional group removal
-        MAX_RETRIES = 10  # Prevent infinite loops
         attempts = 0
 
         logger.info("Installing base dependencies...")
 
-        while attempts < MAX_RETRIES:
+        while attempts < MAX_OPT_GROUP_RETRIES:
             try:
                 self.uv_manager.sync_project(dry_run=dry_run, no_default_groups=True)
                 result.packages_synced = True
