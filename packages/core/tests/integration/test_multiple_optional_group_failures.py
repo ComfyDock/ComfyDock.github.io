@@ -52,40 +52,34 @@ def test_multiple_optional_groups_fail_sequentially(mock_environment):
     """Test that multiple failing optional groups are handled iteratively."""
     env, removed_groups = mock_environment
 
-    # Simulate three sequential failures, then success
-    failure_sequence = [
-        # First call fails on optional-cuda
-        UVCommandError(
-            "Build failed",
-            command=['uv', 'sync'],
-            stderr="help: `sageattention` was included because `test:optional-cuda` depends on sageattention"
-        ),
-        # Second call fails on optional-tensorrt
-        UVCommandError(
-            "Build failed",
-            command=['uv', 'sync'],
-            stderr="help: `tensorrt` was included because `test:optional-tensorrt` depends on tensorrt"
-        ),
-        # Third call fails on optional-xformers
-        UVCommandError(
-            "Build failed",
-            command=['uv', 'sync'],
-            stderr="help: `xformers` was included because `test:optional-xformers` depends on xformers"
-        ),
-        # Fourth call succeeds
-        None,
-    ]
-
     call_count = [0]
 
     def mock_sync(**kwargs):
-        if kwargs.get('no_default_groups'):
-            # Base dependency install
-            if call_count[0] < len(failure_sequence):
-                error = failure_sequence[call_count[0]]
-                call_count[0] += 1
-                if error:
-                    raise error
+        group = kwargs.get('group', [])
+
+        # Track calls
+        call_count[0] += 1
+
+        # Fail if specific optional groups are in the list
+        if isinstance(group, list):
+            if 'optional-cuda' in group:
+                raise UVCommandError(
+                    "Build failed",
+                    command=['uv', 'sync'],
+                    stderr="help: `sageattention` was included because `test:optional-cuda` depends on sageattention"
+                )
+            elif 'optional-tensorrt' in group:
+                raise UVCommandError(
+                    "Build failed",
+                    command=['uv', 'sync'],
+                    stderr="help: `tensorrt` was included because `test:optional-tensorrt` depends on tensorrt"
+                )
+            elif 'optional-xformers' in group:
+                raise UVCommandError(
+                    "Build failed",
+                    command=['uv', 'sync'],
+                    stderr="help: `xformers` was included because `test:optional-xformers` depends on xformers"
+                )
         # Otherwise success
 
     env.uv_manager.sync_project.side_effect = mock_sync
@@ -98,7 +92,7 @@ def test_multiple_optional_groups_fail_sequentially(mock_environment):
     env._sync_dependencies_progressive(result, dry_run=False, callbacks=None)
 
     # Verify all three optional groups were removed
-    assert len(removed_groups) == 3
+    assert len(removed_groups) == 3, f"Expected 3 removed groups, got {len(removed_groups)}: {removed_groups}"
     assert 'optional-cuda' in removed_groups
     assert 'optional-tensorrt' in removed_groups
     assert 'optional-xformers' in removed_groups
@@ -121,24 +115,29 @@ def test_max_retries_prevents_infinite_loop(mock_environment):
     """Test that we don't loop forever if groups keep failing."""
     env, removed_groups = mock_environment
 
-    # Always fail with a different optional group
-    optional_groups = [
-        'optional-a', 'optional-b', 'optional-c', 'optional-d', 'optional-e',
-        'optional-f', 'optional-g', 'optional-h', 'optional-i', 'optional-j',
-        'optional-k'  # More than MAX_RETRIES
-    ]
+    # Override get_groups to return many optional groups
+    def mock_get_groups():
+        all_groups = {f'optional-{i}': [f'pkg-{i}'] for i in range(15)}
+        for group in removed_groups:
+            all_groups.pop(group, None)
+        return all_groups
+
+    env.pyproject.dependencies.get_groups.side_effect = mock_get_groups
 
     call_count = [0]
 
     def mock_sync(**kwargs):
-        if kwargs.get('no_default_groups'):
-            group = optional_groups[min(call_count[0], len(optional_groups) - 1)]
-            call_count[0] += 1
-            raise UVCommandError(
-                "Build failed",
-                command=['uv', 'sync'],
-                stderr=f"help: `pkg` was included because `test:{group}` depends on pkg"
-            )
+        group = kwargs.get('group', [])
+        if isinstance(group, list) and len(group) > 0:
+            # Always fail on the first optional group in the list
+            first_optional = next((g for g in group if g.startswith('optional-')), None)
+            if first_optional:
+                call_count[0] += 1
+                raise UVCommandError(
+                    "Build failed",
+                    command=['uv', 'sync'],
+                    stderr=f"help: `pkg` was included because `test:{first_optional}` depends on pkg"
+                )
 
     env.uv_manager.sync_project.side_effect = mock_sync
 
@@ -148,21 +147,31 @@ def test_max_retries_prevents_infinite_loop(mock_environment):
 
     result = SyncResult()
 
-    # Should raise RuntimeError after MAX_RETRIES (10)
-    with pytest.raises(RuntimeError, match="Failed to install base dependencies after 10 attempts"):
+    # Should raise RuntimeError after MAX_OPT_GROUP_RETRIES (10)
+    with pytest.raises(RuntimeError, match="Failed to install dependencies after 10 attempts"):
         env._sync_dependencies_progressive(result, dry_run=False, callbacks=None)
 
-    # Should have attempted exactly MAX_RETRIES times
+    # Should have attempted exactly MAX_OPT_GROUP_RETRIES times
     assert call_count[0] == 10
 
 
 def test_non_optional_group_failure_stops_immediately(mock_environment):
-    """Test that failures in non-optional groups fail immediately without retry."""
+    """Test that failures in non-optional (required) groups fail immediately without retry."""
     env, removed_groups = mock_environment
+
+    # Override get_groups to include a required (non-optional) group
+    def mock_get_groups():
+        all_groups = {'required-node-group': ['some-pkg']}
+        for group in removed_groups:
+            all_groups.pop(group, None)
+        return all_groups
+
+    env.pyproject.dependencies.get_groups.side_effect = mock_get_groups
 
     # Fail with a required group
     def mock_sync(**kwargs):
-        if kwargs.get('no_default_groups'):
+        group = kwargs.get('group', [])
+        if isinstance(group, list) and 'required-node-group' in group:
             raise UVCommandError(
                 "Build failed",
                 command=['uv', 'sync'],
@@ -176,14 +185,14 @@ def test_non_optional_group_failure_stops_immediately(mock_environment):
 
     result = SyncResult()
 
-    # Should raise immediately without retry
+    # Should raise immediately without retry (not an optional group)
     with pytest.raises(UVCommandError):
         env._sync_dependencies_progressive(result, dry_run=False, callbacks=None)
 
-    # No groups should have been removed
+    # No groups should have been removed (error parsing won't find 'optional-' prefix)
     assert len(removed_groups) == 0
 
-    # Lockfile should still exist (not deleted)
+    # Lockfile should still exist (not deleted because we didn't retry)
     assert lockfile.exists()
 
 
@@ -191,30 +200,35 @@ def test_lockfile_deleted_on_each_retry(mock_environment):
     """Test that uv.lock is deleted before each retry to force re-resolution."""
     env, removed_groups = mock_environment
 
-    failure_then_success = [
-        UVCommandError(
-            "Build failed",
-            command=['uv', 'sync'],
-            stderr="help: `pkg` was included because `test:optional-fail` depends on pkg"
-        ),
-        None,  # Success
-    ]
+    # Override get_groups to include an optional group
+    def mock_get_groups():
+        all_groups = {'optional-fail': ['some-pkg']}
+        for group in removed_groups:
+            all_groups.pop(group, None)
+        return all_groups
+
+    env.pyproject.dependencies.get_groups.side_effect = mock_get_groups
 
     call_count = [0]
     lockfile_deleted = [False]
 
     def mock_sync(**kwargs):
-        if kwargs.get('no_default_groups'):
-            # Check if lockfile exists before each call after first
-            lockfile = env.cec_path / "uv.lock"
-            if call_count[0] > 0 and not lockfile.exists():
-                lockfile_deleted[0] = True
+        group = kwargs.get('group', [])
 
-            if call_count[0] < len(failure_then_success):
-                error = failure_then_success[call_count[0]]
-                call_count[0] += 1
-                if error:
-                    raise error
+        # Check if lockfile exists before each call after first
+        lockfile = env.cec_path / "uv.lock"
+        if call_count[0] > 0 and not lockfile.exists():
+            lockfile_deleted[0] = True
+
+        if isinstance(group, list) and 'optional-fail' in group:
+            call_count[0] += 1
+            raise UVCommandError(
+                "Build failed",
+                command=['uv', 'sync'],
+                stderr="help: `pkg` was included because `test:optional-fail` depends on pkg"
+            )
+        # Success on second call (without optional-fail)
+        call_count[0] += 1
 
     env.uv_manager.sync_project.side_effect = mock_sync
 
@@ -226,4 +240,4 @@ def test_lockfile_deleted_on_each_retry(mock_environment):
     env._sync_dependencies_progressive(result, dry_run=False, callbacks=None)
 
     # Verify lockfile was deleted during retry
-    assert lockfile_deleted[0] is True
+    assert lockfile_deleted[0] is True, "Lockfile should be deleted before retry"
