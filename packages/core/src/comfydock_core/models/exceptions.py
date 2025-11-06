@@ -235,6 +235,18 @@ class UVCommandError(ComfyDockError):
         self.stdout = stdout
         self.returncode = returncode
 
+    def __str__(self) -> str:
+        """Include stderr/stdout in string representation for better error messages."""
+        parts = [super().__str__()]
+
+        if self.stderr and self.stderr.strip():
+            parts.append(f"\nStderr: {self.stderr.strip()}")
+
+        if self.stdout and self.stdout.strip():
+            parts.append(f"\nStdout: {self.stdout.strip()}")
+
+        return "".join(parts)
+
 
 # ===================================================
 # Export/Import exceptions

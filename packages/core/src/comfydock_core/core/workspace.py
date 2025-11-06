@@ -21,6 +21,7 @@ from ..models.exceptions import (
     CDEnvironmentNotFoundError,
     CDWorkspaceError,
     ComfyDockError,
+    UVCommandError,
 )
 from ..models.shared import ModelDetails, ModelWithLocation
 from ..repositories.model_repository import ModelRepository
@@ -522,6 +523,14 @@ class Workspace:
             return environment
 
         except Exception as e:
+            # Log UV command failures with full context
+            if isinstance(e, UVCommandError):
+                logger.error(f"UV command failed: {e.command}")
+                if e.stderr:
+                    logger.error(f"UV stderr:\n{e.stderr}")
+                if e.stdout:
+                    logger.error(f"UV stdout:\n{e.stdout}")
+
             logger.error(f"Failed to import from git: {e}")
 
             if isinstance(e, ComfyDockError):

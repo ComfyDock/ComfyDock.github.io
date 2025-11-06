@@ -127,6 +127,7 @@ class UVCommand:
             'bounds': '--bounds',
             'prerelease': '--prerelease',
             'all_groups': '--all-groups',
+            'no_default_groups': '--no-default-groups',
             'seed': '--seed',
             'upgrade': '--upgrade',
             'no_install_project': '--no-install-project',
