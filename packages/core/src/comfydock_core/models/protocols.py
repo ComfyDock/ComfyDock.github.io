@@ -94,6 +94,29 @@ class RollbackStrategy(Protocol):
         ...
 
 
+class SyncCallbacks(Protocol):
+    """Protocol for sync operation callbacks."""
+
+    def on_dependency_group_start(self, group_name: str, is_optional: bool) -> None:
+        """Called when starting to install a dependency group.
+
+        Args:
+            group_name: Name of the dependency group
+            is_optional: Whether this is an optional group
+        """
+        ...
+
+    def on_dependency_group_complete(self, group_name: str, success: bool, error: str | None = None) -> None:
+        """Called when dependency group installation completes.
+
+        Args:
+            group_name: Name of the dependency group
+            success: Whether the installation succeeded
+            error: Error message if failed (None if succeeded)
+        """
+        ...
+
+
 class ImportCallbacks(Protocol):
     """Protocol for import operation callbacks."""
 
@@ -103,6 +126,25 @@ class ImportCallbacks(Protocol):
         Args:
             phase: Phase identifier (e.g., "extract", "install_deps", "sync_nodes")
             description: Human-readable phase description
+        """
+        ...
+
+    def on_dependency_group_start(self, group_name: str, is_optional: bool) -> None:
+        """Called when starting to install a dependency group.
+
+        Args:
+            group_name: Name of the dependency group
+            is_optional: Whether this is an optional group
+        """
+        ...
+
+    def on_dependency_group_complete(self, group_name: str, success: bool, error: str | None = None) -> None:
+        """Called when dependency group installation completes.
+
+        Args:
+            group_name: Name of the dependency group
+            success: Whether the installation succeeded
+            error: Error message if failed (None if succeeded)
         """
         ...
 

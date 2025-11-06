@@ -34,6 +34,7 @@ if TYPE_CHECKING:
         ModelResolutionStrategy,
         NodeResolutionStrategy,
         RollbackStrategy,
+        SyncCallbacks,
     )
 
     from ..caching.workflow_cache import WorkflowCacheRepository
@@ -196,7 +197,8 @@ class Environment:
         model_strategy: str = "skip",
         model_callbacks: BatchDownloadCallbacks | None = None,
         node_callbacks: NodeInstallCallbacks | None = None,
-        remove_extra_nodes: bool = True
+        remove_extra_nodes: bool = True,
+        sync_callbacks: "SyncCallbacks | None" = None
     ) -> SyncResult:
         """Apply changes: sync packages, nodes, workflows, and models with environment.
 
@@ -217,11 +219,12 @@ class Environment:
 
         logger.info("Syncing environment...")
 
-        # Sync packages with UV
+        # Sync packages with UV - progressive installation
         try:
-            self.uv_manager.sync_project(all_groups=True, dry_run=dry_run)
-            result.packages_synced = True
+            self._sync_dependencies_progressive(result, dry_run=dry_run, callbacks=sync_callbacks)
         except Exception as e:
+            # Progressive sync handles optional groups gracefully
+            # Only base or required groups cause this exception
             logger.error(f"Package sync failed: {e}")
             result.errors.append(f"Package sync failed: {e}")
             result.success = False
@@ -314,6 +317,76 @@ class Environment:
             logger.warning(f"Sync completed with {len(result.errors)} errors")
 
         return result
+
+    def _sync_dependencies_progressive(
+        self,
+        result: SyncResult,
+        dry_run: bool = False,
+        callbacks: "SyncCallbacks | None" = None
+    ) -> None:
+        """Install dependencies progressively with graceful optional group handling.
+
+        Installs dependencies in phases:
+        1. Base dependencies ([project.dependencies])
+        2. Optional groups (prefix: optional-*) - skip on failure
+        3. Required groups (node dependencies) - fail on error
+
+        Args:
+            result: SyncResult to populate with outcomes
+            dry_run: If True, don't actually install
+            callbacks: Optional callbacks for progress reporting
+        """
+        from ..models.exceptions import UVCommandError
+
+        # Phase 1: Install base dependencies
+        logger.info("Installing base dependencies...")
+        self.uv_manager.sync_project(dry_run=dry_run)
+        result.packages_synced = True
+
+        # Get all dependency groups
+        dep_groups = self.pyproject.dependencies.get_groups()
+
+        if not dep_groups:
+            logger.debug("No dependency groups to install")
+            return
+
+        # Separate optional and required groups
+        optional_groups = [name for name in dep_groups.keys() if name.startswith('optional-')]
+        required_groups = [name for name in dep_groups.keys() if not name.startswith('optional-')]
+
+        # Phase 2: Install optional groups (graceful fallback)
+        for group_name in optional_groups:
+            logger.info(f"Installing optional group: {group_name}")
+            if callbacks:
+                callbacks.on_dependency_group_start(group_name, is_optional=True)
+
+            try:
+                self.uv_manager.sync_project(group=group_name, dry_run=dry_run)
+                result.dependency_groups_installed.append(group_name)
+                logger.debug(f"Successfully installed optional group: {group_name}")
+                if callbacks:
+                    callbacks.on_dependency_group_complete(group_name, success=True)
+            except UVCommandError as e:
+                # Optional group failed - log and continue
+                error_msg = str(e.stderr or e).strip()
+                logger.warning(f"Optional group '{group_name}' failed to install: {error_msg}")
+                result.dependency_groups_failed.append((group_name, error_msg))
+                if callbacks:
+                    callbacks.on_dependency_group_complete(group_name, success=False, error=error_msg)
+                # Don't mark overall sync as failed for optional groups
+
+        # Phase 3: Install required groups (must succeed)
+        for group_name in required_groups:
+            logger.info(f"Installing required group: {group_name}")
+            if callbacks:
+                callbacks.on_dependency_group_start(group_name, is_optional=False)
+
+            # No try-except here - let it raise on failure
+            self.uv_manager.sync_project(group=group_name, dry_run=dry_run)
+            result.dependency_groups_installed.append(group_name)
+            logger.debug(f"Successfully installed required group: {group_name}")
+            if callbacks:
+                callbacks.on_dependency_group_complete(group_name, success=True)
 
     def pull_and_repair(
         self,
@@ -1813,7 +1886,7 @@ class Environment:
 
         try:
             # During import, don't remove ComfyUI builtins (fresh clone has example files)
-            sync_result = self.sync(remove_extra_nodes=False)
+            sync_result = self.sync(remove_extra_nodes=False, sync_callbacks=callbacks)
             if sync_result.success and sync_result.nodes_installed and callbacks:
                 for node_name in sync_result.nodes_installed:
                     callbacks.on_node_installed(node_name)

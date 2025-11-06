@@ -11,6 +11,10 @@ class SyncResult:
     # Package sync
     packages_synced: bool = False
 
+    # Dependency groups
+    dependency_groups_installed: List[str] = field(default_factory=list)  # Group names
+    dependency_groups_failed: List[tuple[str, str]] = field(default_factory=list)  # (group_name, error)
+
     # Node sync
     nodes_installed: List[str] = field(default_factory=list)
     nodes_removed: List[str] = field(default_factory=list)
