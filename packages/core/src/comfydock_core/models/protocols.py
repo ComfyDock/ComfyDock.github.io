@@ -189,6 +189,52 @@ class ImportCallbacks(Protocol):
         """
         ...
 
+    def on_download_batch_start(self, count: int) -> None:
+        """Called when batch model downloads start.
+
+        Args:
+            count: Number of models to download
+        """
+        ...
+
+    def on_download_file_start(self, name: str, idx: int, total: int) -> None:
+        """Called when individual model download starts.
+
+        Args:
+            name: Model filename
+            idx: Current file index (1-based)
+            total: Total number of files
+        """
+        ...
+
+    def on_download_file_progress(self, downloaded: int, total: int | None) -> None:
+        """Called during model download progress.
+
+        Args:
+            downloaded: Bytes downloaded so far
+            total: Total bytes (None if unknown)
+        """
+        ...
+
+    def on_download_file_complete(self, name: str, success: bool, error: str | None) -> None:
+        """Called when model download completes.
+
+        Args:
+            name: Model filename
+            success: Whether download succeeded
+            error: Error message if failed
+        """
+        ...
+
+    def on_download_batch_complete(self, success: int, total: int) -> None:
+        """Called when all downloads complete.
+
+        Args:
+            success: Number of successful downloads
+            total: Total number of downloads attempted
+        """
+        ...
+
 
 class ExportCallbacks(Protocol):
     """Protocol for export operation callbacks."""

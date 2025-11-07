@@ -1919,26 +1919,36 @@ class Environment:
 
         # Resolve workflows with download intents
         from ..strategies.auto import AutoModelStrategy, AutoNodeStrategy
+        from ..models.workflow import BatchDownloadCallbacks
 
         download_failures = []
+
+        # Create download callbacks adapter if import callbacks provided
+        download_callbacks = None
+        if callbacks:
+            download_callbacks = BatchDownloadCallbacks(
+                on_batch_start=callbacks.on_download_batch_start,
+                on_file_start=callbacks.on_download_file_start,
+                on_file_progress=callbacks.on_download_file_progress,
+                on_file_complete=callbacks.on_download_file_complete,
+                on_batch_complete=callbacks.on_download_batch_complete
+            )
 
         for workflow_name in workflows_to_resolve:
             try:
                 result = self.resolve_workflow(
                     name=workflow_name,
                     model_strategy=AutoModelStrategy(),
-                    node_strategy=AutoNodeStrategy()
+                    node_strategy=AutoNodeStrategy(),
+                    download_callbacks=download_callbacks
                 )
 
-                # Track successful vs failed downloads
-                successful_downloads = sum(
-                    1 for m in result.models_resolved
-                    if m.match_type == 'download_intent' and m.resolved_model is not None
-                )
+                # Track successful vs failed downloads from actual download results
+                successful_downloads = sum(1 for dr in result.download_results if dr.success)
                 failed_downloads = [
-                    (workflow_name, m.reference.widget_value)
-                    for m in result.models_resolved
-                    if m.match_type == 'download_intent' and m.resolved_model is None
+                    (workflow_name, dr.filename)
+                    for dr in result.download_results
+                    if not dr.success
                 ]
 
                 download_failures.extend(failed_downloads)

@@ -524,6 +524,40 @@ class GlobalCommands:
                 print("\nIf you see 401 Unauthorized errors, add your Civitai API key:")
                 print("   comfydock config --civitai-key <your-token>")
 
+            def on_download_batch_start(self, count: int):
+                """Show batch download start."""
+                print(f"\n⬇️  Downloading {count} model(s)...")
+
+            def on_download_file_start(self, name: str, idx: int, total: int):
+                """Show individual file download start."""
+                print(f"\n[{idx}/{total}] {name}")
+
+            def on_download_file_progress(self, downloaded: int, total: int | None):
+                """Show download progress bar."""
+                downloaded_mb = downloaded / (1024 * 1024)
+                if total:
+                    total_mb = total / (1024 * 1024)
+                    pct = (downloaded / total) * 100
+                    print(f"\rDownloading... {downloaded_mb:.1f} MB / {total_mb:.1f} MB ({pct:.0f}%)", end='', flush=True)
+                else:
+                    print(f"\rDownloading... {downloaded_mb:.1f} MB", end='', flush=True)
+
+            def on_download_file_complete(self, name: str, success: bool, error: str | None):
+                """Show file download completion."""
+                if success:
+                    print("  ✓ Complete")
+                else:
+                    print(f"  ✗ Failed: {error}")
+
+            def on_download_batch_complete(self, success: int, total: int):
+                """Show batch download completion."""
+                if success == total:
+                    print(f"\n✅ Downloaded {total} model(s)")
+                elif success > 0:
+                    print(f"\n⚠️  Downloaded {success}/{total} models (some failed)")
+                else:
+                    print(f"\n❌ All downloads failed (0/{total})")
+
         callbacks_instance = CLIImportCallbacks()
 
         try:
