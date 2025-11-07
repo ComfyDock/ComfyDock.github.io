@@ -1,7 +1,7 @@
 # pyproject.toml - Root workspace configuration
 [project]
 name = "comfydock"
-version = "1.0.9"
+version = "1.0.10"
 description = "ComfyDock - Unified package and environment management for ComfyUI"
 readme = "README.md"
 requires-python = ">=3.10"
