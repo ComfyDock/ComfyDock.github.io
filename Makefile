@@ -3,6 +3,7 @@
 .PHONY: cec-setup cec-build cec-shell cec-test cec-scan cec-recreate cec-clean
 .PHONY: build-core build-cli build-all
 .PHONY: docs-serve docs-build docs-deploy docs-clean
+.PHONY: merge-and-sync
 
 # Default target
 help:
@@ -36,6 +37,9 @@ help:
 	@echo "  make bump-version VERSION=X.Y.Z - Bump all packages + update dependencies"
 	@echo "  make bump-major VERSION=X - Bump major version for all packages"
 	@echo "  make bump-package PACKAGE=core VERSION=X.Y.Z - Bump individual package"
+	@echo ""
+	@echo "Git Workflow:"
+	@echo "  make merge-and-sync [PR=number] - Merge PR and sync dev with main"
 	@echo ""
 	@echo "Build & Publishing:"
 	@echo "  make build-core   - Build comfydock_core package"
@@ -224,3 +228,11 @@ docs-clean:
 	@echo "Cleaning documentation build artifacts..."
 	rm -rf docs/comfydock-docs/site/
 	@echo "✓ Documentation cleaned"
+
+# Git workflow commands
+merge-and-sync:
+	@if [ -n "$(PR)" ]; then \
+		python3 dev/scripts/merge-and-sync.py $(PR); \
+	else \
+		python3 dev/scripts/merge-and-sync.py; \
+	fi
