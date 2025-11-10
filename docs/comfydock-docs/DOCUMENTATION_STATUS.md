@@ -1,10 +1,37 @@
 # ComfyDock Documentation Status
 
+## Quick Summary (as of 2025-11-09)
+
+**Overall Progress: 67% Complete**
+
+| Phase | Status | Progress |
+|-------|--------|----------|
+| **Phase 1: Getting Started** | ✅ Complete | 5/5 files (100%) |
+| **Phase 2: User Guide** | ⏳ In Progress | 17/25 files (68%) |
+| **Phase 3: CLI Reference** | ⏳ Not Started | 0/6 files (0%) |
+| **Phase 4: Troubleshooting** | ⏳ Not Started | 0/5 files (0%) |
+
+**What's Complete:**
+- ✅ Getting Started (5 files)
+- ✅ User Guide: Workspaces (1 file, 249 lines)
+- ✅ User Guide: Environments (3 files, 1,629 lines)
+- ✅ User Guide: Custom Nodes (3 files, 1,558 lines)
+- ✅ User Guide: Models (4 files, 2,669 lines)
+- ✅ User Guide: Workflows (3 files, 1,733 lines)
+- ✅ User Guide: Python Dependencies (2 files, 1,428 lines) **← NEW**
+
+**What's Remaining:**
+- ⏳ User Guide: Collaboration (3 files) - ~2-3 hours
+- ⏳ CLI Reference (6 files) - ~4-6 hours
+- ⏳ Troubleshooting (5 files) - ~3-4 hours
+
+**Total Lines Written:** 9,266 lines in User Guide alone
+
 ## Overview
 
 This document tracks the status of the ComfyDock v1.0 documentation rewrite. The documentation has been reorganized to reflect the new UV-based architecture and follows an Anthropic-style tone similar to Claude Code docs.
 
-## Completed (Phase 1) - UPDATED 2025-11-02
+## Completed (Phase 1) - UPDATED 2025-11-09
 
 ### Core Structure
 
@@ -22,10 +49,32 @@ This document tracks the status of the ComfyDock v1.0 documentation rewrite. The
 - ✅ `getting-started/concepts.md` - Deep dive into core concepts (UPDATED)
 - ✅ `getting-started/migrating-from-v0.md` - Migration guide for v0.x users (UPDATED)
 
-### User Guide Section (Partial)
+### User Guide Section (68% Complete - 9,266 lines)
 
-- ✅ `user-guide/workspaces.md` - Complete workspace management guide (NEW)
-- ✅ `user-guide/workflows/workflow-model-importance.md` - Model importance documentation (NEW)
+**Completed Sections:**
+
+- ✅ `user-guide/workspaces.md` - Complete workspace management guide (249 lines)
+- ✅ `user-guide/workflows/workflow-model-importance.md` - Model importance documentation (283 lines)
+- ✅ **Environments/** - All 3 files complete (1,629 lines):
+  - `creating-environments.md` (409 lines)
+  - `running-comfyui.md` (453 lines)
+  - `version-control.md` (767 lines)
+- ✅ **Custom Nodes/** - All 3 files complete (1,558 lines):
+  - `adding-nodes.md` (486 lines)
+  - `managing-nodes.md` (495 lines)
+  - `node-conflicts.md` (577 lines)
+- ✅ **Models/** - All 4 files complete (2,669 lines):
+  - `model-index.md` (578 lines)
+  - `downloading-models.md` (658 lines)
+  - `managing-models.md` (781 lines)
+  - `adding-sources.md` (652 lines)
+- ✅ **Workflows/** - All 3 files complete (1,733 lines):
+  - `workflow-tracking.md` (764 lines)
+  - `workflow-resolution.md` (686 lines)
+  - `workflow-model-importance.md` (283 lines)
+- ✅ **Python Dependencies/** - All 2 files complete (1,428 lines) - **NEW 2025-11-09**:
+  - `py-commands.md` (628 lines) - Complete coverage of py add/remove/list/uv
+  - `constraints.md` (800 lines) - Complete coverage of constraint add/list/remove
 
 ### Key Features
 
@@ -47,7 +96,31 @@ This document tracks the status of the ComfyDock v1.0 documentation rewrite. The
 
 ## In Progress / TODO
 
-## Changes Made (2025-11-02)
+## Changes Made (2025-11-09)
+
+### Python Dependencies Section Complete
+
+1. **py-commands.md (628 lines)** - Comprehensive guide for Python package management:
+   - All 4 py subcommands: `add`, `remove`, `list`, `uv`
+   - Basic usage with real command outputs
+   - Advanced features: `--upgrade`, `--group`, `--dev`, `--editable`, `--bounds`
+   - Requirements.txt integration
+   - 10 common patterns with real-world examples
+   - 5 troubleshooting scenarios with solutions
+   - Technical "How it works" section
+   - Cross-references to related documentation
+
+2. **constraints.md (800 lines)** - Complete guide for dependency constraints:
+   - Understanding constraints as meta-dependencies
+   - All 3 constraint commands: `add`, `list`, `remove`
+   - 7 common constraint patterns (pin, range, CUDA, etc.)
+   - 6 real-world use cases with examples
+   - 8 advanced patterns (file-based, environment-specific, temporary)
+   - 6 troubleshooting scenarios with detailed solutions
+   - Technical deep-dive on UV resolution behavior
+   - Best practices and integration with node management
+
+## Previous Changes (2025-11-02)
 
 ### Accuracy Fixes
 
@@ -74,57 +147,60 @@ This document tracks the status of the ComfyDock v1.0 documentation rewrite. The
 
 3. **Concepts updated** - Added model importance section to core concepts
 
-### Phase 2: Core User Guide
+### Phase 2: Core User Guide (68% Complete)
 
-These sections are referenced in the nav but need content:
+**Status Summary:**
+- ✅ 17 of 25 files complete
+- ✅ 9,266 lines of documentation
+- ⏳ 8 files remaining (Collaboration section only)
 
 **User Guide - Workspaces:**
-- ✅ `user-guide/workspaces.md` - Workspace management, configuration (COMPLETED)
+- ✅ `user-guide/workspaces.md` - Workspace management, configuration (249 lines)
 
 **User Guide - Environments:**
-- [ ] `user-guide/environments/creating-environments.md` - Detailed environment creation
-- [ ] `user-guide/environments/running-comfyui.md` - Running, stopping, managing
-- [ ] `user-guide/environments/version-control.md` - Commit, rollback, commit log
+- ✅ `user-guide/environments/creating-environments.md` - Detailed environment creation (409 lines)
+- ✅ `user-guide/environments/running-comfyui.md` - Running, stopping, managing (453 lines)
+- ✅ `user-guide/environments/version-control.md` - Commit, rollback, commit log (767 lines)
 
 **User Guide - Custom Nodes:**
-- [ ] `user-guide/custom-nodes/adding-nodes.md` - Registry, GitHub, local dev
-- [ ] `user-guide/custom-nodes/managing-nodes.md` - Update, remove, list
-- [ ] `user-guide/custom-nodes/node-conflicts.md` - Resolving dependency conflicts
+- ✅ `user-guide/custom-nodes/adding-nodes.md` - Registry, GitHub, local dev (486 lines)
+- ✅ `user-guide/custom-nodes/managing-nodes.md` - Update, remove, list (495 lines)
+- ✅ `user-guide/custom-nodes/node-conflicts.md` - Resolving dependency conflicts (577 lines)
 
 **User Guide - Models:**
-- [ ] `user-guide/models/model-index.md` - How model indexing works
-- [ ] `user-guide/models/downloading-models.md` - CivitAI, HuggingFace, direct URLs
-- [ ] `user-guide/models/managing-models.md` - Index commands (list, find, show, sync)
-- [ ] `user-guide/models/adding-sources.md` - Adding download URLs to models
+- ✅ `user-guide/models/model-index.md` - How model indexing works (578 lines)
+- ✅ `user-guide/models/downloading-models.md` - CivitAI, HuggingFace, direct URLs (658 lines)
+- ✅ `user-guide/models/managing-models.md` - Index commands (list, find, show, sync) (781 lines)
+- ✅ `user-guide/models/adding-sources.md` - Adding download URLs to models (652 lines)
 
 **User Guide - Workflows:**
-- ✅ `user-guide/workflows/workflow-model-importance.md` - Model importance (COMPLETED)
-- [ ] `user-guide/workflows/workflow-resolution.md` - Resolving dependencies
-- [ ] `user-guide/workflows/workflow-tracking.md` - How workflows are tracked
+- ✅ `user-guide/workflows/workflow-model-importance.md` - Model importance (283 lines)
+- ✅ `user-guide/workflows/workflow-resolution.md` - Resolving dependencies (686 lines)
+- ✅ `user-guide/workflows/workflow-tracking.md` - How workflows are tracked (764 lines)
 
 **User Guide - Python Dependencies:**
-- [ ] `user-guide/python-dependencies/py-commands.md` - py add/remove/list
-- [ ] `user-guide/python-dependencies/constraints.md` - Managing constraints
+- ✅ `user-guide/python-dependencies/py-commands.md` - py add/remove/list/uv (628 lines) **COMPLETED 2025-11-09**
+- ✅ `user-guide/python-dependencies/constraints.md` - Managing constraints (800 lines) **COMPLETED 2025-11-09**
 
-**User Guide - Collaboration:**
+**User Guide - Collaboration:** ⏳ REMAINING
 - [ ] `user-guide/collaboration/export-import.md` - Tarball export/import
 - [ ] `user-guide/collaboration/git-remotes.md` - Remote add/remove/list, push, pull
 - [ ] `user-guide/collaboration/team-workflows.md` - Best practices for teams
 
-### Phase 3: CLI Reference
+### Phase 3: CLI Reference (0% Complete)
 
-Complete command reference pages:
+Complete command reference pages (structured --help output with examples):
 
-- [ ] `cli-reference/global-commands.md` - init, list, import, export, model, registry
+- [ ] `cli-reference/global-commands.md` - init, list, import, export, model, registry, config, logs
 - [ ] `cli-reference/environment-commands.md` - create, use, delete, run, status, repair
-- [ ] `cli-reference/node-commands.md` - node add/remove/list/update
-- [ ] `cli-reference/workflow-commands.md` - workflow list/resolve
+- [ ] `cli-reference/node-commands.md` - node add/remove/list/update/prune
+- [ ] `cli-reference/workflow-commands.md` - workflow list/resolve/model
 - [ ] `cli-reference/model-commands.md` - model download/index/add-source
-- [ ] `cli-reference/shell-completion.md` - Completion install/uninstall/status
+- [ ] `cli-reference/shell-completion.md` - completion install/uninstall/status
 
-### Phase 4: Troubleshooting
+### Phase 4: Troubleshooting (5% Complete)
 
-- [ ] `troubleshooting/common-issues.md` - FAQ-style solutions
+- ⚠️ `troubleshooting/common-issues.md` - FAQ-style solutions (stub only, ~23 lines)
 - [ ] `troubleshooting/dependency-conflicts.md` - Resolving node conflicts
 - [ ] `troubleshooting/missing-models.md` - Model resolution issues
 - [ ] `troubleshooting/uv-errors.md` - UV command failures
@@ -293,12 +369,22 @@ When adding new documentation:
 ## Timeline Estimate
 
 - **Phase 1 (Complete)**: ~4 hours ✅
-- **Phase 2**: ~8-10 hours (user guide sections)
+- **Phase 2 (68% Complete)**: ~8-10 hours
+  - ✅ User Guide sections complete (except Collaboration)
+  - ⏳ Collaboration section remaining: ~2-3 hours
 - **Phase 3**: ~4-6 hours (CLI reference)
 - **Phase 4**: ~3-4 hours (troubleshooting)
 - **Phase 5**: ~2-3 hours (advanced topics)
 
-**Total remaining**: ~20-25 hours of writing
+**Progress:**
+- Completed: ~12 hours
+- **Total remaining**: ~14-18 hours of writing
+
+**Breakdown:**
+- Collaboration (3 files): ~2-3 hours
+- CLI Reference (6 files): ~4-6 hours
+- Troubleshooting (5 files): ~3-4 hours
+- Advanced Topics (optional): ~2-3 hours
 
 ## Contact
 
