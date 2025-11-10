@@ -198,7 +198,8 @@ class Environment:
         model_callbacks: BatchDownloadCallbacks | None = None,
         node_callbacks: NodeInstallCallbacks | None = None,
         remove_extra_nodes: bool = True,
-        sync_callbacks: "SyncCallbacks | None" = None
+        sync_callbacks: "SyncCallbacks | None" = None,
+        verbose: bool = False
     ) -> SyncResult:
         """Apply changes: sync packages, nodes, workflows, and models with environment.
 
@@ -208,6 +209,7 @@ class Environment:
             model_callbacks: Optional callbacks for model download progress
             node_callbacks: Optional callbacks for node installation progress
             remove_extra_nodes: If True, remove extra nodes. If False, only warn (default: True)
+            verbose: If True, show uv output in real-time during dependency installation
 
         Returns:
             SyncResult with details of what was synced
@@ -221,7 +223,7 @@ class Environment:
 
         # Sync packages with UV - progressive installation
         try:
-            self._sync_dependencies_progressive(result, dry_run=dry_run, callbacks=sync_callbacks)
+            self._sync_dependencies_progressive(result, dry_run=dry_run, callbacks=sync_callbacks, verbose=verbose)
         except Exception as e:
             # Progressive sync handles optional groups gracefully
             # Only base or required groups cause this exception
@@ -322,7 +324,8 @@ class Environment:
         self,
         result: SyncResult,
         dry_run: bool = False,
-        callbacks: "SyncCallbacks | None" = None
+        callbacks: "SyncCallbacks | None" = None,
+        verbose: bool = False
     ) -> None:
         """Install dependencies progressively with graceful optional group handling.
 
@@ -341,6 +344,7 @@ class Environment:
             result: SyncResult to populate with outcomes
             dry_run: If True, don't actually install
             callbacks: Optional callbacks for progress reporting
+            verbose: If True, show uv output in real-time
         """
         from ..models.exceptions import UVCommandError
         from ..utils.uv_error_handler import parse_failed_dependency_group
@@ -361,14 +365,14 @@ class Environment:
                     # Install base + all groups together using multiple --group flags
                     group_list = list(dep_groups.keys())
                     logger.debug(f"Syncing with groups: {group_list}")
-                    self.uv_manager.sync_project(group=group_list, dry_run=dry_run)
+                    self.uv_manager.sync_project(group=group_list, dry_run=dry_run, verbose=verbose)
 
                     # Track successful installations (no per-group callbacks since installed as batch)
                     result.dependency_groups_installed.extend(group_list)
                 else:
                     # No groups - just sync base dependencies
                     logger.debug("No dependency groups, syncing base only")
-                    self.uv_manager.sync_project(dry_run=dry_run, no_default_groups=True)
+                    self.uv_manager.sync_project(dry_run=dry_run, no_default_groups=True, verbose=verbose)
 
                 result.packages_synced = True
                 break  # Success - exit loop
@@ -1895,7 +1899,8 @@ class Environment:
 
         try:
             # During import, don't remove ComfyUI builtins (fresh clone has example files)
-            sync_result = self.sync(remove_extra_nodes=False, sync_callbacks=callbacks)
+            # Enable verbose to show real-time uv output during dependency installation
+            sync_result = self.sync(remove_extra_nodes=False, sync_callbacks=callbacks, verbose=True)
             if sync_result.success and sync_result.nodes_installed and callbacks:
                 for node_name in sync_result.nodes_installed:
                     callbacks.on_node_installed(node_name)
