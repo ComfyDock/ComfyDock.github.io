@@ -43,7 +43,6 @@ nav:
     - Environment Commands: cli-reference/environment-commands.md
     - Node Commands: cli-reference/node-commands.md
     - Workflow Commands: cli-reference/workflow-commands.md
-    - Model Commands: cli-reference/model-commands.md
     - Shell Completion: cli-reference/shell-completion.md
   - Troubleshooting:
     - Common Issues: troubleshooting/common-issues.md
@@ -68,25 +67,27 @@ nav:
 
 theme:
   name: material
+  custom_dir: docs/.overrides
   logo: assets/comfy_env_manager-min.png
   favicon: assets/comfy_env_manager-min.png
   palette:
+    # System preference
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
     # Light mode
     - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: indigo
-      accent: indigo
+      scheme: comfydock-light
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     # Dark mode
     - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: indigo
-      accent: indigo
+      scheme: comfydock-dark
       toggle:
         icon: material/brightness-4
-        name: Switch to light mode
+        name: Switch to system preference
   features:
     - content.code.copy
     - content.code.annotate
@@ -97,6 +98,12 @@ theme:
     - navigation.expand
     - navigation.top
     - navigation.footer
+    - navigation.path
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.indexes
+    - navigation.tracking
     - search.suggest
     - search.highlight
     - toc.follow
@@ -148,6 +155,12 @@ plugins:
       lang: en
       separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
   - tags
+  - redirects:
+      redirect_maps: {}
+  - git-revision-date-localized:
+      timezone: UTC
+      enable_creation_date: true
+      type: timeago
 
 extra:
   social:
@@ -164,3 +177,9 @@ extra_css:
 
 extra_javascript:
   - javascripts/copy-markdown.js
+  - javascripts/code-copy-filter.js
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn

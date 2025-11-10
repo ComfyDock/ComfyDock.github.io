@@ -140,15 +140,11 @@
     }
   }
 
-  // Initialize when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', injectButton);
-  } else {
+  // Initialize and handle instant navigation
+  function init() {
     injectButton();
-  }
 
-  // Re-inject on navigation for SPA-like behavior
-  document.addEventListener('DOMContentLoaded', () => {
+    // Re-inject on navigation for Material instant loading
     const observer = new MutationObserver(() => {
       if (!document.querySelector('.md-copy-markdown-button')) {
         injectButton();
@@ -159,5 +155,20 @@
       childList: true,
       subtree: true
     });
-  });
+  }
+
+  // Support Material for MkDocs instant loading
+  if (typeof document$ !== 'undefined') {
+    // Material instant loading - subscribe to navigation events
+    document$.subscribe(function() {
+      init();
+    });
+  } else {
+    // Fallback for non-instant loading
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  }
 })();

@@ -80,6 +80,7 @@ docs/contexts
 
 # Helper scripts:
 .setup.sh
+.scripts/
 
 # Any test environment exports
 *.tar.gz

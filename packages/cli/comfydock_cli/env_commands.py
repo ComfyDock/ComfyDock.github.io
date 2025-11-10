@@ -182,6 +182,57 @@ class EnvironmentCommands:
         # Exit with ComfyUI's exit code
         sys.exit(result.returncode)
 
+    def manifest(self, args: argparse.Namespace) -> None:
+        """Show environment manifest (pyproject.toml configuration)."""
+        env = self._get_env(args)
+
+        import tomlkit
+        import yaml
+
+        # Load raw TOML config
+        config = env.pyproject.load()
+
+        # Handle section filtering if requested
+        if hasattr(args, 'section') and args.section:
+            # Navigate to requested section using dot notation
+            keys = args.section.split('.')
+            current = config
+            try:
+                for key in keys:
+                    current = current[key]
+                config = {args.section: current}
+            except (KeyError, TypeError):
+                print(f"✗ Section not found: {args.section}")
+                print("\nAvailable sections:")
+                print("  • project")
+                print("  • tool.comfydock")
+                print("  • tool.comfydock.nodes")
+                print("  • tool.comfydock.workflows")
+                print("  • tool.comfydock.models")
+                print("  • tool.uv")
+                print("  • dependency-groups")
+                sys.exit(1)
+
+        # Output format
+        if hasattr(args, 'pretty') and args.pretty:
+            # Convert tomlkit objects to plain Python types recursively
+            def to_plain(obj):
+                """Recursively convert tomlkit objects to plain Python types."""
+                if isinstance(obj, dict):
+                    return {k: to_plain(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [to_plain(item) for item in obj]
+                elif hasattr(obj, 'unwrap'):  # tomlkit items have unwrap()
+                    return to_plain(obj.unwrap())
+                else:
+                    return obj
+
+            plain_dict = to_plain(config)
+            print(yaml.dump(plain_dict, default_flow_style=False, sort_keys=False))
+        else:
+            # Default: raw TOML (exact file representation)
+            print(tomlkit.dumps(config))
+
     @with_env_logging("env status")
     def status(self, args: argparse.Namespace) -> None:
         """Show environment status using semantic methods."""
