@@ -234,34 +234,6 @@
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Code block improvements */
-.highlight pre {
-  border-radius: 0.2rem;
-  padding: 1rem;
-}
-
-/* Fix code blocks in admonitions - make them full width like Material does for tables */
-html .md-typeset .admonition .highlight,
-html .md-typeset .admonition .language-bash,
-html .md-typeset .admonition div[class*="language-"] {
-  margin: 1em -0.6rem !important;
-}
-
-html .md-typeset .admonition .highlight pre {
-  margin: 0;
-  border-radius: 0;
-}
-
-/* Fix copy button position */
-html .md-typeset .admonition .md-clipboard {
-  right: 1.1rem;
-}
-
-/* Admonition styling tweaks */
-.admonition {
-  border-radius: 0.2rem;
-  margin: 1.5rem 0;
-}
 
 /* Command output styling */
 code.language-bash::before,

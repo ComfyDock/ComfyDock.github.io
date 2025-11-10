@@ -192,16 +192,16 @@ build-all:
 docs-serve:
 	@echo "Starting documentation server..."
 	@echo "Visit http://localhost:8000"
-	cd docs/comfydock-docs && mkdocs serve
+	cd docs/comfydock-docs && . .venv/bin/activate && mkdocs serve
 
 docs-build:
 	@echo "Building documentation..."
-	cd docs/comfydock-docs && mkdocs build
+	cd docs/comfydock-docs && . .venv/bin/activate && mkdocs build
 	@echo "✓ Documentation built (see docs/comfydock-docs/site/)"
 
 docs-deploy:
 	@echo "Deploying documentation to GitHub Pages..."
-	cd docs/comfydock-docs && mkdocs gh-deploy
+	cd docs/comfydock-docs && . .venv/bin/activate && mkdocs gh-deploy
 	@echo "✓ Documentation deployed"
 
 docs-clean:
