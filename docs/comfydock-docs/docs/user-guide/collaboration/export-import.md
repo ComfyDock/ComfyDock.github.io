@@ -94,14 +94,14 @@ Before exporting, ComfyDock checks if all models have download sources:
 cfd export
 ```
 
-**Output:**
+**Output (showing first 3 models):**
 
 ```
 📦 Exporting environment: my-env
 
 ⚠️  Export validation:
 
-3 model(s) have no source URLs.
+5 model(s) have no source URLs.
 
   • sd_xl_base_1.0.safetensors
     Used by: txt2img, img2img
@@ -112,7 +112,35 @@ cfd export
   • vae-ft-mse-840000.safetensors
     Used by: txt2img
 
-  ... and 0 more
+  ... and 2 more
+
+⚠️  Recipients won't be able to download these models automatically.
+   Add sources: comfydock model add-source
+
+Continue export? (y/N) or (s)how all models:
+```
+
+**Progressive Disclosure:**
+
+If more than 3 models are missing sources, ComfyDock shows only the first 3 initially. Type `s` to expand and view all models before making a decision.
+
+**After typing 's':**
+
+```
+  • sd_xl_base_1.0.safetensors
+    Used by: txt2img, img2img
+
+  • control_v11p_sd15_openpose.pth
+    Used by: pose_workflow
+
+  • vae-ft-mse-840000.safetensors
+    Used by: txt2img
+
+  • lora_style.safetensors
+    Used by: portrait_workflow
+
+  • upscaler_4x.pth
+    Used by: img2img
 
 ⚠️  Recipients won't be able to download these models automatically.
    Add sources: comfydock model add-source
@@ -123,8 +151,14 @@ Continue export? (y/N):
 **Options:**
 
 - **Add sources first** (recommended): Use `cfd model add-source` to add download URLs
-- **Continue anyway**: Recipients will need to manually provide the models
-- **Skip validation**: Use `--allow-issues` to bypass the check
+- **Continue anyway** (type `y`): Export proceeds, recipients will need to manually provide the models
+- **Show all models** (type `s`): Expand the list to see all models without sources (only available if more than 3)
+- **Cancel** (type `N` or anything else): Abort export and fix issues first
+- **Skip validation**: Use `--allow-issues` flag to bypass the check entirely
+
+!!! tip "Understanding the Prompt"
+    - If you have 3 or fewer models without sources, you'll only see `(y/N)`
+    - If you have more than 3, you'll see `(y/N) or (s)how all models` to expand the list first
 
 ### Adding Model Sources
 
@@ -196,8 +230,9 @@ Choice (1-3) [1]: 1
 
 🔧 Initializing environment...
    Cloning ComfyUI v0.2.7
+   Configuring PyTorch backend: cu128
    Installing Python dependencies
-   Installing dependency groups
+   Initializing git repository...
 
 📝 Setting up workflows...
    Copied: txt2img
@@ -205,15 +240,17 @@ Choice (1-3) [1]: 1
 📦 Syncing custom nodes...
    Installed: rgthree-comfy
 
-🔄 Resolving models
+🔄 Resolving workflows (all strategy)...
 
 ⬇️  Downloading 3 model(s)...
 
 [1/3] sd_xl_base_1.0.safetensors
-Downloading... 6533.8 MB / 6633.5 MB (98%)  ✓ Complete
+Downloading... 6533.8 MB / 6633.5 MB (98%)
+  ✓ Complete
 
 [2/3] control_v11p_sd15_openpose.pth
-Downloading... 729.4 MB / 729.4 MB (100%)  ✓ Complete
+Downloading... 729.4 MB / 729.4 MB (100%)
+  ✓ Complete
 
 ✅ Downloaded 2 model(s)
 
@@ -231,7 +268,7 @@ Import directly from a git URL:
 cfd import https://github.com/user/comfy-workflow
 ```
 
-This clones the repository, analyzes the `.cec` configuration, and creates the environment.
+This clones the repository to the environment's `.cec` directory, preserving the git history and remote connection for future updates.
 
 **Specify branch or tag:**
 
@@ -239,13 +276,13 @@ This clones the repository, analyzes the `.cec` configuration, and creates the e
 cfd import https://github.com/user/comfy-workflow --branch v1.0
 ```
 
-**Import from subdirectory:**
+**Git Import vs Tarball Import:**
 
-```bash
-cfd import https://github.com/user/workflows#environments/production
-```
+- **Git imports** preserve the `.git` directory with remote tracking - you can push/pull changes later
+- **Tarball imports** create a fresh git repository with no remote - ideal for one-time distributions
 
-The `#subdirectory` syntax imports only a specific path within the repository.
+!!! note "Remote Preservation"
+    When importing from git, the original remote is preserved. You can push updates back to the source repository or pull new changes. See [Git Remotes](git-remotes.md) for collaboration workflows.
 
 ### Non-Interactive Import
 
@@ -262,7 +299,96 @@ cfd import environment.tar.gz \
 
 - `--name NAME`: Environment name (skip prompt)
 - `--torch-backend BACKEND`: PyTorch backend (auto, cpu, cu128, cu126, rocm6.3, xpu)
-- `--use`: Set as active environment after import
+- `--use`: Set as active environment immediately after import (changes output message)
+
+**With `--use` flag:**
+
+```bash
+cfd import environment.tar.gz --name production --use
+```
+
+**Completion message changes to:**
+
+```
+✅ Import complete: production
+   Environment ready to use!
+   'production' set as active environment
+```
+
+No need to run `cfd use production` separately - you can start using it immediately.
+
+---
+
+## Import Internals & Performance
+
+Understanding what happens during import helps you optimize the process and troubleshoot issues.
+
+### ComfyUI Caching
+
+ComfyDock caches ComfyUI installations to speed up imports and environment creation.
+
+**First import of a ComfyUI version:**
+
+```
+🔧 Initializing environment...
+   Cloning ComfyUI v0.2.7
+```
+
+ComfyDock clones from GitHub and caches the result by commit SHA.
+
+**Subsequent imports with the same version:**
+
+```
+🔧 Initializing environment...
+   Restoring ComfyUI v0.2.7 from cache...
+```
+
+This is **significantly faster** - a simple directory copy instead of a git clone.
+
+**Cache behavior:**
+
+- Cache location: `~/.comfydock/cache/comfyui/`
+- Keyed by: ComfyUI version (release tag, branch, or commit SHA)
+- Shared across: All environments in the workspace
+- Automatic: No configuration needed
+
+!!! tip "Performance Boost"
+    The first import of ComfyUI v0.2.7 might take 30-60 seconds to clone. Subsequent imports using the same version complete in 2-5 seconds.
+
+### PyTorch Backend Management
+
+When importing with the `--torch-backend` flag, ComfyDock intelligently manages PyTorch:
+
+**Automatic stripping (prevents conflicts):**
+
+1. Removes imported PyTorch index URLs from `pyproject.toml`
+2. Strips PyTorch package source configurations
+3. Clears PyTorch version constraints
+
+**Then installs fresh:**
+
+1. Creates Python virtual environment
+2. Installs PyTorch packages with specified backend (cu128, cpu, rocm, etc.)
+3. Detects installed backend from package version
+4. Updates `pyproject.toml` with correct backend configuration
+5. Locks versions to prevent drift
+
+**Why this matters:**
+
+If you export an environment on a CUDA 12.8 system and import on a Mac (CPU only), the imported PyTorch config would fail. ComfyDock strips the old config and installs the right backend for your system.
+
+### Automatic Git Commits
+
+All import changes are automatically committed to git:
+
+- Workflow files copied to `ComfyUI/user/default/workflows/`
+- Custom nodes installed and synced
+- Models downloaded and resolved
+- PyTorch backend configured in `pyproject.toml`
+
+**Final commit message:** `"Imported environment"`
+
+This ensures the imported environment starts with a clean, committed state ready for development.
 
 ---
 
@@ -322,18 +448,31 @@ Before importing, ComfyDock analyzes what will be installed.
 
 ### Import Breakdown
 
-The import process shows what will be set up:
+The import process shows what will be set up in real-time:
 
 ```
 🔧 Initializing environment...
    Cloning ComfyUI v0.2.7
+   Configuring PyTorch backend: cu128
    Installing Python dependencies
-   Installing dependency groups
+   Initializing git repository...
+```
+
+During dependency installation, you'll see each group being installed with inline progress:
+
+```
       Installing main... ✓
       Installing torch-cu128... ✓
       Installing comfyui... ✓
       Installing optional (optional)... ✗
+```
 
+!!! note "Terminal Output Format"
+    The check mark (✓) or X (✗) appears **on the same line** as "Installing..." after the installation completes. The `(optional)` marker indicates non-critical dependency groups.
+
+**If optional groups fail:**
+
+```
 ⚠️  Some optional dependency groups failed to install:
    ✗ optional
 
@@ -341,20 +480,28 @@ Some functionality may be degraded or some nodes may not work properly.
 The environment will still function with reduced capabilities.
 ```
 
+**If all groups succeed:**
+
+```
+✅ Import complete: my-imported-env
+   Environment ready to use!
+```
+
 ### Dependency Group Failures
 
 Optional dependency groups may fail without breaking the import:
 
-- **Main groups**: Must succeed (fails import if they fail)
-- **Optional groups**: Allowed to fail (shows warning)
+- **Main groups** (main, torch-*, comfyui): Must succeed or import fails
+- **Optional groups**: Allowed to fail, shows warning but import continues
 
-Common reasons for failures:
+**Common reasons for failures:**
 
-- Platform-specific packages not available
+- Platform-specific packages not available (e.g., Windows-only package on Linux)
 - Network issues downloading packages
 - Version conflicts in optional dependencies
+- Missing system libraries (e.g., CUDA libraries for GPU packages)
 
-The environment remains usable with reduced functionality.
+The environment remains usable with reduced functionality when optional groups fail.
 
 ---
 
@@ -389,6 +536,111 @@ During import, development nodes are:
 3. Dependencies installed from `requirements.txt`
 
 This allows sharing custom nodes under development without publishing to a registry.
+
+---
+
+## Advanced Import Behaviors
+
+ComfyDock performs several automatic operations during import to ensure environment consistency and cross-platform compatibility.
+
+### Automatic Configuration Adjustments
+
+**PyTorch Configuration Stripping:**
+
+When you specify `--torch-backend`, ComfyDock automatically:
+
+1. **Removes all imported PyTorch configuration** from the tarball/git repository:
+   - PyTorch index URLs (e.g., `https://download.pytorch.org/whl/cu128`)
+   - Package source specifications for torch, torchvision, torchaudio
+   - Version constraints that might conflict with target platform
+
+2. **Installs fresh PyTorch** for your target platform:
+   - Uses the backend you specify (cu128, cpu, rocm, etc.)
+   - Detects actual installed versions
+   - Locks those versions in `pyproject.toml`
+   - Configures correct index URLs and sources
+
+**Why this happens:**
+
+If you export on a Linux machine with CUDA 12.8 and import on a Mac, the CUDA-specific PyTorch won't work. ComfyDock strips the old config and installs the correct backend automatically.
+
+### Git Repository Initialization
+
+**For tarball imports:**
+
+- Creates fresh `.git` repository in `.cec/`
+- No remote configured (one-time distribution)
+- Initial commit message: `"Imported environment"`
+
+**For git imports:**
+
+- Preserves existing `.git` directory with full history
+- Keeps remote tracking (you can push/pull)
+- Ensures `.gitignore` is properly configured
+- Adds commit: `"Imported environment"` with all setup changes
+
+### Automatic Commits
+
+All import operations are committed automatically:
+
+```
+Imported environment
+
+- Copied workflow files to ComfyUI/user/default/workflows/
+- Installed X custom nodes
+- Downloaded Y models
+- Configured PyTorch backend: cu128
+```
+
+This ensures:
+
+- Clean starting state
+- All changes tracked from the beginning
+- Easy rollback if needed
+- Clear history of what was imported
+
+### Workflow File Handling
+
+During import, workflow JSON files are:
+
+1. **Extracted** from tarball to `.cec/workflows/`
+2. **Copied** to ComfyUI runtime at `ComfyUI/user/default/workflows/`
+3. **Tracked** in git automatically
+
+Both locations are kept in sync - the `.cec/workflows/` directory is the source of truth, and ComfyUI's workflows directory is kept updated.
+
+### Model Download Intent Preservation
+
+If models can't be downloaded during import (missing sources, network issues, strategy is "skip"):
+
+- ComfyDock creates **download intents** in `pyproject.toml`
+- These track which models are needed but not yet available
+- You can resolve them later with `cfd workflow resolve`
+- Model metadata (filename, hash, relative path, sources) is preserved
+
+**Example download intent:**
+
+```toml
+[[tool.comfydock.workflows.txt2img.models]]
+filename = "sd_xl_base_1.0.safetensors"
+hash = "abc123..."
+relative_path = "checkpoints/sd_xl_base_1.0.safetensors"
+status = "unresolved"
+sources = [
+    { type = "civitai", url = "https://civitai.com/..." }
+]
+```
+
+### Development Node Extraction
+
+Development nodes (nodes with `source = "development"`) are:
+
+1. **Extracted** to `.cec/dev_nodes/<node-name>/`
+2. **Symlinked** to `ComfyUI/custom_nodes/<node-name>`
+3. **Dependencies installed** from their `requirements.txt` if present
+4. **Treated as local code** (not managed via git/registry)
+
+This allows distributing custom nodes under active development without publishing them to the ComfyUI registry.
 
 ---
 
@@ -561,12 +813,39 @@ cfd -e my-env workflow resolve --all
 
 ## Summary
 
-Export/import enables offline environment sharing:
+Export/import enables offline environment sharing with intelligent automation:
 
-- **Export** packages environments as tarballs with validation
-- **Import** creates environments from tarballs or git URLs
-- **Model strategies** control download behavior during import
-- **Development nodes** are bundled as source code
-- **Validation** ensures recipients can recreate environments successfully
+**Export Features:**
 
-Use export/import for one-time sharing, backups, or template distribution. For continuous team collaboration, see [Git Remotes](git-remotes.md).
+- **Validation** ensures recipients can recreate environments (uncommitted changes, model sources)
+- **Progressive disclosure** for models without sources - view first 3, expand to see all
+- **Tarball packaging** includes pyproject.toml, workflows, development nodes, and dependency locks
+- **Committed content only** - ensures consistency and reproducibility
+
+**Import Features:**
+
+- **Dual source support** - import from tarballs or git URLs
+- **ComfyUI caching** speeds up subsequent imports (30-60s → 2-5s for same version)
+- **Model strategies** control download behavior (all/required/skip)
+- **PyTorch backend management** strips imported config and installs correct backend for target platform
+- **Development nodes** extracted and symlinked automatically
+- **Download intent preservation** tracks models that couldn't be downloaded for later resolution
+
+**Automatic Behaviors:**
+
+- Git repository initialization (fresh for tarballs, preserved for git imports)
+- Automatic commit of all import changes
+- PyTorch configuration stripping to prevent platform conflicts
+- Workflow file copying to ComfyUI runtime directory
+- Dependency group installation with optional failure handling
+
+**Use Cases:**
+
+- **One-time sharing**: Send environments to colleagues or clients (use tarballs)
+- **Team collaboration**: Share via git with preserved remotes for push/pull workflows
+- **Backup and archival**: Save environment snapshots for later restoration
+- **CI/CD artifacts**: Deploy tested environments to production
+- **Template distribution**: Share starter environments with the community
+- **Cross-platform deployment**: Export on Linux/CUDA, import on Mac/CPU with automatic PyTorch adjustment
+
+For continuous team collaboration with ongoing sync, see [Git Remotes](git-remotes.md).
