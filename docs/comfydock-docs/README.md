@@ -7,30 +7,32 @@ Documentation site for ComfyDock v1.0+ - the package and environment manager for
 ### Install dependencies
 
 ```bash
-pip install mkdocs-material pymdown-extensions
+uv sync
 ```
 
-Or with uv:
+### Generate CLI reference
 
 ```bash
-uv tool install mkdocs --with mkdocs-material --with pymdown-extensions
+make generate-cli
 ```
+
+This extracts command documentation from the argparse parser and generates markdown files in `docs/cli-reference/`.
 
 ### Local development
 
 ```bash
-mkdocs serve
+make serve
 ```
 
-Visit `http://localhost:8000` to view the docs.
+Visit `http://127.0.0.1:8000` to view the docs. CLI reference is regenerated automatically.
 
 ### Build static site
 
 ```bash
-mkdocs build
+make build
 ```
 
-Output will be in `site/` directory.
+Output will be in `site/` directory. CLI reference is regenerated automatically.
 
 ### Deploy to GitHub Pages
 
@@ -56,10 +58,12 @@ docs/
 │   ├── workflows/
 │   ├── python-dependencies/
 │   └── collaboration/
-├── cli-reference/                    # 🚧 Phase 3 TODO
+├── cli-reference/                    # ✅ Auto-generated from argparse
 │   ├── global-commands.md
 │   ├── environment-commands.md
-│   └── ...
+│   ├── node-commands.md
+│   ├── workflow-commands.md
+│   └── shell-completion.md
 ├── troubleshooting/                  # 🚧 Phase 4 TODO
 │   ├── common-issues.md
 │   └── ...
@@ -96,12 +100,38 @@ Each guide should include:
 5. Troubleshooting tips
 6. Next steps with links
 
+## CLI Reference
+
+The CLI reference documentation is **automatically generated** from the argparse parser.
+
+### How it works
+
+- `scripts/generate_cli_reference.py` extracts command structure from `comfydock_cli.cli`
+- Generates markdown for arguments, options, subcommands
+- Runs automatically on `make build` and `make serve`
+
+### When to regenerate
+
+- After adding/modifying CLI commands
+- After changing help text
+- Run manually: `make generate-cli`
+
+### Enhancing generated docs
+
+Generated docs provide baseline coverage. To enhance:
+
+1. **Edit generated files** - Add examples, tips (overwritten on regeneration)
+2. **Modify generator** - Edit `scripts/generate_cli_reference.py` for persistent changes
+3. **Switch to manual** - Stop using generator, maintain manually
+
+See `scripts/README.md` for details.
+
 ## Contributing
 
 1. Create new .md file in appropriate section
 2. Follow tone and structure guidelines
 3. Add to `mkdocs.yml` nav
-4. Test locally with `mkdocs serve`
+4. Test locally with `make serve`
 5. Submit PR
 
 See `DOCUMENTATION_STATUS.md` for what needs writing.

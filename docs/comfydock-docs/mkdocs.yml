@@ -43,7 +43,6 @@ nav:
     - Environment Commands: cli-reference/environment-commands.md
     - Node Commands: cli-reference/node-commands.md
     - Workflow Commands: cli-reference/workflow-commands.md
-    - Model Commands: cli-reference/model-commands.md
     - Shell Completion: cli-reference/shell-completion.md
   - Troubleshooting:
     - Common Issues: troubleshooting/common-issues.md
