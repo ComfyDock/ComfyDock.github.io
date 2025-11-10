@@ -1,0 +1,4197 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Package and environment manager for ComfyUI">
+      
+      
+      
+        <link rel="canonical" href="https://comfydock.com/user-guide/collaboration/export-import/">
+      
+      
+        <link rel="prev" href="../../python-dependencies/constraints/">
+      
+      
+        <link rel="next" href="../git-remotes/">
+      
+      
+      <link rel="icon" href="../../../assets/comfy_env_manager-min.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+
+<title>Export & Import | ComfyDock Documentation</title>
+
+
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../css/timeago.css">
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+<!-- Favicons -->
+<link rel="icon" type="image/png" sizes="32x32" href="https://comfydock.com/assets/comfy_env_manager-min.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="https://comfydock.com/assets/comfy_env_manager-min.png"/>
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Package and environment manager for ComfyUI"/>
+<meta name="robots" content="index,follow"/>
+<meta name="author" content="ComfyDock Team"/>
+<meta name="keywords" content="ComfyUI, environment manager, package manager, AI, image generation, workflow, docker, python"/>
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://comfydock.com/user-guide/collaboration/export-import/"/>
+<meta property="og:title" content="Export & Import | ComfyDock Documentation"/>
+<meta property="og:description" content="Package and environment manager for ComfyUI"/>
+<meta property="og:image" content="https://comfydock.com/assets/comfy_env_manager-min.png"/>
+<meta property="og:site_name" content="ComfyDock Documentation"/>
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:url" content="https://comfydock.com/user-guide/collaboration/export-import/"/>
+<meta name="twitter:title" content="Export & Import | ComfyDock Documentation"/>
+<meta name="twitter:description" content="Package and environment manager for ComfyUI"/>
+<meta name="twitter:image" content="https://comfydock.com/assets/comfy_env_manager-min.png"/>
+
+<!-- Schema.org Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "ComfyDock Documentation",
+  "url": "https://comfydock.com/",
+  "description": "Package and environment manager for ComfyUI",
+  
+  "datePublished": "2025-11-10 18:53:41Z",
+  "dateModified": "2025-11-10 18:53:41Z",
+  
+  "publisher": {
+    "@type": "Organization",
+    "name": "ComfyDock",
+    "url": "https://comfydock.com/"
+  }
+}
+</script>
+
+<!-- Additional Schema for Documentation -->
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Export & Import",
+  "description": "Package and environment manager for ComfyUI",
+  "url": "https://comfydock.com/user-guide/collaboration/export-import/",
+  
+  "datePublished": "2025-11-10 18:53:41Z",
+  "dateModified": "2025-11-10 18:53:41Z",
+  
+  "author": {
+    "@type": "Organization",
+    "name": "ComfyDock Team"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "ComfyDock"
+  }
+}
+</script>
+
+
+<!-- Canonical URL -->
+<link rel="canonical" href="https://comfydock.com/user-guide/collaboration/export-import/"/>
+
+<!-- Theme Color -->
+<meta name="theme-color" content="#0a0e27" media="(prefers-color-scheme: dark)"/>
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"/>
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#export-and-import" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="ComfyDock Documentation" class="md-header__button md-logo" aria-label="ComfyDock Documentation" data-md-component="logo">
+      
+  <img src="../../../assets/comfy_env_manager-min.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ComfyDock Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Export & Import
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="comfydock-light" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="comfydock-dark" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ComfyDock/comfydock" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ComfyDock/comfydock
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../workspaces/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../cli-reference/global-commands/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  CLI Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../troubleshooting/common-issues/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Troubleshooting
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../legacy/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Legacy Docs (v0.x)
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="ComfyDock Documentation" class="md-nav__button md-logo" aria-label="ComfyDock Documentation" data-md-component="logo">
+      
+  <img src="../../../assets/comfy_env_manager-min.png" alt="logo">
+
+    </a>
+    ComfyDock Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ComfyDock/comfydock" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ComfyDock/comfydock
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Getting Started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quickstart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Core Concepts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/migrating-from-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Migrating from v0.x
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    User Guide
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            User Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workspaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Workspaces
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Environments
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Environments
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environments/creating-environments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Creating Environments
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environments/running-comfyui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Running ComfyUI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environments/version-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Version Control
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Custom Nodes
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Custom Nodes
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../custom-nodes/adding-nodes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding Nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../custom-nodes/managing-nodes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Managing Nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../custom-nodes/node-conflicts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Node Conflicts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Models
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Models
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../models/model-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Model Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../models/downloading-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Downloading Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../models/managing-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Managing Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../models/adding-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding Sources
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Workflows
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            Workflows
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/workflow-tracking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Workflow Tracking
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/workflow-resolution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Workflow Resolution
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/workflow-model-importance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Model Importance
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Python Dependencies
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            Python Dependencies
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python-dependencies/py-commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Py Commands
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python-dependencies/constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Constraints
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Collaboration
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            Collaboration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Export & Import
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Export & Import
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporting-an-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Exporting an Environment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Exporting an Environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Export
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-output-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      Custom Output Path
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-specific-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Export Specific Environment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-exported" class="md-nav__link">
+    <span class="md-ellipsis">
+      What Gets Exported
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Export Validation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Export Validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-source-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      Model Source Check
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-model-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding Model Sources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#uncommitted-changes-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      Uncommitted Changes Check
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#importing-an-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Importing an Environment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Importing an Environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#import-from-tarball" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import from Tarball
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#import-from-git-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import from Git Repository
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-interactive-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      Non-Interactive Import
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#import-internals-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import Internals &amp; Performance
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Import Internals &amp; Performance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#comfyui-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      ComfyUI Caching
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pytorch-backend-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      PyTorch Backend Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#automatic-git-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automatic Git Commits
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-download-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Model Download Strategies
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Download Strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#strategy-all-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strategy: All (Default)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strategy-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strategy: Required
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strategy-skip" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strategy: Skip
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#import-analysis-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import Analysis Preview
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Import Analysis Preview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#import-breakdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import Breakdown
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dependency-group-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dependency Group Failures
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development-nodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Nodes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Development Nodes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-included" class="md-nav__link">
+    <span class="md-ellipsis">
+      What Gets Included
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#import-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import Behavior
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-import-behaviors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced Import Behaviors
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Import Behaviors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automatic-configuration-adjustments" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automatic Configuration Adjustments
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#git-repository-initialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Git Repository Initialization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#automatic-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automatic Commits
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow-file-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Workflow File Handling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#model-download-intent-preservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Model Download Intent Preservation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#development-node-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Node Extraction
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#models-without-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Models Without Sources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#civitai-authentication-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      CivitAI Authentication Errors
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#download-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      Download Failures
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#import-fails-mid-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import Fails Mid-Process
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before-exporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before Exporting
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-recipients" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Recipients
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naming-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Naming Conventions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Summary
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../git-remotes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Git Remotes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../team-workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Team Workflows
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    CLI Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            CLI Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli-reference/global-commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Global Commands
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli-reference/environment-commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Environment Commands
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli-reference/node-commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Node Commands
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli-reference/workflow-commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Workflow Commands
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli-reference/shell-completion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Shell Completion
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Troubleshooting
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../troubleshooting/common-issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Common Issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../troubleshooting/dependency-conflicts.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Dependency Conflicts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../troubleshooting/missing-models.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Missing Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../troubleshooting/uv-errors.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    UV Errors
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../troubleshooting/environment-corruption.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Environment Corruption
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../legacy/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Legacy Docs (v0.x)
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Legacy Docs (v0.x)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Usage
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/environments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Environments
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/best_practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Best Practices
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_6" id="__nav_6_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_6">
+            <span class="md-nav__icon md-icon"></span>
+            Troubleshooting
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/troubleshooting/permission_handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Permission Handling
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/troubleshooting/slow_model_loading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Slow Model Loading
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/troubleshooting/edit_files_in_container/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Edit Files in Container
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/troubleshooting/add_more_ram_to_wsl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    WSL RAM
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/troubleshooting/filepath_permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Filepath Issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/troubleshooting/installing_custom_nodes_manually/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Installing Nodes Manually
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../legacy/troubleshooting/other/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Other Issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporting-an-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Exporting an Environment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Exporting an Environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Export
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-output-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      Custom Output Path
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-specific-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Export Specific Environment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-exported" class="md-nav__link">
+    <span class="md-ellipsis">
+      What Gets Exported
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Export Validation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Export Validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-source-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      Model Source Check
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-model-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding Model Sources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#uncommitted-changes-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      Uncommitted Changes Check
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#importing-an-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Importing an Environment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Importing an Environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#import-from-tarball" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import from Tarball
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#import-from-git-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import from Git Repository
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-interactive-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      Non-Interactive Import
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#import-internals-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import Internals &amp; Performance
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Import Internals &amp; Performance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#comfyui-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      ComfyUI Caching
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pytorch-backend-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      PyTorch Backend Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#automatic-git-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automatic Git Commits
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-download-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Model Download Strategies
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Download Strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#strategy-all-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strategy: All (Default)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strategy-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strategy: Required
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strategy-skip" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strategy: Skip
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#import-analysis-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import Analysis Preview
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Import Analysis Preview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#import-breakdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import Breakdown
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dependency-group-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dependency Group Failures
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development-nodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Nodes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Development Nodes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-included" class="md-nav__link">
+    <span class="md-ellipsis">
+      What Gets Included
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#import-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import Behavior
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-import-behaviors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced Import Behaviors
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Import Behaviors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automatic-configuration-adjustments" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automatic Configuration Adjustments
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#git-repository-initialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Git Repository Initialization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#automatic-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automatic Commits
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow-file-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Workflow File Handling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#model-download-intent-preservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Model Download Intent Preservation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#development-node-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Node Extraction
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#models-without-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Models Without Sources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#civitai-authentication-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      CivitAI Authentication Errors
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#download-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      Download Failures
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#import-fails-mid-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      Import Fails Mid-Process
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before-exporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before Exporting
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-recipients" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Recipients
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naming-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Naming Conventions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Summary
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="export-and-import">Export and Import<a class="headerlink" href="#export-and-import" title="Permanent link">&para;</a></h1>
+<p>Share complete ComfyUI environments as portable tarballs that include configuration, workflows, and development nodes.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Export/import allows you to package an entire environment into a single <code>.tar.gz</code> file that can be shared offline. This is ideal for:</p>
+<ul>
+<li><strong>One-time sharing</strong>: Send environments to colleagues or clients</li>
+<li><strong>Backup and archival</strong>: Save environment snapshots for later restoration</li>
+<li><strong>CI/CD artifacts</strong>: Deploy tested environments to production</li>
+<li><strong>Template distribution</strong>: Share starter environments with the community</li>
+</ul>
+<p>Unlike git remotes (which require continuous sync), export creates a self-contained package that works offline.</p>
+<hr />
+<h2 id="exporting-an-environment">Exporting an Environment<a class="headerlink" href="#exporting-an-environment" title="Permanent link">&para;</a></h2>
+<p>Export packages your environment configuration, workflows, and development nodes into a tarball.</p>
+<h3 id="basic-export">Basic Export<a class="headerlink" href="#basic-export" title="Permanent link">&para;</a></h3>
+<p>Export the active environment:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cfd<span class="w"> </span><span class="nb">export</span>
+</span></code></pre></div>
+<p><strong>Output:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>📦 Exporting environment: my-env
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>✅ Export complete: my-env_export_20250109.tar.gz (2.3 MB)
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>Share this file to distribute your complete environment!
+</span></code></pre></div>
+<p>By default, the tarball is created in the current directory with a timestamp.</p>
+<h3 id="custom-output-path">Custom Output Path<a class="headerlink" href="#custom-output-path" title="Permanent link">&para;</a></h3>
+<p>Specify where to save the export:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cfd<span class="w"> </span><span class="nb">export</span><span class="w"> </span>~/exports/my-workflow.tar.gz
+</span></code></pre></div>
+<h3 id="export-specific-environment">Export Specific Environment<a class="headerlink" href="#export-specific-environment" title="Permanent link">&para;</a></h3>
+<p>Use the <code>-e</code> flag to export a non-active environment:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cfd<span class="w"> </span>-e<span class="w"> </span>production<span class="w"> </span><span class="nb">export</span><span class="w"> </span>production.tar.gz
+</span></code></pre></div>
+<hr />
+<h2 id="what-gets-exported">What Gets Exported<a class="headerlink" href="#what-gets-exported" title="Permanent link">&para;</a></h2>
+<p>The tarball contains everything needed to recreate your environment:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>environment_export.tar.gz
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>├── pyproject.toml          # Environment configuration
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>│                           # - ComfyUI version
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>│                           # - Custom nodes list
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>│                           # - Model metadata
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>│                           # - Workflow dependencies
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>├── uv.lock                 # Locked Python dependencies
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>├── .python-version         # Python version constraint
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>├── workflows/              # All committed workflows
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>│   ├── workflow1.json
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>│   └── workflow2.json
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>└── dev_nodes/              # Development node source code
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    └── my-custom-node/     # (Only nodes with source=&quot;development&quot;)
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Only Committed Content</p>
+<p>Export only includes committed workflows and configuration. Uncommitted changes are excluded to ensure consistency.</p>
+</div>
+<hr />
+<h2 id="export-validation">Export Validation<a class="headerlink" href="#export-validation" title="Permanent link">&para;</a></h2>
+<p>ComfyDock validates your export to ensure recipients can recreate the environment successfully.</p>
+<h3 id="model-source-check">Model Source Check<a class="headerlink" href="#model-source-check" title="Permanent link">&para;</a></h3>
+<p>Before exporting, ComfyDock checks if all models have download sources:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>cfd<span class="w"> </span><span class="nb">export</span>
+</span></code></pre></div>
+<p><strong>Output (showing first 3 models):</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>📦 Exporting environment: my-env
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>⚠️  Export validation:
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>5 model(s) have no source URLs.
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>  • sd_xl_base_1.0.safetensors
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    Used by: txt2img, img2img
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>  • control_v11p_sd15_openpose.pth
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    Used by: pose_workflow
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>  • vae-ft-mse-840000.safetensors
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    Used by: txt2img
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>  ... and 2 more
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>⚠️  Recipients won&#39;t be able to download these models automatically.
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>   Add sources: comfydock model add-source
+</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>
+</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>Continue export? (y/N) or (s)how all models:
+</span></code></pre></div>
+<p><strong>Progressive Disclosure:</strong></p>
+<p>If more than 3 models are missing sources, ComfyDock shows only the first 3 initially. Type <code>s</code> to expand and view all models before making a decision.</p>
+<p><strong>After typing 's':</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>  • sd_xl_base_1.0.safetensors
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    Used by: txt2img, img2img
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  • control_v11p_sd15_openpose.pth
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    Used by: pose_workflow
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>  • vae-ft-mse-840000.safetensors
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    Used by: txt2img
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>  • lora_style.safetensors
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    Used by: portrait_workflow
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>  • upscaler_4x.pth
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    Used by: img2img
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>⚠️  Recipients won&#39;t be able to download these models automatically.
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>   Add sources: comfydock model add-source
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>
+</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>Continue export? (y/N):
+</span></code></pre></div>
+<p><strong>Options:</strong></p>
+<ul>
+<li><strong>Add sources first</strong> (recommended): Use <code>cfd model add-source</code> to add download URLs</li>
+<li><strong>Continue anyway</strong> (type <code>y</code>): Export proceeds, recipients will need to manually provide the models</li>
+<li><strong>Show all models</strong> (type <code>s</code>): Expand the list to see all models without sources (only available if more than 3)</li>
+<li><strong>Cancel</strong> (type <code>N</code> or anything else): Abort export and fix issues first</li>
+<li><strong>Skip validation</strong>: Use <code>--allow-issues</code> flag to bypass the check entirely</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Understanding the Prompt</p>
+<ul>
+<li>If you have 3 or fewer models without sources, you'll only see <code>(y/N)</code></li>
+<li>If you have more than 3, you'll see <code>(y/N) or (s)how all models</code> to expand the list first</li>
+</ul>
+</div>
+<h3 id="adding-model-sources">Adding Model Sources<a class="headerlink" href="#adding-model-sources" title="Permanent link">&para;</a></h3>
+<p>Add download URLs so recipients can auto-download models:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Interactive mode - walks through all models without sources</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>cfd<span class="w"> </span>model<span class="w"> </span>add-source
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Direct mode - add source to specific model</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>cfd<span class="w"> </span>model<span class="w"> </span>add-source<span class="w"> </span>sd_xl_base<span class="w"> </span>&lt;civitai-url&gt;
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Interactive Mode</p>
+<p>Interactive mode is the fastest way to add sources for multiple models. It shows each model and prompts for a URL.</p>
+</div>
+<p>See <a href="../../models/adding-sources/">Adding Model Sources</a> for details.</p>
+<h3 id="uncommitted-changes-check">Uncommitted Changes Check<a class="headerlink" href="#uncommitted-changes-check" title="Permanent link">&para;</a></h3>
+<p>Export fails if you have uncommitted workflows or git changes:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>✗ Cannot export: uncommitted changes detected
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>📋 Uncommitted workflows:
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>  • new_workflow
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>  • modified_workflow
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>💡 Commit first:
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>   comfydock commit -m &#39;Pre-export checkpoint&#39;
+</span></code></pre></div>
+<p>This ensures the export matches a specific version in your history.</p>
+<p><strong>Fix:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>cfd<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;Prepare for export&quot;</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>cfd<span class="w"> </span><span class="nb">export</span>
+</span></code></pre></div>
+<hr />
+<h2 id="importing-an-environment">Importing an Environment<a class="headerlink" href="#importing-an-environment" title="Permanent link">&para;</a></h2>
+<p>Import creates a new environment from a tarball or git repository.</p>
+<h3 id="import-from-tarball">Import from Tarball<a class="headerlink" href="#import-from-tarball" title="Permanent link">&para;</a></h3>
+<p>Import a local tarball file:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>cfd<span class="w"> </span>import<span class="w"> </span>environment.tar.gz
+</span></code></pre></div>
+<p><strong>Interactive prompts:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>📦 Importing environment from environment.tar.gz
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>Environment name: my-imported-env
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>Model download strategy:
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>  1. all      - Download all models with sources
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>  2. required - Download only required models
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>  3. skip     - Skip all downloads (can resolve later)
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>Choice (1-3) [1]: 1
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>🔧 Initializing environment...
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>   Cloning ComfyUI v0.2.7
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>   Configuring PyTorch backend: cu128
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>   Installing Python dependencies
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>   Initializing git repository...
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>📝 Setting up workflows...
+</span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>   Copied: txt2img
+</span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>
+</span><span id="__span-12-20"><a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>📦 Syncing custom nodes...
+</span><span id="__span-12-21"><a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>   Installed: rgthree-comfy
+</span><span id="__span-12-22"><a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>
+</span><span id="__span-12-23"><a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>🔄 Resolving workflows (all strategy)...
+</span><span id="__span-12-24"><a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>
+</span><span id="__span-12-25"><a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a>⬇️  Downloading 3 model(s)...
+</span><span id="__span-12-26"><a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>
+</span><span id="__span-12-27"><a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>[1/3] sd_xl_base_1.0.safetensors
+</span><span id="__span-12-28"><a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a>Downloading... 6533.8 MB / 6633.5 MB (98%)
+</span><span id="__span-12-29"><a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a>  ✓ Complete
+</span><span id="__span-12-30"><a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a>
+</span><span id="__span-12-31"><a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a>[2/3] control_v11p_sd15_openpose.pth
+</span><span id="__span-12-32"><a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a>Downloading... 729.4 MB / 729.4 MB (100%)
+</span><span id="__span-12-33"><a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a>  ✓ Complete
+</span><span id="__span-12-34"><a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a>
+</span><span id="__span-12-35"><a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a>✅ Downloaded 2 model(s)
+</span><span id="__span-12-36"><a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a>
+</span><span id="__span-12-37"><a id="__codelineno-12-37" name="__codelineno-12-37" href="#__codelineno-12-37"></a>✅ Import complete: my-imported-env
+</span><span id="__span-12-38"><a id="__codelineno-12-38" name="__codelineno-12-38" href="#__codelineno-12-38"></a>   Environment ready to use!
+</span><span id="__span-12-39"><a id="__codelineno-12-39" name="__codelineno-12-39" href="#__codelineno-12-39"></a>
+</span><span id="__span-12-40"><a id="__codelineno-12-40" name="__codelineno-12-40" href="#__codelineno-12-40"></a>Activate with: comfydock use my-imported-env
+</span></code></pre></div>
+<h3 id="import-from-git-repository">Import from Git Repository<a class="headerlink" href="#import-from-git-repository" title="Permanent link">&para;</a></h3>
+<p>Import directly from a git URL:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>cfd<span class="w"> </span>import<span class="w"> </span>https://github.com/user/comfy-workflow
+</span></code></pre></div>
+<p>This clones the repository to the environment's <code>.cec</code> directory, preserving the git history and remote connection for future updates.</p>
+<p><strong>Specify branch or tag:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>cfd<span class="w"> </span>import<span class="w"> </span>https://github.com/user/comfy-workflow<span class="w"> </span>--branch<span class="w"> </span>v1.0
+</span></code></pre></div>
+<p><strong>Git Import vs Tarball Import:</strong></p>
+<ul>
+<li><strong>Git imports</strong> preserve the <code>.git</code> directory with remote tracking - you can push/pull changes later</li>
+<li><strong>Tarball imports</strong> create a fresh git repository with no remote - ideal for one-time distributions</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Remote Preservation</p>
+<p>When importing from git, the original remote is preserved. You can push updates back to the source repository or pull new changes. See <a href="../git-remotes/">Git Remotes</a> for collaboration workflows.</p>
+</div>
+<h3 id="non-interactive-import">Non-Interactive Import<a class="headerlink" href="#non-interactive-import" title="Permanent link">&para;</a></h3>
+<p>Skip prompts by providing all options via flags:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>cfd<span class="w"> </span>import<span class="w"> </span>environment.tar.gz<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span>--name<span class="w"> </span>production<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span>--torch-backend<span class="w"> </span>cu128<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span>--use
+</span></code></pre></div>
+<p><strong>Flags:</strong></p>
+<ul>
+<li><code>--name NAME</code>: Environment name (skip prompt)</li>
+<li><code>--torch-backend BACKEND</code>: PyTorch backend (auto, cpu, cu128, cu126, rocm6.3, xpu)</li>
+<li><code>--use</code>: Set as active environment immediately after import (changes output message)</li>
+</ul>
+<p><strong>With <code>--use</code> flag:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>cfd<span class="w"> </span>import<span class="w"> </span>environment.tar.gz<span class="w"> </span>--name<span class="w"> </span>production<span class="w"> </span>--use
+</span></code></pre></div>
+<p><strong>Completion message changes to:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>✅ Import complete: production
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>   Environment ready to use!
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>   &#39;production&#39; set as active environment
+</span></code></pre></div>
+<p>No need to run <code>cfd use production</code> separately - you can start using it immediately.</p>
+<hr />
+<h2 id="import-internals-performance">Import Internals &amp; Performance<a class="headerlink" href="#import-internals-performance" title="Permanent link">&para;</a></h2>
+<p>Understanding what happens during import helps you optimize the process and troubleshoot issues.</p>
+<h3 id="comfyui-caching">ComfyUI Caching<a class="headerlink" href="#comfyui-caching" title="Permanent link">&para;</a></h3>
+<p>ComfyDock caches ComfyUI installations to speed up imports and environment creation.</p>
+<p><strong>First import of a ComfyUI version:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>🔧 Initializing environment...
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>   Cloning ComfyUI v0.2.7
+</span></code></pre></div>
+<p>ComfyDock clones from GitHub and caches the result by commit SHA.</p>
+<p><strong>Subsequent imports with the same version:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>🔧 Initializing environment...
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>   Restoring ComfyUI v0.2.7 from cache...
+</span></code></pre></div>
+<p>This is <strong>significantly faster</strong> - a simple directory copy instead of a git clone.</p>
+<p><strong>Cache behavior:</strong></p>
+<ul>
+<li>Cache location: <code>~/.comfydock/cache/comfyui/</code></li>
+<li>Keyed by: ComfyUI version (release tag, branch, or commit SHA)</li>
+<li>Shared across: All environments in the workspace</li>
+<li>Automatic: No configuration needed</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Performance Boost</p>
+<p>The first import of ComfyUI v0.2.7 might take 30-60 seconds to clone. Subsequent imports using the same version complete in 2-5 seconds.</p>
+</div>
+<h3 id="pytorch-backend-management">PyTorch Backend Management<a class="headerlink" href="#pytorch-backend-management" title="Permanent link">&para;</a></h3>
+<p>When importing with the <code>--torch-backend</code> flag, ComfyDock intelligently manages PyTorch:</p>
+<p><strong>Automatic stripping (prevents conflicts):</strong></p>
+<ol>
+<li>Removes imported PyTorch index URLs from <code>pyproject.toml</code></li>
+<li>Strips PyTorch package source configurations</li>
+<li>Clears PyTorch version constraints</li>
+</ol>
+<p><strong>Then installs fresh:</strong></p>
+<ol>
+<li>Creates Python virtual environment</li>
+<li>Installs PyTorch packages with specified backend (cu128, cpu, rocm, etc.)</li>
+<li>Detects installed backend from package version</li>
+<li>Updates <code>pyproject.toml</code> with correct backend configuration</li>
+<li>Locks versions to prevent drift</li>
+</ol>
+<p><strong>Why this matters:</strong></p>
+<p>If you export an environment on a CUDA 12.8 system and import on a Mac (CPU only), the imported PyTorch config would fail. ComfyDock strips the old config and installs the right backend for your system.</p>
+<h3 id="automatic-git-commits">Automatic Git Commits<a class="headerlink" href="#automatic-git-commits" title="Permanent link">&para;</a></h3>
+<p>All import changes are automatically committed to git:</p>
+<ul>
+<li>Workflow files copied to <code>ComfyUI/user/default/workflows/</code></li>
+<li>Custom nodes installed and synced</li>
+<li>Models downloaded and resolved</li>
+<li>PyTorch backend configured in <code>pyproject.toml</code></li>
+</ul>
+<p><strong>Final commit message:</strong> <code>"Imported environment"</code></p>
+<p>This ensures the imported environment starts with a clean, committed state ready for development.</p>
+<hr />
+<h2 id="model-download-strategies">Model Download Strategies<a class="headerlink" href="#model-download-strategies" title="Permanent link">&para;</a></h2>
+<p>During import, you choose how to handle model downloads:</p>
+<h3 id="strategy-all-default">Strategy: All (Default)<a class="headerlink" href="#strategy-all-default" title="Permanent link">&para;</a></h3>
+<p>Downloads all models that have source URLs:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>Choice (1-3) [1]: 1
+</span></code></pre></div>
+<ul>
+<li><strong>Downloads</strong>: All models with sources</li>
+<li><strong>Skips</strong>: Models without sources (creates download intents)</li>
+<li><strong>Best for</strong>: Complete environment setup</li>
+</ul>
+<h3 id="strategy-required">Strategy: Required<a class="headerlink" href="#strategy-required" title="Permanent link">&para;</a></h3>
+<p>Downloads only models marked as "required":</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>Choice (1-3) [1]: 2
+</span></code></pre></div>
+<ul>
+<li><strong>Downloads</strong>: Required models only</li>
+<li><strong>Skips</strong>: Flexible and optional models</li>
+<li><strong>Best for</strong>: Quick setup, storage constraints</li>
+</ul>
+<p>Model criticality is set using <code>cfd workflow model importance</code>.</p>
+<h3 id="strategy-skip">Strategy: Skip<a class="headerlink" href="#strategy-skip" title="Permanent link">&para;</a></h3>
+<p>Skips all downloads during import:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>Choice (1-3) [1]: 3
+</span></code></pre></div>
+<ul>
+<li><strong>Downloads</strong>: None</li>
+<li><strong>Creates</strong>: Download intents for all models</li>
+<li><strong>Best for</strong>: Offline imports, manual model management</li>
+</ul>
+<p>You can resolve downloads later:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>cfd<span class="w"> </span>-e<span class="w"> </span>my-env<span class="w"> </span>workflow<span class="w"> </span>resolve<span class="w"> </span>--all
+</span></code></pre></div>
+<hr />
+<h2 id="import-analysis-preview">Import Analysis Preview<a class="headerlink" href="#import-analysis-preview" title="Permanent link">&para;</a></h2>
+<p>Before importing, ComfyDock analyzes what will be installed.</p>
+<h3 id="import-breakdown">Import Breakdown<a class="headerlink" href="#import-breakdown" title="Permanent link">&para;</a></h3>
+<p>The import process shows what will be set up in real-time:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>🔧 Initializing environment...
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>   Cloning ComfyUI v0.2.7
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>   Configuring PyTorch backend: cu128
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>   Installing Python dependencies
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>   Initializing git repository...
+</span></code></pre></div>
+<p>During dependency installation, you'll see each group being installed with inline progress:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>      Installing main... ✓
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>      Installing torch-cu128... ✓
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>      Installing comfyui... ✓
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>      Installing optional (optional)... ✗
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Terminal Output Format</p>
+<p>The check mark (✓) or X (✗) appears <strong>on the same line</strong> as "Installing..." after the installation completes. The <code>(optional)</code> marker indicates non-critical dependency groups.</p>
+</div>
+<p><strong>If optional groups fail:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>⚠️  Some optional dependency groups failed to install:
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>   ✗ optional
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>Some functionality may be degraded or some nodes may not work properly.
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>The environment will still function with reduced capabilities.
+</span></code></pre></div>
+<p><strong>If all groups succeed:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>✅ Import complete: my-imported-env
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>   Environment ready to use!
+</span></code></pre></div>
+<h3 id="dependency-group-failures">Dependency Group Failures<a class="headerlink" href="#dependency-group-failures" title="Permanent link">&para;</a></h3>
+<p>Optional dependency groups may fail without breaking the import:</p>
+<ul>
+<li><strong>Main groups</strong> (main, torch-*, comfyui): Must succeed or import fails</li>
+<li><strong>Optional groups</strong>: Allowed to fail, shows warning but import continues</li>
+</ul>
+<p><strong>Common reasons for failures:</strong></p>
+<ul>
+<li>Platform-specific packages not available (e.g., Windows-only package on Linux)</li>
+<li>Network issues downloading packages</li>
+<li>Version conflicts in optional dependencies</li>
+<li>Missing system libraries (e.g., CUDA libraries for GPU packages)</li>
+</ul>
+<p>The environment remains usable with reduced functionality when optional groups fail.</p>
+<hr />
+<h2 id="development-nodes">Development Nodes<a class="headerlink" href="#development-nodes" title="Permanent link">&para;</a></h2>
+<p>Export includes source code for development nodes (nodes with <code>source = "development"</code>).</p>
+<h3 id="what-gets-included">What Gets Included<a class="headerlink" href="#what-gets-included" title="Permanent link">&para;</a></h3>
+<p>Development node source code is bundled in the tarball:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>dev_nodes/
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>└── my-custom-node/
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>    ├── __init__.py
+</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>    ├── nodes.py
+</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>    └── requirements.txt
+</span></code></pre></div>
+<p><strong>Filtering:</strong></p>
+<ul>
+<li>Excludes <code>__pycache__/</code> directories</li>
+<li>Excludes <code>.pyc</code> files</li>
+<li>Includes all other source files</li>
+</ul>
+<h3 id="import-behavior">Import Behavior<a class="headerlink" href="#import-behavior" title="Permanent link">&para;</a></h3>
+<p>During import, development nodes are:</p>
+<ol>
+<li>Extracted to <code>.cec/dev_nodes/</code></li>
+<li>Symlinked to <code>ComfyUI/custom_nodes/</code></li>
+<li>Dependencies installed from <code>requirements.txt</code></li>
+</ol>
+<p>This allows sharing custom nodes under development without publishing to a registry.</p>
+<hr />
+<h2 id="advanced-import-behaviors">Advanced Import Behaviors<a class="headerlink" href="#advanced-import-behaviors" title="Permanent link">&para;</a></h2>
+<p>ComfyDock performs several automatic operations during import to ensure environment consistency and cross-platform compatibility.</p>
+<h3 id="automatic-configuration-adjustments">Automatic Configuration Adjustments<a class="headerlink" href="#automatic-configuration-adjustments" title="Permanent link">&para;</a></h3>
+<p><strong>PyTorch Configuration Stripping:</strong></p>
+<p>When you specify <code>--torch-backend</code>, ComfyDock automatically:</p>
+<ol>
+<li><strong>Removes all imported PyTorch configuration</strong> from the tarball/git repository:</li>
+<li>PyTorch index URLs (e.g., <code>https://download.pytorch.org/whl/cu128</code>)</li>
+<li>Package source specifications for torch, torchvision, torchaudio</li>
+<li>
+<p>Version constraints that might conflict with target platform</p>
+</li>
+<li>
+<p><strong>Installs fresh PyTorch</strong> for your target platform:</p>
+</li>
+<li>Uses the backend you specify (cu128, cpu, rocm, etc.)</li>
+<li>Detects actual installed versions</li>
+<li>Locks those versions in <code>pyproject.toml</code></li>
+<li>Configures correct index URLs and sources</li>
+</ol>
+<p><strong>Why this happens:</strong></p>
+<p>If you export on a Linux machine with CUDA 12.8 and import on a Mac, the CUDA-specific PyTorch won't work. ComfyDock strips the old config and installs the correct backend automatically.</p>
+<h3 id="git-repository-initialization">Git Repository Initialization<a class="headerlink" href="#git-repository-initialization" title="Permanent link">&para;</a></h3>
+<p><strong>For tarball imports:</strong></p>
+<ul>
+<li>Creates fresh <code>.git</code> repository in <code>.cec/</code></li>
+<li>No remote configured (one-time distribution)</li>
+<li>Initial commit message: <code>"Imported environment"</code></li>
+</ul>
+<p><strong>For git imports:</strong></p>
+<ul>
+<li>Preserves existing <code>.git</code> directory with full history</li>
+<li>Keeps remote tracking (you can push/pull)</li>
+<li>Ensures <code>.gitignore</code> is properly configured</li>
+<li>Adds commit: <code>"Imported environment"</code> with all setup changes</li>
+</ul>
+<h3 id="automatic-commits">Automatic Commits<a class="headerlink" href="#automatic-commits" title="Permanent link">&para;</a></h3>
+<p>All import operations are committed automatically:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>Imported environment
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>- Copied workflow files to ComfyUI/user/default/workflows/
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>- Installed X custom nodes
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>- Downloaded Y models
+</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>- Configured PyTorch backend: cu128
+</span></code></pre></div>
+<p>This ensures:</p>
+<ul>
+<li>Clean starting state</li>
+<li>All changes tracked from the beginning</li>
+<li>Easy rollback if needed</li>
+<li>Clear history of what was imported</li>
+</ul>
+<h3 id="workflow-file-handling">Workflow File Handling<a class="headerlink" href="#workflow-file-handling" title="Permanent link">&para;</a></h3>
+<p>During import, workflow JSON files are:</p>
+<ol>
+<li><strong>Extracted</strong> from tarball to <code>.cec/workflows/</code></li>
+<li><strong>Copied</strong> to ComfyUI runtime at <code>ComfyUI/user/default/workflows/</code></li>
+<li><strong>Tracked</strong> in git automatically</li>
+</ol>
+<p>Both locations are kept in sync - the <code>.cec/workflows/</code> directory is the source of truth, and ComfyUI's workflows directory is kept updated.</p>
+<h3 id="model-download-intent-preservation">Model Download Intent Preservation<a class="headerlink" href="#model-download-intent-preservation" title="Permanent link">&para;</a></h3>
+<p>If models can't be downloaded during import (missing sources, network issues, strategy is "skip"):</p>
+<ul>
+<li>ComfyDock creates <strong>download intents</strong> in <code>pyproject.toml</code></li>
+<li>These track which models are needed but not yet available</li>
+<li>You can resolve them later with <code>cfd workflow resolve</code></li>
+<li>Model metadata (filename, hash, relative path, sources) is preserved</li>
+</ul>
+<p><strong>Example download intent:</strong></p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="k">[[tool.comfydock.workflows.txt2img.models]]</span>
+</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="n">filename</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;sd_xl_base_1.0.safetensors&quot;</span>
+</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="n">hash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;abc123...&quot;</span>
+</span><span id="__span-30-4"><a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="n">relative_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;checkpoints/sd_xl_base_1.0.safetensors&quot;</span>
+</span><span id="__span-30-5"><a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;unresolved&quot;</span>
+</span><span id="__span-30-6"><a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a><span class="n">sources</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-30-7"><a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">type</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;civitai&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">url</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;https://civitai.com/...&quot;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-30-8"><a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="p">]</span>
+</span></code></pre></div>
+<h3 id="development-node-extraction">Development Node Extraction<a class="headerlink" href="#development-node-extraction" title="Permanent link">&para;</a></h3>
+<p>Development nodes (nodes with <code>source = "development"</code>) are:</p>
+<ol>
+<li><strong>Extracted</strong> to <code>.cec/dev_nodes/&lt;node-name&gt;/</code></li>
+<li><strong>Symlinked</strong> to <code>ComfyUI/custom_nodes/&lt;node-name&gt;</code></li>
+<li><strong>Dependencies installed</strong> from their <code>requirements.txt</code> if present</li>
+<li><strong>Treated as local code</strong> (not managed via git/registry)</li>
+</ol>
+<p>This allows distributing custom nodes under active development without publishing them to the ComfyUI registry.</p>
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="models-without-sources">Models Without Sources<a class="headerlink" href="#models-without-sources" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> Export warns about models without download URLs.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>⚠️  3 model(s) have no source URLs.
+</span></code></pre></div>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>
+<p><strong>Add sources</strong> (recommended):
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>cfd<span class="w"> </span>model<span class="w"> </span>add-source
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Export anyway</strong>:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>cfd<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--allow-issues
+</span></code></pre></div></p>
+</li>
+</ol>
+<p>Recipients will need to manually provide the models.</p>
+<ol>
+<li><strong>Document manual steps</strong>: Include instructions for recipients to download models manually.</li>
+</ol>
+<hr />
+<h3 id="civitai-authentication-errors">CivitAI Authentication Errors<a class="headerlink" href="#civitai-authentication-errors" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> Import fails with <code>401 Unauthorized</code> for CivitAI downloads.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>✗ Failed: 401 Unauthorized
+</span></code></pre></div>
+<p><strong>Solution:</strong> Add your CivitAI API key:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>cfd<span class="w"> </span>config<span class="w"> </span>--civitai-key<span class="w"> </span>&lt;your-api-key&gt;
+</span></code></pre></div>
+<p>Get your key from: <a href="https://civitai.com/user/account">https://civitai.com/user/account</a></p>
+<p>Then retry the import or resolve manually:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>cfd<span class="w"> </span>-e<span class="w"> </span>my-env<span class="w"> </span>workflow<span class="w"> </span>resolve<span class="w"> </span>--all
+</span></code></pre></div>
+<hr />
+<h3 id="download-failures">Download Failures<a class="headerlink" href="#download-failures" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> Some models fail to download during import.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>⚠️  2 model(s) failed:
+</span><span id="__span-37-2"><a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>   • sd_xl_base_1.0.safetensors: Connection timeout
+</span><span id="__span-37-3"><a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>   • controlnet.pth: 404 Not Found
+</span></code></pre></div>
+<p><strong>What Happens:</strong></p>
+<ul>
+<li>Failed downloads are saved as "download intents"</li>
+<li>Environment import continues</li>
+<li>Workflows may be incomplete</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>
+<p><strong>Retry download</strong>:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>cfd<span class="w"> </span>-e<span class="w"> </span>my-env<span class="w"> </span>workflow<span class="w"> </span>resolve<span class="w"> </span>&lt;workflow-name&gt;
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Check model sources</strong>:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-39-1"><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>cfd<span class="w"> </span>-e<span class="w"> </span>my-env<span class="w"> </span>model<span class="w"> </span>index<span class="w"> </span>show<span class="w"> </span>sd_xl_base
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Manual download</strong>: Download the model manually and place it in the models directory, then sync:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-40-1"><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>cfd<span class="w"> </span>model<span class="w"> </span>index<span class="w"> </span>sync
+</span></code></pre></div></p>
+</li>
+</ol>
+<hr />
+<h3 id="import-fails-mid-process">Import Fails Mid-Process<a class="headerlink" href="#import-fails-mid-process" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> Import fails during environment setup.</p>
+<p><strong>What Happens:</strong></p>
+<ul>
+<li>Partial environment is created</li>
+<li>May have incomplete dependencies or nodes</li>
+</ul>
+<p><strong>Solution:</strong></p>
+<ol>
+<li>
+<p><strong>Delete the failed environment</strong>:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-41-1"><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>cfd<span class="w"> </span>delete<span class="w"> </span>&lt;env-name&gt;
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Check error message</strong> for specific cause (network, disk space, etc.)</p>
+</li>
+<li>
+<p><strong>Retry import</strong> after fixing the issue:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-42-1"><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>cfd<span class="w"> </span>import<span class="w"> </span>environment.tar.gz
+</span></code></pre></div></p>
+</li>
+</ol>
+<hr />
+<h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h2>
+<h3 id="before-exporting">Before Exporting<a class="headerlink" href="#before-exporting" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Commit all changes</strong>: Ensure workflows are committed
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-43-1"><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>cfd<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;Finalize environment for export&quot;</span>
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Add model sources</strong>: Use interactive mode to add all sources
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-44-1"><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>cfd<span class="w"> </span>model<span class="w"> </span>add-source
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Test the export</strong>: Import it locally to verify completeness
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-45-1"><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>cfd<span class="w"> </span><span class="nb">export</span><span class="w"> </span>test.tar.gz
+</span><span id="__span-45-2"><a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a>cfd<span class="w"> </span>import<span class="w"> </span>test.tar.gz<span class="w"> </span>--name<span class="w"> </span>test-import
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Document custom setup</strong>: If models can't be auto-downloaded, provide manual instructions</p>
+</li>
+</ol>
+<h3 id="for-recipients">For Recipients<a class="headerlink" href="#for-recipients" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Review import analysis</strong>: Check what will be installed during import preview</p>
+</li>
+<li>
+<p><strong>Choose appropriate strategy</strong>: Select model download strategy based on needs</p>
+</li>
+<li><strong>Full setup</strong>: Use "all"</li>
+<li><strong>Quick start</strong>: Use "required"</li>
+<li>
+<p><strong>Offline/manual</strong>: Use "skip"</p>
+</li>
+<li>
+<p><strong>Verify hardware compatibility</strong>: Check PyTorch backend matches your GPU
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-46-1"><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>cfd<span class="w"> </span>import<span class="w"> </span>env.tar.gz<span class="w"> </span>--torch-backend<span class="w"> </span>cu128
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Check disk space</strong>: Imports can be large (models + dependencies)</p>
+</li>
+</ol>
+<h3 id="naming-conventions">Naming Conventions<a class="headerlink" href="#naming-conventions" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Descriptive names</strong>: <code>project-v1.0-export.tar.gz</code></li>
+<li><strong>Version tags</strong>: Include version or date for clarity</li>
+<li><strong>Environment type</strong>: Indicate purpose (dev, prod, test)</li>
+</ul>
+<hr />
+<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../git-remotes/">Git Remotes</a> - Continuous collaboration with push/pull</li>
+<li><a href="../team-workflows/">Team Workflows</a> - Best practices for team collaboration</li>
+<li><a href="../../models/adding-sources/">Adding Model Sources</a> - Ensure models are downloadable</li>
+<li><a href="../../workflows/workflow-resolution/">Workflow Resolution</a> - Resolve missing dependencies</li>
+</ul>
+<hr />
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<p>Export/import enables offline environment sharing with intelligent automation:</p>
+<p><strong>Export Features:</strong></p>
+<ul>
+<li><strong>Validation</strong> ensures recipients can recreate environments (uncommitted changes, model sources)</li>
+<li><strong>Progressive disclosure</strong> for models without sources - view first 3, expand to see all</li>
+<li><strong>Tarball packaging</strong> includes pyproject.toml, workflows, development nodes, and dependency locks</li>
+<li><strong>Committed content only</strong> - ensures consistency and reproducibility</li>
+</ul>
+<p><strong>Import Features:</strong></p>
+<ul>
+<li><strong>Dual source support</strong> - import from tarballs or git URLs</li>
+<li><strong>ComfyUI caching</strong> speeds up subsequent imports (30-60s → 2-5s for same version)</li>
+<li><strong>Model strategies</strong> control download behavior (all/required/skip)</li>
+<li><strong>PyTorch backend management</strong> strips imported config and installs correct backend for target platform</li>
+<li><strong>Development nodes</strong> extracted and symlinked automatically</li>
+<li><strong>Download intent preservation</strong> tracks models that couldn't be downloaded for later resolution</li>
+</ul>
+<p><strong>Automatic Behaviors:</strong></p>
+<ul>
+<li>Git repository initialization (fresh for tarballs, preserved for git imports)</li>
+<li>Automatic commit of all import changes</li>
+<li>PyTorch configuration stripping to prevent platform conflicts</li>
+<li>Workflow file copying to ComfyUI runtime directory</li>
+<li>Dependency group installation with optional failure handling</li>
+</ul>
+<p><strong>Use Cases:</strong></p>
+<ul>
+<li><strong>One-time sharing</strong>: Send environments to colleagues or clients (use tarballs)</li>
+<li><strong>Team collaboration</strong>: Share via git with preserved remotes for push/pull workflows</li>
+<li><strong>Backup and archival</strong>: Save environment snapshots for later restoration</li>
+<li><strong>CI/CD artifacts</strong>: Deploy tested environments to production</li>
+<li><strong>Template distribution</strong>: Share starter environments with the community</li>
+<li><strong>Cross-platform deployment</strong>: Export on Linux/CUDA, import on Mac/CPU with automatic PyTorch adjustment</li>
+</ul>
+<p>For continuous team collaboration with ongoing sync, see <a href="../git-remotes/">Git Remotes</a>.</p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="November 10, 2025 18:53:41 UTC"><span class="timeago" datetime="2025-11-10T18:53:41+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 10, 2025 18:53:41 UTC">2025-11-10</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Created">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="November 10, 2025 03:13:52 UTC"><span class="timeago" datetime="2025-11-10T03:13:52+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 10, 2025 03:13:52 UTC">2025-11-10</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../../python-dependencies/constraints/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Constraints">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Constraints
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../git-remotes/" class="md-footer__link md-footer__link--next" aria-label="Next: Git Remotes">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Git Remotes
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ComfyDock/comfydock" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://discord.gg/comfydock" target="_blank" rel="noopener" title="discord.gg" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M492.5 69.8c-.2-.3-.4-.6-.8-.7-38.1-17.5-78.4-30-119.7-37.1-.4-.1-.8 0-1.1.1s-.6.4-.8.8c-5.5 9.9-10.5 20.2-14.9 30.6-44.6-6.8-89.9-6.8-134.4 0-4.5-10.5-9.5-20.7-15.1-30.6-.2-.3-.5-.6-.8-.8s-.7-.2-1.1-.2C162.5 39 122.2 51.5 84.1 69c-.3.1-.6.4-.8.7C7.1 183.5-13.8 294.6-3.6 404.2c0 .3.1.5.2.8s.3.4.5.6c44.4 32.9 94 58 146.8 74.2.4.1.8.1 1.1 0s.7-.4.9-.7c11.3-15.4 21.4-31.8 30-48.8.1-.2.2-.5.2-.8s0-.5-.1-.8-.2-.5-.4-.6-.4-.3-.7-.4c-15.8-6.1-31.2-13.4-45.9-21.9-.3-.2-.5-.4-.7-.6s-.3-.6-.3-.9 0-.6.2-.9.3-.5.6-.7c3.1-2.3 6.2-4.7 9.1-7.1.3-.2.6-.4.9-.4s.7 0 1 .1c96.2 43.9 200.4 43.9 295.5 0 .3-.1.7-.2 1-.2s.7.2.9.4c2.9 2.4 6 4.9 9.1 7.2.2.2.4.4.6.7s.2.6.2.9-.1.6-.3.9-.4.5-.6.6c-14.7 8.6-30 15.9-45.9 21.8-.2.1-.5.2-.7.4s-.3.4-.4.7-.1.5-.1.8.1.5.2.8c8.8 17 18.8 33.3 30 48.8.2.3.6.6.9.7s.8.1 1.1 0c52.9-16.2 102.6-41.3 147.1-74.2.2-.2.4-.4.5-.6s.2-.5.2-.8c12.3-126.8-20.5-236.9-86.9-334.5zm-302 267.7c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.4 59.2-52.8 59.2m195.4 0c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.2 59.2-52.8 59.2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../../..", "features": ["content.code.copy", "content.code.annotate", "content.tabs.link", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.footer", "navigation.path", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.indexes", "navigation.tracking", "search.suggest", "search.highlight", "toc.follow"], "search": "../../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../../../js/timeago.min.js"></script>
+      
+        <script src="../../../js/timeago_mkdocs_material.js"></script>
+      
+        <script src="../../../javascripts/copy-markdown.js"></script>
+      
+        <script src="../../../javascripts/code-copy-filter.js"></script>
+      
+    
+  </body>
+</html>
