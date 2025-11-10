@@ -31,8 +31,9 @@ help:
 	@echo "  make cec-clean    - Clean up CEC containers"
 	@echo ""
 	@echo "Version Management:"
-	@echo "  make show-versions - Show all package versions"
+	@echo "  make show-versions  - Show all package versions"
 	@echo "  make check-versions - Check version compatibility"
+	@echo "  make bump-version VERSION=X.Y.Z - Bump all packages + update dependencies"
 	@echo "  make bump-major VERSION=X - Bump major version for all packages"
 	@echo "  make bump-package PACKAGE=core VERSION=X.Y.Z - Bump individual package"
 	@echo ""
@@ -149,6 +150,21 @@ show-versions:
 # Check version compatibility
 check-versions:
 	@python3 dev/scripts/check-versions.py
+
+# Bump version for coordinated release (patch or minor)
+bump-version:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Usage: make bump-version VERSION=1.0.11"; \
+		exit 1; \
+	fi
+	@echo "Bumping all packages to version $(VERSION)..."
+	@sed -i 's/version = "[0-9]\+\.[0-9]\+\.[0-9]\+"/version = "$(VERSION)"/' pyproject.toml
+	@sed -i 's/version = "[0-9]\+\.[0-9]\+\.[0-9]\+"/version = "$(VERSION)"/' packages/core/pyproject.toml
+	@sed -i 's/version = "[0-9]\+\.[0-9]\+\.[0-9]\+"/version = "$(VERSION)"/' packages/cli/pyproject.toml
+	@sed -i 's/comfydock_core>=[0-9]\+\.[0-9]\+\.[0-9]\+/comfydock_core>=$(VERSION)/' packages/cli/pyproject.toml
+	@echo "✓ Updated all packages to $(VERSION)"
+	@echo "✓ Updated CLI dependency: comfydock_core>=$(VERSION)"
+	@make show-versions
 
 # Bump major version for all packages
 bump-major:
