@@ -311,6 +311,12 @@ def _add_env_commands(subparsers: argparse._SubParsersAction) -> None:
     status_parser.add_argument("-v", "--verbose", action="store_true", help="Show full details")
     status_parser.set_defaults(func=env_cmds.status)
 
+    # manifest - Show environment manifest
+    manifest_parser = subparsers.add_parser("manifest", help="Show environment manifest (pyproject.toml)")
+    manifest_parser.add_argument("--pretty", action="store_true", help="Output as YAML instead of TOML")
+    manifest_parser.add_argument("--section", type=str, help="Show specific section (e.g., tool.comfydock.nodes)")
+    manifest_parser.set_defaults(func=env_cmds.manifest)
+
     # repair - Repair environment drift (manual edits or git operations)
     repair_parser = subparsers.add_parser("repair", help="Repair environment to match pyproject.toml")
     repair_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
