@@ -24,7 +24,7 @@ jobs:
 
     - name: Install MkDocs dependencies
       run: |
-        pip install mkdocs mkdocs-material
+        pip install mkdocs mkdocs-material mkdocs-redirects mkdocs-git-revision-date-localized-plugin
 
     - name: Configure Git
       run: |
