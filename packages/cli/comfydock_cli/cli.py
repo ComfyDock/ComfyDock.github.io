@@ -3,6 +3,7 @@
 
 import argparse
 import sys
+from importlib.metadata import version, PackageNotFoundError
 from pathlib import Path
 
 import argcomplete
@@ -16,6 +17,11 @@ from .completers import (
 from .env_commands import EnvironmentCommands
 from .global_commands import GlobalCommands
 from .logging.logging_config import setup_logging
+
+try:
+    __version__ = version("comfydock_cli")
+except PackageNotFoundError:
+    __version__ = "unknown"
 
 
 def _get_cfd_config_dir() -> Path:
@@ -101,6 +107,12 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # Global options
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=f'ComfyDock CLI v{__version__}',
+        help='Show version and exit'
+    )
     parser.add_argument(
         '-e', '--env',
         help='Target environment (uses active if not specified)',
